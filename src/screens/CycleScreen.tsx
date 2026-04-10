@@ -146,12 +146,47 @@ export default function CycleScreen() {
     [periods],
   );
 
+  // Memoized prediction rows — avoids recreating the array every render
+  const predictionRows = useMemo(() => {
+    if (!predictions) return [];
+    return [
+      {
+        color: colors.pink,
+        label: 'Next Period',
+        value:
+          fmtISO(predictions.nextStart) +
+          (avgDur ? ` – ${fmtISO(addDays(predictions.nextStart, avgDur - 1))}` : ''),
+      },
+      {
+        color: colors.gold,
+        label: 'Ovulation (est.)',
+        value: fmtISO(predictions.ovulation),
+      },
+      {
+        color: colors.green,
+        label: 'Fertile Window',
+        value: `${fmtISO(predictions.fertileStart)} – ${fmtISO(predictions.fertileEnd)}`,
+      },
+      {
+        color: colors.purple,
+        label: 'PMS (est.)',
+        value: `from ${fmtISO(predictions.pmsStart)}`,
+      },
+    ];
+  }, [predictions, avgDur, colors.pink, colors.gold, colors.green, colors.purple]);
+
+  const openSetEndDate = useCallback(() => {
+    setEndDate(new Date());
+    setShowEndPicker(true);
+  }, []);
+
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       {/* Hero Card */}
       <Card gradient={dark ? gradients.pinkHeroDark : gradients.pinkHero} style={{ backgroundColor: colors.pinkBg, borderColor: colors.pinkBorder }}>
@@ -215,30 +250,7 @@ export default function CycleScreen() {
           </View>
 
           {/* Prediction Rows */}
-          {[
-            {
-              color: colors.pink,
-              label: 'Next Period',
-              value:
-                fmtISO(predictions.nextStart) +
-                (avgDur ? ` – ${fmtISO(addDays(predictions.nextStart, avgDur - 1))}` : ''),
-            },
-            {
-              color: colors.gold,
-              label: 'Ovulation (est.)',
-              value: fmtISO(predictions.ovulation),
-            },
-            {
-              color: colors.green,
-              label: 'Fertile Window',
-              value: `${fmtISO(predictions.fertileStart)} – ${fmtISO(predictions.fertileEnd)}`,
-            },
-            {
-              color: colors.purple,
-              label: 'PMS (est.)',
-              value: `from ${fmtISO(predictions.pmsStart)}`,
-            },
-          ].map(row => (
+          {predictionRows.map(row => (
             <View key={row.label} style={styles.predictRow}>
               <View style={[styles.predictDot, { backgroundColor: row.color }]} />
               <Text style={[styles.predictLabel, { color: colors.sub }]}>{row.label}</Text>
@@ -306,10 +318,7 @@ export default function CycleScreen() {
             icon="📅"
             variant="outline"
             small
-            onPress={() => {
-              setEndDate(new Date());
-              setShowEndPicker(true);
-            }}
+            onPress={openSetEndDate}
             style={{ alignSelf: 'flex-start', marginBottom: 4 }}
           />
         )}
@@ -427,7 +436,12 @@ export default function CycleScreen() {
                 </Text>
               </View>
 
-              <TouchableOpacity onPress={() => deleteLog(p.id)} style={styles.deleteBtn}>
+              <TouchableOpacity
+                onPress={() => deleteLog(p.id)}
+                style={styles.deleteBtn}
+                accessibilityLabel={`Delete period log from ${fmtISO(p.start)}`}
+                accessibilityRole="button"
+              >
                 <Text style={{ fontSize: 18 }}>🗑</Text>
               </TouchableOpacity>
             </View>
@@ -637,7 +651,10 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   deleteBtn: {
-    padding: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   medicalDisclaimer: {
     marginTop: 12,

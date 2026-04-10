@@ -155,7 +155,7 @@ export default function ExpensesScreen() {
   // Actions
   const addTopup = useCallback(() => {
     const amt = parseFloat(topupAmt);
-    if (!amt || amt <= 0) return;
+    if (isNaN(amt) || amt <= 0) return;
     const entry: Transaction = {
       id: Date.now(),
       type: 'topup',
@@ -275,6 +275,28 @@ export default function ExpensesScreen() {
       setReceiptUri(result.assets[0].uri);
     }
   }, []);
+
+  const handleSetBudget = useCallback(() => {
+    const v = parseFloat(budgetInput);
+    if (!isNaN(v) && v > 0) {
+      setBudget(v);
+      showToast('🎯 Budget set to ' + pkrF(v));
+    }
+  }, [budgetInput, setBudget, showToast]);
+
+  const handleClearBudget = useCallback(() => {
+    setBudget(0);
+    setBudgetInput('');
+    showToast('Budget cleared');
+  }, [setBudget, showToast]);
+
+  const openDatePicker = useCallback(() => setShowDatePicker(true), []);
+  const openEditDatePicker = useCallback(() => setShowEditDatePicker(true), []);
+  const closeEditModal = useCallback(() => setEditId(null), []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (editId !== null) saveEdit(editId);
+  }, [editId, saveEdit]);
 
   const sectionTitle =
     filter === 'all'
@@ -436,23 +458,13 @@ export default function ExpensesScreen() {
             title="Set"
             variant="blue"
             small
-            onPress={() => {
-              const v = parseFloat(budgetInput);
-              if (v > 0) {
-                setBudget(v);
-                showToast('🎯 Budget set to ' + pkrF(v));
-              }
-            }}
+            onPress={handleSetBudget}
           />
           <Button
             title="Clear"
             variant="outline"
             small
-            onPress={() => {
-              setBudget(0);
-              setBudgetInput('');
-              showToast('Budget cleared');
-            }}
+            onPress={handleClearBudget}
           />
         </View>
       </Card>
@@ -605,7 +617,7 @@ export default function ExpensesScreen() {
               </View>
               <TouchableOpacity
                 style={[styles.dateBtn, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-                onPress={() => setShowDatePicker(true)}
+                onPress={openDatePicker}
               >
                 <Text style={[styles.dateBtnText, { color: colors.text }]}>{dateToDMY(expDate)}</Text>
               </TouchableOpacity>
@@ -670,7 +682,7 @@ export default function ExpensesScreen() {
   ), [
     colors, bal, pct, fillColor, totalRec, totalSpent, todaySpent,
     budget, monthSpent, budgetPct, budgetColor, handleShare,
-    budgetInput, setBudgetInput, setBudget, showToast,
+    budgetInput, handleSetBudget, handleClearBudget,
     filter, selMonth, selYear, monthlySummary,
     formMode, topupNote, topupAmt, addTopup,
     expItem, expAmt, expDate, showDatePicker, handleExpDateChange,
@@ -716,7 +728,7 @@ export default function ExpensesScreen() {
         visible={editId !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setEditId(null)}
+        onRequestClose={closeEditModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -725,7 +737,7 @@ export default function ExpensesScreen() {
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
-            onPress={() => setEditId(null)}
+            onPress={closeEditModal}
           />
           <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
             <ScrollView keyboardShouldPersistTaps="handled">
@@ -733,22 +745,24 @@ export default function ExpensesScreen() {
                 Edit {editingTransaction?.type === 'topup' ? 'Received' : 'Expense'}
               </Text>
               <Input
+                label="What"
                 value={editLabel}
                 onChangeText={setEditLabel}
-                placeholder="Label"
+                placeholder="e.g. Groceries"
                 style={styles.editInput}
               />
               <View style={styles.editRow}>
                 <Input
+                  label="Amount"
                   value={editAmt}
                   onChangeText={setEditAmt}
-                  placeholder="PKR"
+                  placeholder="Amount in PKR"
                   keyboardType="numeric"
                   style={[styles.editInput, { flex: 1 }]}
                 />
                 <TouchableOpacity
                   style={[styles.dateBtn, { backgroundColor: colors.bg2, borderColor: colors.border }]}
-                  onPress={() => setShowEditDatePicker(true)}
+                  onPress={openEditDatePicker}
                 >
                   <Text style={[styles.dateBtnText, { color: colors.text }]}>
                     {dateToDMY(editDate)}
@@ -778,8 +792,8 @@ export default function ExpensesScreen() {
                 </View>
               )}
               <View style={styles.editBtns}>
-                <Button title="✓ Save" variant="green" small onPress={() => editId !== null && saveEdit(editId)} />
-                <Button title="Cancel" variant="outline" small onPress={() => setEditId(null)} />
+                <Button title="✓ Save" variant="green" small onPress={handleSaveEdit} />
+                <Button title="Cancel" variant="outline" small onPress={closeEditModal} />
               </View>
             </ScrollView>
           </View>

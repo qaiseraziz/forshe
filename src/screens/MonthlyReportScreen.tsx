@@ -82,26 +82,26 @@ export default function MonthlyReportScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.titleRow}>
-          <View style={styles.titleSection}>
-            <Text style={[styles.title, { color: colors.deep }]}>Monthly Report</Text>
-            <Text style={[styles.subtitle, { color: colors.muted }]}>Your spending insights</Text>
-          </View>
-          <DrawerMenuButton />
-        </View>
-
-        {/* Month Navigator */}
-        <View style={styles.monthNav}>
-          <Button title="←" variant="outline" small onPress={prevMonth} />
-          <Text style={[styles.monthText, { color: colors.deep }]}>
-            {MONTHS[month]} {year}
-          </Text>
-          <Button title="→" variant="outline" small onPress={nextMonth} />
-        </View>
-
-        {/* Overview Hero */}
+        {/* Hero Card */}
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Overview</Text>
+          <View style={styles.titleRow}>
+            <View style={styles.titleSection}>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Report</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>
+                {MONTHS[month]} {year}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.sub }]}>
+                {data.expCount} {data.expCount === 1 ? 'expense' : 'expenses'} tracked
+              </Text>
+            </View>
+            <DrawerMenuButton />
+          </View>
+
+          {/* Month Navigator */}
+          <View style={styles.monthNav}>
+            <Button title="← Prev" variant="outline" small onPress={prevMonth} />
+            <Button title="Next →" variant="outline" small onPress={nextMonth} />
+          </View>
           <View style={styles.overviewGrid}>
             <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
               <Text style={[styles.overviewVal, { color: colors.green }]}>{pkrF(data.totalRec)}</Text>
@@ -221,18 +221,17 @@ export default function MonthlyReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   titleSection: { flex: 1 },
-  title: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 28 },
-  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 2 },
+  title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },
+  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
   monthNav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 16,
+    marginTop: 16, marginBottom: 16,
   },
-  monthText: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 20 },
   heroLabel: {
     fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
-    letterSpacing: 1.5, marginBottom: 12,
+    letterSpacing: 1.5, marginBottom: 6,
   },
   overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   overviewBox: {

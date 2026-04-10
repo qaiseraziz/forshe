@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -7,13 +7,16 @@ import { useData } from '../context/DataContext';
 import { MonthBar } from '../components/MonthBar';
 import { DayStrip } from '../components/DayStrip';
 import { Card } from '../components/ui/Card';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { gradients } from '../constants/colors';
 import { DAYS, FULL_DAYS, MEALS, MEAL_ICONS, MEAL_COLORS, MONTHS } from '../constants/data';
 import { todayDay } from '../utils/dates';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 export default function CookingScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { cooking, setCooking } = useData();
 
@@ -40,12 +43,25 @@ export default function CookingScreen() {
     setEditKey(null);
   }, [setCooking]);
 
+  const handleSaveEdit = useCallback(() => {
+    if (editKey) saveMeal(editKey);
+  }, [editKey, saveMeal]);
+
+  const handleClearEdit = useCallback(() => {
+    if (editKey) clearMeal(editKey);
+  }, [editKey, clearMeal]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditKey(null);
+  }, []);
+
   const monthViewData = useMemo(() => {
-    let hasAny = false;
+    let plannedCount = 0;
     DAYS.forEach(d => MEALS.forEach(m => {
-      if (cooking[`${d}_${m}`]) hasAny = true;
+      if (cooking[`${d}_${m}`]) plannedCount++;
     }));
-    return { hasAny };
+    const total = DAYS.length * MEALS.length;
+    return { hasAny: plannedCount > 0, plannedCount, total };
   }, [cooking]);
 
   // Monthly view
@@ -53,7 +69,12 @@ export default function CookingScreen() {
 
     return (
       <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top }]}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <MonthBar
             filter={filter}
             setFilter={setFilter}
@@ -62,18 +83,27 @@ export default function CookingScreen() {
             setSelMonth={setSelMonth}
             setSelYear={setSelYear}
           />
-          <View style={styles.titleRow}>
-            <View style={styles.section}>
-              <Text style={[styles.title, { color: colors.deep }]}>Meal Planner</Text>
-              <Text style={[styles.subtitle, { color: colors.muted }]}>
-                {MONTHS[selMonth]} {selYear} overview
-              </Text>
-            </View>
-            <DrawerMenuButton />
+          <View style={styles.heroWrap}>
+            <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+              <View style={styles.titleRow}>
+                <View style={styles.section}>
+                  <Text style={[styles.heroLabel, { color: colors.gold }]}>🍳 Meal Planner</Text>
+                  <Text style={[styles.title, { color: colors.deep }]}>
+                    {MONTHS[selMonth]} {selYear}
+                  </Text>
+                  <Text style={[styles.subtitle, { color: colors.sub }]}>
+                    {monthViewData.plannedCount} of {monthViewData.total} meals planned
+                  </Text>
+                </View>
+                <DrawerMenuButton />
+              </View>
+            </Card>
           </View>
 
           {!monthViewData.hasAny ? (
-            <EmptyState icon="🍽️" text="No meals planned yet." />
+            <View style={{ paddingHorizontal: 20 }}>
+              <EmptyState icon="🍽️" text="No meals planned yet." hint="Switch to All view to start adding meals for each day." />
+            </View>
           ) : (
             <View style={styles.monthGrid}>
               {DAYS.map((d) => (
@@ -107,9 +137,15 @@ export default function CookingScreen() {
   }
 
   // Daily view (All / Today)
+  const dayCount = MEALS.filter(m => cooking[`${viewDay}_${m}`]).length;
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       <MonthBar
         filter={filter}
         setFilter={setFilter}
@@ -118,24 +154,35 @@ export default function CookingScreen() {
         setSelMonth={setSelMonth}
         setSelYear={setSelYear}
       />
-      <View style={styles.titleRow}>
-        <View style={styles.section}>
-          <Text style={[styles.title, { color: colors.deep }]}>Meal Planner</Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>
-            {filter === 'today'
-              ? (() => {
-                  const n = new Date();
-                  return `${FULL_DAYS[(n.getDay() + 6) % 7]}, ${n.getDate()} ${MONTHS[n.getMonth()]}`;
-                })()
-              : 'Tap a day to plan meals'}
-          </Text>
-        </View>
-        <DrawerMenuButton />
+      <View style={styles.heroWrap}>
+        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+          <View style={styles.titleRow}>
+            <View style={styles.section}>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>🍳 Meal Planner</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>
+                {filter === 'today'
+                  ? (() => {
+                      const n = new Date();
+                      return `${FULL_DAYS[(n.getDay() + 6) % 7]}`;
+                    })()
+                  : FULL_DAYS[DAYS.indexOf(viewDay as typeof DAYS[number])]}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.sub }]}>
+                {dayCount} of {MEALS.length} meals planned
+              </Text>
+            </View>
+            <DrawerMenuButton />
+          </View>
+        </Card>
       </View>
 
       {filter !== 'today' && (
-        <DayStrip selected={viewDay} onSelect={setDay} activeColor={colors.gold} />
+        <View style={styles.dayStripWrap}>
+          <DayStrip selected={viewDay} onSelect={setDay} activeColor={colors.gold} />
+        </View>
       )}
+
+      <View style={styles.mealList}>
 
       {MEALS.map((m) => {
         const key = `${viewDay}_${m}`;
@@ -169,43 +216,36 @@ export default function CookingScreen() {
                       setEditKey(key);
                       setEditVal(meal);
                     }}
-                    style={[styles.editBtn, { borderColor: colors.border }]}
+                    style={[styles.editBtn, { backgroundColor: colors.bg3 }]}
+                    accessibilityLabel={meal ? `Edit ${m}` : `Add ${m}`}
                   >
-                    <Text style={[styles.editBtnText, { color: colors.sub }]}>✏️ Edit</Text>
+                    <Text style={[styles.editBtnText, { color: colors.sub }]}>{meal ? '✏️ Edit' : '+ Add meal'}</Text>
                   </TouchableOpacity>
                 </View>
               </>
             ) : (
-              <View style={styles.editRow}>
-                <TextInput
-                  style={[
-                    styles.editInput,
-                    { backgroundColor: colors.bg3, borderColor: colors.border, color: colors.text },
-                  ]}
+              <View>
+                <Input
                   value={editVal}
-                  placeholder={`What's for ${m}?`}
-                  placeholderTextColor={colors.muted}
+                  placeholder={m === 'Breakfast' ? 'e.g. Paratha & chai' : m === 'Lunch' ? 'e.g. Chicken biryani' : 'e.g. Daal chawal'}
                   onChangeText={setEditVal}
-                  onSubmitEditing={() => saveMeal(key)}
+                  onSubmitEditing={handleSaveEdit}
                   autoFocus
+                  style={{ marginBottom: 10 }}
                 />
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: colors.gold }]}
-                  onPress={() => saveMeal(key)}
-                >
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.clearBtn, { borderColor: colors.border }]}
-                  onPress={() => clearMeal(key)}
-                >
-                  <Text style={[styles.clearBtnText, { color: colors.sub }]}>✕</Text>
-                </TouchableOpacity>
+                <View style={styles.editBtnRow}>
+                  <Button title="Save" variant="gold" small onPress={handleSaveEdit} />
+                  {meal ? (
+                    <Button title="Clear" variant="outline" small onPress={handleClearEdit} />
+                  ) : null}
+                  <Button title="Cancel" variant="outline" small onPress={handleCancelEdit} />
+                </View>
               </View>
             )}
           </Card>
         );
       })}
+      </View>
     </ScrollView>
     </LinearGradient>
   );
@@ -218,19 +258,25 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 120,
   },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, marginBottom: 18 },
+  heroWrap: { paddingHorizontal: 20, paddingTop: 12 },
+  dayStripWrap: { paddingHorizontal: 20 },
+  mealList: { paddingHorizontal: 20 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   section: {
     flex: 1,
   },
+  heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
   title: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 28,
+    fontFamily: 'PlayfairDisplay-ExtraBold',
+    fontSize: 30,
+    lineHeight: 36,
   },
   subtitle: {
     fontSize: 14,
     fontFamily: 'Outfit-Regular',
-    marginTop: 2,
+    marginTop: 4,
   },
+  editBtnRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   // Monthly grid
   monthGrid: {
     flexDirection: 'row',
@@ -297,51 +343,14 @@ const styles = StyleSheet.create({
   },
   editBtn: {
     borderWidth: 0,
-    borderRadius: 16,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
     paddingHorizontal: 18,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   editBtnText: {
     fontFamily: 'Outfit-SemiBold',
     fontSize: 13,
-  },
-  editRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  editInput: {
-    flex: 1,
-    borderWidth: 0,
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 16,
-    fontFamily: 'Outfit-Regular',
-    minHeight: 54,
-  },
-  saveBtn: {
-    borderRadius: 16,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveBtnText: {
-    color: '#fff',
-    fontFamily: 'Outfit-Bold',
-    fontSize: 14,
-  },
-  clearBtn: {
-    borderWidth: 0,
-    borderRadius: 16,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearBtnText: {
-    fontFamily: 'Outfit-Bold',
-    fontSize: 16,
   },
 });

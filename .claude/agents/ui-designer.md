@@ -58,15 +58,17 @@ Never start editing before reading. The rest of this file is the style system yo
 
 ## Component Standards
 - **Card**: React.memo, borderRadius 24, padding 20, no border, shadow elevation 6, optional `gradient` prop
-- **Button**: React.memo, gradient bg, borderRadius 16, paddingVertical 15, haptic debounce via `useRef`
+- **Button**: React.memo, gradient bg, borderRadius 16, paddingVertical 15, haptic debounce via `useRef`, minHeight 44
 - **Input**: React.memo, filled bg (`colors.bg3`), borderRadius 16, minHeight 54, no border
 - **Badge**: React.memo, borderRadius 10, no border, paddingHorizontal 12
 - **Divider**: React.memo, `label` prop for section dividers
 - **EmptyState**: React.memo, icon + text for empty lists
 - **ProgressBar**: React.memo, default bgColor works in both light/dark modes
-- **Tab bar**: React.memo, floating pill, borderRadius 28, margin 16, theme-aware colors
-- **Toast**: theme-aware colors via `useTheme`, dynamic styles memoized, timer cleanup on unmount
-- **Pill**: React.memo, used for filter toggles
+- **Tab bar**: React.memo, floating pill, borderRadius 28, margin 16, theme-aware colors, NO borderWidth
+- **Toast**: React.memo wrapped, theme-aware colors via `useTheme`, dynamic styles memoized, timer cleanup on unmount
+- **Pill**: React.memo, used for filter toggles — FILLED bg (`colors.bg3` inactive, tinted active), NO borderWidth, minHeight 44
+- **DrawerMenuButton / icon buttons**: React.memo, minimum 44×44 hit area
+- **CustomDrawerContent**: React.memo, referenced via module-level `renderDrawerContent` constant (never inline arrow on `drawerContent` prop)
 
 ## Navigation Pattern
 - Drawer + 4 bottom tabs hybrid
@@ -89,14 +91,16 @@ Never start editing before reading. The rest of this file is the style system yo
 ### Step A — Audit the current screen
 List everything that violates the design principles above:
 - [ ] Any hardcoded colors? (search `#` followed by hex)
-- [ ] Any `borderWidth` on cards? (should be 0)
-- [ ] Any small touch targets (< 44px)?
+- [ ] Any `borderWidth` on cards, pills, tabs, badges, filter chips, icon buttons? (should be 0 everywhere except Card/Input/Divider)
+- [ ] Any small touch targets (< 44×44)? — audit TouchableOpacity width/height/padding
 - [ ] Any inline styles that should be in StyleSheet?
 - [ ] Any `ScrollView` where `FlatList` would be more performant?
 - [ ] Missing `DrawerMenuButton`?
 - [ ] Missing `useSafeAreaInsets`?
 - [ ] Missing React.memo on any extracted sub-components?
-- [ ] Hero card not using dark variant in dark mode?
+- [ ] Hero card not using dark variant in dark mode (`gradient={dark ? gradients.xHeroDark : gradients.xHero}`)?
+- [ ] Any `toLocaleDateString` calls? (must use `FULL_DAYS` / `MONTHS` from `src/constants/data.ts`)
+- [ ] Hooks declared AFTER an early return? (Rules of Hooks violation — CRITICAL)
 
 ### Step B — Plan the redesign
 Write down the target structure BEFORE editing:

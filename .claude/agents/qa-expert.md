@@ -67,7 +67,15 @@ Search for `parseFloat` usage and confirm every one is followed by `isNaN(x) || 
 ```
 Grep: "parseFloat" in src/
 ```
-Especially check: ExpensesScreen, TodayScreen (quick add), SettingsScreen (salary + recurring), MaidScreen (salary).
+Especially check: ExpensesScreen (addExpense, addTopup, saveEdit), TodayScreen (quick add), SettingsScreen (salary + recurring), MaidScreen (salary).
+
+### parseInt radix
+All `parseInt` calls MUST pass radix 10 — `parseInt(x, 10)` — and the result MUST be range-checked.
+- SettingsScreen recurring day: `parseInt(recDay, 10)`, validated as `1 <= day <= 28`
+```
+Grep: "parseInt\(" in src/
+```
+Flag any call missing the second argument.
 
 ### Stale closures in useEffect
 Any `useEffect` that reads state in its closure must use functional updater:
@@ -76,10 +84,30 @@ Any `useEffect` that reads state in its closure must use functional updater:
 
 Critical files to check: `AppLockScreen.tsx` (failCount), `DataContext.tsx` (recurring auto-trigger).
 
+### Rules of Hooks — NO EXCEPTIONS
+All `useState` / `useEffect` / `useMemo` / `useCallback` / `useRef` / `useContext` MUST be called at the top of every component render, BEFORE any early `return`. A conditional early return followed by another hook is a CRASH bug on re-render.
+
+**Known past bug**: `MaidScreen.tsx` had hooks (`useCallback`, `useMemo`) declared AFTER `if (filter === 'month') return ...`. Fixed in v1.0.1. Re-verify this pattern every audit by grepping:
+```
+Grep: "if \(.*\) return" in src/screens/
+```
+For every match, confirm no hooks appear after that line in the same component.
+
 ### Date formatting
 - Must be locale-independent (DD/MM/YYYY manually formatted)
-- NO `toLocaleDateString()` calls in date utils
+- NO `toLocaleDateString()` calls anywhere in `src/` — screens included. Use `FULL_DAYS` / `MONTHS` arrays from `src/constants/data.ts`
 - Verify `src/utils/dates.ts`
+```
+Grep: "toLocaleDateString" in src/
+```
+Must return zero matches.
+
+### Font loading fallback
+`App.tsx` must destructure both `fontsLoaded` and `fontError` from `useFonts` and should NOT block forever if `fontError` is truthy. Pattern:
+```tsx
+const [fontsLoaded, fontError] = useFonts({...});
+if (!fontsLoaded && !fontError) return null;  // proceed with system fonts on error
+```
 
 ### Toast cleanup
 - Timer must be cleared on unmount in `src/components/ui/Toast.tsx`
@@ -102,8 +130,27 @@ Grep: "#[0-9a-fA-F]{3,6}" in src/screens/
 Flag any hardcoded color that's NOT `#fff` on a gradient surface.
 
 ### React.memo coverage
-All files in `src/components/ui/` must export a `React.memo`-wrapped component.
+All files in `src/components/ui/` must export a `React.memo`-wrapped component (including Toast).
 All files in `src/components/` must use `React.memo`.
+`CustomDrawerContent` in `src/navigation/DrawerNav.tsx` must be `React.memo`-wrapped, and the `drawerContent` prop on Drawer.Navigator must reference a **module-level** constant (`const renderDrawerContent = (props) => <CustomDrawerContent {...props} />`) — never an inline arrow, otherwise the drawer re-mounts every render.
+
+### Touch targets
+All tappable elements (`TouchableOpacity`, `Pressable`, `Button`, icon buttons, pills, delete buttons, pickers) must be ≥ 44×44. Acceptable patterns:
+- explicit `width: 44, height: 44`
+- `minWidth: 44, minHeight: 44` with padding
+- hitSlop covering the gap
+
+Audit by grepping for small sizes:
+```
+Grep: "width: 4[0-3]|height: 4[0-3]|padding: [1-5](?!\d)" in src/
+```
+
+### borderWidth leaks
+No `borderWidth` on pills, tab bars, badges, filter chips, or icon buttons. Use filled backgrounds via `colors.bg3` or tinted accents.
+```
+Grep: "borderWidth:" in src/components src/navigation
+```
+Only Card, Input, and some dividers may have borders.
 
 ### FlatList configuration
 Any `FlatList` in `src/screens/` must include:

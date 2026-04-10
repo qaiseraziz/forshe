@@ -61,8 +61,11 @@ Already extracted (don't break):
 - `MonthBar`: `FILTERS`
 - `ShoppingListScreen`: `QUICK_ADD`
 - `BottomTabs`: `TABS`
-- `DrawerNav`: `DRAWER_ITEMS`
+- `DrawerNav`: `DRAWER_ITEMS` + `renderDrawerContent` (drawer content renderer — MUST stay module-level, never become an inline arrow inside the component)
 - `OnboardingScreen`: `SLIDES`
+
+### Drawer content stability
+`DrawerNav.tsx` must pass a stable function reference to the `drawerContent` prop. An inline arrow (`drawerContent={(props) => <CustomDrawerContent {...props} />}`) causes the drawer to re-mount on every parent render. Use a module-level `const renderDrawerContent = (props: any) => <CustomDrawerContent {...props} />` and reference it by name.
 
 ## Mode 2 — FlatList Performance
 
@@ -137,6 +140,19 @@ Critical examples that have been fixed (do NOT regress):
 Audit pattern: every `useEffect` — verify either:
 1. All referenced state is in the deps array, OR
 2. State is read via functional updater `setX(prev => ...)`
+
+## Mode 5b — Rules of Hooks Compliance
+
+All hooks MUST be declared at the top of the component, BEFORE any conditional early `return`. Violating this causes the hook call order to differ between renders and will crash React.
+
+Known past regression (fixed in v1.0.1):
+- `MaidScreen.tsx` had `if (filter === 'month') return ...` BEFORE `useCallback(saveSalary)` and `useMemo(presets)`. This would crash on re-render when switching filter modes.
+
+Audit pattern:
+```
+Grep: "if \(.*\) return" in src/screens/
+```
+For every match, read the whole component and verify NO `useState/useEffect/useMemo/useCallback/useRef/useContext` appears below that line.
 
 ## Mode 6 — Startup Performance
 

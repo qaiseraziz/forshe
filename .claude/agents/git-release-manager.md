@@ -115,42 +115,50 @@ git push origin v1.0.1
 
 ## CHANGELOG.md
 
-Maintain at project root. Update BEFORE tagging.
+Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
+**Existing tags:**
+- `v1.0.0` — retroactive, on commit `14a2dfe` (first successful APK build 2026-03-21)
+- `v1.0.1` — on master HEAD (2026-04-10), hooks fix + perf + design cleanup
+
+Template for the next release:
 ```markdown
-## v1.0.1 — 2026-04-09
-
-### Added
-- Receipt photo attachments on expenses
-- Quick Add FAB on Today screen
+## v1.0.2 — YYYY-MM-DD
 
 ### Fixed
-- App lock 30s lockout now triggers after exactly 5 attempts
+- ...
+
+### Added
+- ...
 
 ### Performance
-- Memoized ListHeaderComponent in ShoppingListScreen
+- ...
 
-### Build
-- Moved babel-preset-expo to dependencies (fixes EAS Build failure)
+### Style
+- ...
+
+### Chore
+- app.json version bump to 1.0.2, android versionCode N, ios buildNumber "N"
 
 ### APK
-- Build ID: 92191648-529d-40c0-9be5-2b0d49743154
+- Build ID: [paste after successful eas build]
 ```
 
 ## Full Release Coordination
 
 When shipping a new version:
 
-1. **qa-expert** — verify code is clean
+1. **qa-expert** — verify code is clean (`npx tsc --noEmit` + `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`)
 2. **rn-performance-expert** — verify no perf regressions (optional, spot-check)
-3. Bump version in `app.json` (version + versionCode + buildNumber)
-4. Update `CHANGELOG.md` with what's new
-5. Commit: `git commit -m "release(v1.0.1): [summary]"`
-6. Tag: `git tag -a v1.0.1 -m "..."`
-7. Push: `git push origin main --tags`
-8. **eas-release-expert** — trigger the build
-9. After successful build, update `CLAUDE.md` "Latest successful APK build" line
-10. Upload to Play Store (manual or `eas submit`)
+3. Bump version in `app.json` — all three fields: `expo.version`, `expo.ios.buildNumber` (string), `expo.android.versionCode` (integer)
+4. Also bump `package.json` `version` field to match
+5. Update `CHANGELOG.md` with what's new
+6. Commit: `git commit -m "release(v1.0.X): [summary]"` — or a descriptive `fix(...)` / `feat(...)` if the version bump is part of a larger commit
+7. Tag: `git tag -a v1.0.X HEAD -m "..."`
+8. Push: `git push origin master` then `git push origin v1.0.X` (push tags explicitly, not with `--tags`)
+9. **eas-release-expert** — trigger the build
+10. After successful build, update `CLAUDE.md` "Latest successful APK build" line AND the "Current Version" section
+11. Upload to Play Store (manual or `eas submit`)
 
 ## Emergency Rollback
 

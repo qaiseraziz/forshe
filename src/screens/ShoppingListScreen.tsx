@@ -144,6 +144,10 @@ export default function ShoppingListScreen() {
           ]}
           onPress={() => toggleItem(item.id)}
           activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel={`Toggle ${item.name}`}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: item.done }}
         >
           {item.done && <Text style={styles.checkmark}>✓</Text>}
         </TouchableOpacity>
@@ -180,6 +184,9 @@ export default function ShoppingListScreen() {
           style={[styles.deleteBtn, { backgroundColor: colors.redBg }]}
           onPress={() => deleteItem(item.id)}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Remove ${item.name}`}
+          accessibilityRole="button"
         >
           <Text style={[styles.deleteBtnText, { color: colors.red }]}>✕</Text>
         </TouchableOpacity>
@@ -245,7 +252,7 @@ export default function ShoppingListScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Input
-              placeholder="Qty"
+              placeholder="1 kg"
               value={qtyInput}
               onChangeText={setQtyInput}
               onSubmitEditing={() => addItem()}

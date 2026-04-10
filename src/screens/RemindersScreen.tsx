@@ -109,6 +109,11 @@ export default function RemindersScreen() {
     [reminders],
   );
 
+  const nextUpcomingTitle = useMemo(() => {
+    if (upcoming.length === 0) return null;
+    return [...upcoming].sort((a, b) => a.date.localeCompare(b.date))[0].title;
+  }, [upcoming]);
+
   const sorted = useMemo(() => {
     const now = new Date();
     return [...reminders].sort((a, b) => {
@@ -200,6 +205,11 @@ export default function RemindersScreen() {
     if (selected) setTime(selected);
   }, []);
 
+  const openSetTime = useCallback(() => {
+    setTime(new Date());
+    setShowTimePicker(true);
+  }, []);
+
   const badgeProps = (cls: string) => {
     switch (cls) {
       case 'past':
@@ -230,9 +240,7 @@ export default function RemindersScreen() {
         </View>
         <Text style={[styles.heroCount, { color: colors.purple }]}>{upcoming.length}</Text>
         <Text style={[styles.heroSub, { color: colors.sub }]}>
-          {upcoming.length
-            ? `Next: ${[...upcoming].sort((a, b) => a.date.localeCompare(b.date))[0].title}`
-            : 'No upcoming reminders'}
+          {nextUpcomingTitle ? `Next: ${nextUpcomingTitle}` : 'No upcoming reminders'}
         </Text>
       </Card>
 
@@ -294,10 +302,7 @@ export default function RemindersScreen() {
             icon="⏰"
             variant="outline"
             small
-            onPress={() => {
-              setTime(new Date());
-              setShowTimePicker(true);
-            }}
+            onPress={openSetTime}
             style={{ alignSelf: 'flex-start', marginBottom: 4 }}
           />
         )}
@@ -393,11 +398,21 @@ export default function RemindersScreen() {
                 <Text style={[styles.remCat, { color: colors.muted }]}>{r.cat}</Text>
               </View>
 
-              <TouchableOpacity onPress={() => toggleDone(r.id)} style={styles.actionBtn}>
+              <TouchableOpacity
+                onPress={() => toggleDone(r.id)}
+                style={styles.actionBtn}
+                accessibilityLabel={r.isDone ? `Mark ${r.title} as not done` : `Mark ${r.title} as done`}
+                accessibilityRole="button"
+              >
                 <Text style={{ fontSize: 18 }}>{r.isDone ? '↩️' : '✅'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => deleteReminder(r.id)} style={styles.actionBtn}>
+              <TouchableOpacity
+                onPress={() => deleteReminder(r.id)}
+                style={styles.actionBtn}
+                accessibilityLabel={`Delete reminder ${r.title}`}
+                accessibilityRole="button"
+              >
                 <Text style={{ fontSize: 18 }}>🗑</Text>
               </TouchableOpacity>
             </View>

@@ -20,6 +20,14 @@ import { todayDay, todayStr } from '../utils/dates';
 import { pkrF } from '../utils/currency';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
+// Module-level constant for attendance options (stable reference)
+const ATT_STATUSES: Array<'Present' | 'Absent' | 'Holiday'> = ['Present', 'Absent', 'Holiday'];
+const ATT_ICONS: Record<'Present' | 'Absent' | 'Holiday', string> = {
+  Present: '✅',
+  Absent: '❌',
+  Holiday: '🎉',
+};
+
 export default function MaidScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -123,13 +131,31 @@ export default function MaidScreen() {
     return PRESET_TASKS.filter((p) => !added.includes(p.toLowerCase()));
   }, [tasks]);
 
+  // Stable handlers for Button/memoized components (inline arrows would break memoization)
+  const handleAddPreset = useCallback(() => {
+    addPreset(activeDay, presetVal);
+  }, [addPreset, activeDay, presetVal]);
+
+  const handleAddCustom = useCallback(() => {
+    addCustom(activeDay);
+  }, [addCustom, activeDay]);
+
+  const toggleSalaryPaid = useCallback((id: number) => {
+    setMaidSalary(ms => ms.map(x => x.id === id ? { ...x, paid: !x.paid } : x));
+  }, [setMaidSalary]);
+
   // Monthly view
   if (filter === 'month') {
     const { totalDone, totalAll, pct: monthPct, attEntries, presentDays, absentDays } = monthlyStats;
 
     return (
       <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top }]}>
+        <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
           <MonthBar
             filter={filter}
             setFilter={setFilter}
@@ -138,20 +164,20 @@ export default function MaidScreen() {
             setSelMonth={setSelMonth}
             setSelYear={setSelYear}
           />
-          <View style={styles.titleRow}>
-            <View style={styles.section}>
-              <Text style={[styles.title, { color: colors.deep }]}>Maid Planner</Text>
-              <Text style={[styles.subtitle, { color: colors.muted }]}>
-                {MONTHS[selMonth]} {selYear} overview
-              </Text>
-            </View>
-            <DrawerMenuButton />
-          </View>
-
-          {/* Summary card */}
+          <View style={styles.bodyWrap}>
+          {/* Hero + Summary card */}
           <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero} style={{ borderColor: colors.greenBorder, backgroundColor: colors.greenBg }}>
-            <Text style={[styles.summaryTitle, { color: colors.green }]}>🧹 Weekly Chores Overview</Text>
-            <View style={styles.statsGrid}>
+            <View style={styles.titleRow}>
+              <View style={styles.section}>
+                <Text style={[styles.heroLabel, { color: colors.green }]}>🧹 Maid Planner</Text>
+                <Text style={[styles.title, { color: colors.deep }]}>
+                  {MONTHS[selMonth]} {selYear}
+                </Text>
+                <Text style={[styles.subtitle, { color: colors.sub }]}>Weekly chores overview</Text>
+              </View>
+              <DrawerMenuButton />
+            </View>
+            <View style={[styles.statsGrid, { marginTop: 16 }]}>
               <View style={styles.statBox}>
                 <Text style={[styles.statVal, { color: colors.green }]}>{totalDone}</Text>
                 <Text style={[styles.statLabel, { color: colors.muted }]}>Done</Text>
@@ -227,6 +253,7 @@ export default function MaidScreen() {
               </Card>
             );
           })}
+          </View>
         </ScrollView>
       </LinearGradient>
     );
@@ -235,7 +262,12 @@ export default function MaidScreen() {
   // Daily view
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       <MonthBar
         filter={filter}
         setFilter={setFilter}
@@ -244,24 +276,38 @@ export default function MaidScreen() {
         setSelMonth={setSelMonth}
         setSelYear={setSelYear}
       />
-      <View style={styles.titleRow}>
-        <View style={styles.section}>
-          <Text style={[styles.title, { color: colors.deep }]}>Maid Planner</Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>Tasks & attendance by day</Text>
-        </View>
-        <DrawerMenuButton />
+      <View style={styles.heroWrap}>
+        <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero}>
+          <View style={styles.titleRow}>
+            <View style={styles.section}>
+              <Text style={[styles.heroLabel, { color: colors.green }]}>🧹 Maid Planner</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>
+                {isToday ? "Today's Tasks" : FULL_DAYS[DAYS.indexOf(activeDay as typeof DAYS[number])]}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.sub }]}>
+                {tasks.length === 0
+                  ? 'No tasks yet · Tap below to add'
+                  : `${done} of ${tasks.length} done · ${pct}% complete`}
+              </Text>
+            </View>
+            <DrawerMenuButton />
+          </View>
+        </Card>
       </View>
 
-      <DayStrip
-        selected={activeDay}
-        onSelect={setActiveDay}
-        hasDot={hasDot}
-        activeColor={colors.green}
-        activeBg={colors.greenBg}
-        activeBorder={colors.greenBorder}
-        dotColor={colors.green}
-      />
+      <View style={styles.dayStripWrap}>
+        <DayStrip
+          selected={activeDay}
+          onSelect={setActiveDay}
+          hasDot={hasDot}
+          activeColor={colors.green}
+          activeBg={colors.greenBg}
+          activeBorder={colors.greenBorder}
+          dotColor={colors.green}
+        />
+      </View>
 
+      <View style={styles.bodyWrap}>
       {/* Progress card */}
       <Card>
         <View style={styles.progressHeader}>
@@ -297,27 +343,35 @@ export default function MaidScreen() {
           <View style={styles.attSection}>
             <Text style={[styles.attLabel, { color: colors.muted }]}>📋 TODAY'S ATTENDANCE</Text>
             <View style={styles.attBtns}>
-              {([
-                { status: 'Present' as const, color: colors.green, bg: colors.greenBg, border: colors.greenBorder, icon: '✅' },
-                { status: 'Absent' as const, color: colors.red, bg: colors.redBg, border: colors.redBorder, icon: '❌' },
-                { status: 'Holiday' as const, color: colors.gold, bg: colors.goldBg, border: colors.goldBorder, icon: '🎉' },
-              ]).map(({ status, color, bg, border, icon }) => (
-                <TouchableOpacity
-                  key={status}
-                  onPress={() => markAtt(status)}
-                  style={[
-                    styles.attBtn,
-                    {
-                      backgroundColor: att === status ? bg : 'transparent',
-                      borderColor: att === status ? border : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.attBtnText, { color: att === status ? color : colors.sub }]}>
-                    {icon} {status}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {ATT_STATUSES.map((status) => {
+                const color =
+                  status === 'Present' ? colors.green : status === 'Absent' ? colors.red : colors.gold;
+                const bg =
+                  status === 'Present' ? colors.greenBg : status === 'Absent' ? colors.redBg : colors.goldBg;
+                const border =
+                  status === 'Present'
+                    ? colors.greenBorder
+                    : status === 'Absent'
+                      ? colors.redBorder
+                      : colors.goldBorder;
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    onPress={() => markAtt(status)}
+                    style={[
+                      styles.attBtn,
+                      {
+                        backgroundColor: att === status ? bg : 'transparent',
+                        borderColor: att === status ? border : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.attBtnText, { color: att === status ? color : colors.sub }]}>
+                      {ATT_ICONS[status]} {status}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             {att && (
               <Text style={[styles.attMarked, { color: colors.sub }]}>
@@ -387,7 +441,7 @@ export default function MaidScreen() {
             title="Add"
             variant="green"
             small
-            onPress={() => addPreset(activeDay, presetVal)}
+            onPress={handleAddPreset}
           />
         </View>
 
@@ -399,14 +453,14 @@ export default function MaidScreen() {
               placeholder="e.g. Clean ceiling fans…"
               value={customVal}
               onChangeText={setCustomVal}
-              onSubmitEditing={() => addCustom(activeDay)}
+              onSubmitEditing={handleAddCustom}
             />
           </View>
           <Button
             title="Add"
             variant="green"
             small
-            onPress={() => addCustom(activeDay)}
+            onPress={handleAddCustom}
           />
         </View>
       </Card>
@@ -440,13 +494,14 @@ export default function MaidScreen() {
               <Text style={[styles.salaryDetail, { color: colors.muted }]}>
                 Salary: {pkrF(s.salary)} · Advance: {pkrF(s.advance)}{s.deduction > 0 ? ` · Deduct: ${pkrF(s.deduction)}` : ''}
               </Text>
-              <TouchableOpacity onPress={() => setMaidSalary(ms => ms.map(x => x.id === s.id ? { ...x, paid: !x.paid } : x))} style={styles.salaryPaidBtn}>
+              <TouchableOpacity onPress={() => toggleSalaryPaid(s.id)} style={styles.salaryPaidBtn}>
                 <Text style={[styles.salaryPaidText, { color: s.paid ? colors.green : colors.gold }]}>{s.paid ? '✅ Paid' : 'Mark as Paid'}</Text>
               </TouchableOpacity>
             </View>
           );
         })}
       </Card>
+      </View>
     </ScrollView>
     </LinearGradient>
   );
@@ -459,18 +514,29 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 120,
   },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, marginBottom: 18 },
+  heroWrap: { paddingHorizontal: 20, paddingTop: 12 },
+  dayStripWrap: { paddingHorizontal: 20 },
+  bodyWrap: { paddingHorizontal: 20 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   section: {
     flex: 1,
   },
+  heroLabel: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
   title: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 28,
+    fontFamily: 'PlayfairDisplay-ExtraBold',
+    fontSize: 30,
+    lineHeight: 36,
   },
   subtitle: {
     fontSize: 14,
     fontFamily: 'Outfit-Regular',
-    marginTop: 2,
+    marginTop: 4,
   },
   // Summary / stats
   summaryTitle: {

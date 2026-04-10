@@ -92,27 +92,24 @@ export default function BackupScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Title */}
-      <View style={styles.titleRow}>
-        <View style={styles.titleSection}>
-          <Text style={[styles.title, { color: colors.deep }]}>Backup & Restore</Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>Keep your data safe</Text>
-        </View>
-        <DrawerMenuButton />
-      </View>
-
-      {/* Warning Hero */}
+      {/* Hero Card */}
       <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
+        <View style={styles.heroTopRow}>
+          <Text style={[styles.heroLabel, { color: colors.gold }]}>💼 Backup & Restore</Text>
+          <DrawerMenuButton />
+        </View>
+        <Text style={[styles.heroTitle, { color: colors.deep }]}>Keep your data safe</Text>
         <Text style={[styles.warningText, { color: colors.sub }]}>
-          ⚠️ Your data is stored on this device only. Export a backup regularly to avoid losing
-          it!
+          ⚠️ Your data is stored on this device only. Export a backup regularly so you never lose it.
         </Text>
       </Card>
 
       {/* Export JSON */}
       <Card>
         <View style={styles.optionRow}>
-          <Text style={styles.optionIcon}>📤</Text>
+          <View style={[styles.optionIconWrap, { backgroundColor: colors.goldBg }]}>
+            <Text style={styles.optionIcon}>📤</Text>
+          </View>
           <View style={styles.optionContent}>
             <Text style={[styles.optionTitle, { color: colors.deep }]}>Export Backup</Text>
             <Text style={[styles.optionSub, { color: colors.muted }]}>
@@ -126,7 +123,9 @@ export default function BackupScreen() {
       {/* Export CSV */}
       <Card>
         <View style={styles.optionRow}>
-          <Text style={styles.optionIcon}>💾</Text>
+          <View style={[styles.optionIconWrap, { backgroundColor: colors.blueBg }]}>
+            <Text style={styles.optionIcon}>💾</Text>
+          </View>
           <View style={styles.optionContent}>
             <Text style={[styles.optionTitle, { color: colors.deep }]}>Export as CSV</Text>
             <Text style={[styles.optionSub, { color: colors.muted }]}>
@@ -140,7 +139,9 @@ export default function BackupScreen() {
       {/* Import JSON */}
       <Card>
         <View style={styles.optionRow}>
-          <Text style={styles.optionIcon}>📥</Text>
+          <View style={[styles.optionIconWrap, { backgroundColor: colors.greenBg }]}>
+            <Text style={styles.optionIcon}>📥</Text>
+          </View>
           <View style={styles.optionContent}>
             <Text style={[styles.optionTitle, { color: colors.deep }]}>Import Backup</Text>
             <Text style={[styles.optionSub, { color: colors.muted }]}>
@@ -179,24 +180,19 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 120,
   },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  titleSection: {
-    flex: 1,
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heroLabel: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 10,
   },
-  title: {
-    fontFamily: 'PlayfairDisplay-Bold',
+  heroTitle: {
+    fontFamily: 'PlayfairDisplay-ExtraBold',
     fontSize: 28,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 2,
-  },
-  warningBanner: {
-    borderWidth: 0,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
+    lineHeight: 34,
+    marginBottom: 8,
   },
   warningText: {
     fontSize: 14,
@@ -206,11 +202,17 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+  },
+  optionIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionIcon: {
-    fontSize: 32,
-    flexShrink: 0,
+    fontSize: 26,
   },
   optionContent: {
     flex: 1,

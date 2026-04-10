@@ -38,6 +38,36 @@ export default function SettingsScreen() {
     setRecLabel(''); setRecAmt(''); setRecDay('1');
   }, [recLabel, recAmt, recDay, recCat, setRecurring]);
 
+  const toggleDark = useCallback(() => setDark(d => !d), [setDark]);
+
+  const togglePinLock = useCallback((val: boolean) => {
+    if (!val) {
+      setPin('');
+      setShowPinInput(false);
+    } else {
+      setShowPinInput(true);
+    }
+  }, [setPin]);
+
+  const handleSetPin = useCallback(() => {
+    if (pinInput.length === 4) {
+      setPin(pinInput);
+      setPinInput('');
+      setShowPinInput(false);
+      Alert.alert('PIN Set', 'Your app is now protected with a PIN.');
+    } else {
+      Alert.alert('Invalid', 'PIN must be exactly 4 digits.');
+    }
+  }, [pinInput, setPin]);
+
+  const handlePinInputChange = useCallback((t: string) => {
+    setPinInput(t.replace(/[^0-9]/g, '').slice(0, 4));
+  }, []);
+
+  const handleRecDayChange = useCallback((t: string) => {
+    setRecDay(t.replace(/[^0-9]/g, '').slice(0, 2));
+  }, []);
+
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
       <ScrollView
@@ -45,16 +75,20 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.titleRow}>
-          <View style={styles.titleSection}>
-            <Text style={[styles.title, { color: colors.deep }]}>Settings</Text>
-            <Text style={[styles.subtitle, { color: colors.muted }]}>Customize your experience</Text>
+        {/* Hero Card */}
+        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+          <View style={styles.titleRow}>
+            <View style={styles.titleSection}>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>⚙️ Preferences</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>Settings</Text>
+              <Text style={[styles.subtitle, { color: colors.muted }]}>Customize your experience</Text>
+            </View>
+            <DrawerMenuButton />
           </View>
-          <DrawerMenuButton />
-        </View>
+        </Card>
 
         {/* Appearance */}
-        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+        <Card>
           <Text style={[styles.sectionLabel, { color: colors.deep }]}>🎨 Appearance</Text>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
@@ -65,7 +99,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={dark}
-              onValueChange={() => setDark(d => !d)}
+              onValueChange={toggleDark}
               trackColor={{ false: colors.border, true: colors.gold }}
               thumbColor="#fff"
             />
@@ -84,14 +118,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={!!pin}
-              onValueChange={(val) => {
-                if (!val) {
-                  setPin('');
-                  setShowPinInput(false);
-                } else {
-                  setShowPinInput(true);
-                }
-              }}
+              onValueChange={togglePinLock}
               trackColor={{ false: colors.border, true: colors.gold }}
               thumbColor="#fff"
             />
@@ -102,7 +129,7 @@ export default function SettingsScreen() {
                 label="Set 4-digit PIN"
                 placeholder="Enter 4 digits"
                 value={pinInput}
-                onChangeText={(t: string) => setPinInput(t.replace(/[^0-9]/g, '').slice(0, 4))}
+                onChangeText={handlePinInputChange}
                 keyboardType="numeric"
                 maxLength={4}
                 secureTextEntry
@@ -111,16 +138,7 @@ export default function SettingsScreen() {
                 title="Set PIN"
                 variant="gold"
                 small
-                onPress={() => {
-                  if (pinInput.length === 4) {
-                    setPin(pinInput);
-                    setPinInput('');
-                    setShowPinInput(false);
-                    Alert.alert('PIN Set', 'Your app is now protected with a PIN.');
-                  } else {
-                    Alert.alert('Invalid', 'PIN must be exactly 4 digits.');
-                  }
-                }}
+                onPress={handleSetPin}
                 style={{ marginTop: 8, alignSelf: 'flex-start' }}
               />
             </View>
@@ -141,7 +159,7 @@ export default function SettingsScreen() {
               <Input placeholder="Amount (PKR)" keyboardType="numeric" value={recAmt} onChangeText={setRecAmt} />
             </View>
             <View style={styles.recFlex}>
-              <Input placeholder="Day (1-28)" keyboardType="numeric" value={recDay} onChangeText={(t: string) => setRecDay(t.replace(/[^0-9]/g, '').slice(0, 2))} />
+              <Input placeholder="Day (1-28)" keyboardType="numeric" value={recDay} onChangeText={handleRecDayChange} />
             </View>
           </View>
           <View style={[styles.recPickerWrap, { backgroundColor: colors.bg3 }]}>
@@ -166,8 +184,17 @@ export default function SettingsScreen() {
                 trackColor={{ false: colors.border, true: colors.gold }}
                 thumbColor="#fff"
               />
-              <TouchableOpacity onPress={() => setRecurring(rr => rr.filter(x => x.id !== r.id))} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 16 }}>🗑</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert('Remove Recurring', `Stop auto-adding "${r.label}"?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Remove', style: 'destructive', onPress: () => setRecurring(rr => rr.filter(x => x.id !== r.id)) },
+                  ]);
+                }}
+                style={styles.delBtn}
+                accessibilityLabel={`Delete recurring expense ${r.label}`}
+              >
+                <Text style={{ fontSize: 18 }}>🗑</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -186,7 +213,7 @@ export default function SettingsScreen() {
         <Card>
           <View style={styles.aboutSection}>
             <Text style={[styles.aboutName, { color: colors.deep }]}>ForSHE</Text>
-            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.0.0</Text>
+            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.0.2</Text>
             <Text style={[styles.aboutDesc, { color: colors.sub }]}>
               Your complete home management companion. Track expenses, plan meals, manage maid tasks, set reminders, and more — all in one beautiful app.
             </Text>
@@ -210,10 +237,12 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   titleSection: { flex: 1 },
-  title: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 28 },
-  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 2 },
+  heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
+  title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },
+  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
+  delBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   sectionLabel: {
     fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
     letterSpacing: 1.5, marginBottom: 14,
