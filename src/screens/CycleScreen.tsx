@@ -188,27 +188,26 @@ export default function CycleScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <DrawerMenuButton />
-        <View style={styles.topBarSpacer} />
-      </View>
-
       {/* Hero Card */}
       <Card gradient={dark ? gradients.pinkHeroDark : gradients.pinkHero} style={{ backgroundColor: colors.pinkBg, borderColor: colors.pinkBorder }}>
-        <Text style={[styles.heroLabel, { color: colors.pink }]}>🌸 Next Period</Text>
-        <Text style={[styles.heroDate, { color: colors.pink }]}>
-          {predictions ? fmtISO(predictions.nextStart) : '—'}
-        </Text>
-        <Text style={[styles.heroSub, { color: colors.sub }]}>
-          {predictions
-            ? predictions.daysUntilNext > 0
-              ? `In ${predictions.daysUntilNext} days`
-              : predictions.daysUntilNext === 0
-                ? 'Today!'
-                : `${Math.abs(predictions.daysUntilNext)} days ago`
-            : 'Log at least 2 cycles to predict'}
-        </Text>
+        <View style={styles.heroHeaderRow}>
+          <DrawerMenuButton />
+          <View style={styles.heroHeaderText}>
+            <Text style={[styles.heroLabel, { color: colors.pink }]}>🌸 Next Period</Text>
+            <Text style={[styles.heroDate, { color: colors.pink }]}>
+              {predictions ? fmtISO(predictions.nextStart) : '—'}
+            </Text>
+            <Text style={[styles.heroSub, { color: colors.sub }]}>
+              {predictions
+                ? predictions.daysUntilNext > 0
+                  ? `In ${predictions.daysUntilNext} days`
+                  : predictions.daysUntilNext === 0
+                    ? 'Today!'
+                    : `${Math.abs(predictions.daysUntilNext)} days ago`
+                : 'Log at least 2 cycles to predict'}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -475,8 +474,8 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 120,
   },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',

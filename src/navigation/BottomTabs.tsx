@@ -31,8 +31,9 @@ const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any
     <View style={[styles.tabBar, {
       backgroundColor: colors.tabBarBg,
       borderColor: colors.border,
-      paddingBottom: Math.max(insets.bottom, 12),
-      marginBottom: insets.bottom,
+      // Float above Android nav gestures with a single safe-area-aware margin.
+      // Interior padding is fixed — no double-counting the inset (v1.1.2 fix).
+      marginBottom: Math.max(insets.bottom, 8),
     }]}>
       {state.routes.map((route: any, index: number) => {
         const focused = state.index === index;

@@ -82,21 +82,20 @@ export default function MonthlyReportScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <DrawerMenuButton />
-          <View style={styles.topBarSpacer} />
-        </View>
-
         {/* Hero Card */}
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Report</Text>
-          <Text style={[styles.title, { color: colors.deep }]}>
-            {MONTHS[month]} {year}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.sub }]}>
-            {data.expCount} {data.expCount === 1 ? 'expense' : 'expenses'} tracked
-          </Text>
+          <View style={styles.heroHeaderRow}>
+            <DrawerMenuButton />
+            <View style={styles.heroHeaderText}>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Report</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>
+                {MONTHS[month]} {year}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.sub }]}>
+                {data.expCount} {data.expCount === 1 ? 'expense' : 'expenses'} tracked
+              </Text>
+            </View>
+          </View>
 
           {/* Month Navigator */}
           <View style={styles.monthNav}>
@@ -222,8 +221,8 @@ export default function MonthlyReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   titleSection: { flex: 1 },
   title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },

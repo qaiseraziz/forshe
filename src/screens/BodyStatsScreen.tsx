@@ -584,16 +584,17 @@ export default function BodyStatsScreen() {
           contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.topBar}>
-            <DrawerMenuButton />
-            <View style={styles.topBarSpacer} />
-          </View>
           <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-            <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
-            <Text style={[styles.heroTitle, { color: colors.deep }]}>Track your vitals</Text>
-            <Text style={[styles.heroSub, { color: colors.sub }]}>
-              Log weight, blood pressure, sugar, oxygen and more in one place.
-            </Text>
+            <View style={styles.heroHeaderRow}>
+              <DrawerMenuButton />
+              <View style={styles.heroHeaderText}>
+                <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
+                <Text style={[styles.heroTitle, { color: colors.deep }]}>Track your vitals</Text>
+                <Text style={[styles.heroSub, { color: colors.sub }]}>
+                  Log weight, blood pressure, sugar, oxygen and more in one place.
+                </Text>
+              </View>
+            </View>
           </Card>
 
           <EmptyState
@@ -626,16 +627,17 @@ export default function BodyStatsScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.topBar}>
-            <DrawerMenuButton />
-            <View style={styles.topBarSpacer} />
-          </View>
           <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-            <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
-            <Text style={[styles.heroTitle, { color: colors.deep }]}>Let's get started</Text>
-            <Text style={[styles.heroSub, { color: colors.sub }]}>
-              Tell us your height once — we'll use it to calculate BMI for every weigh-in.
-            </Text>
+            <View style={styles.heroHeaderRow}>
+              <DrawerMenuButton />
+              <View style={styles.heroHeaderText}>
+                <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
+                <Text style={[styles.heroTitle, { color: colors.deep }]}>Let's get started</Text>
+                <Text style={[styles.heroSub, { color: colors.sub }]}>
+                  Tell us your height once — we'll use it to calculate BMI for every weigh-in.
+                </Text>
+              </View>
+            </View>
           </Card>
 
           <Card>
@@ -714,22 +716,23 @@ export default function BodyStatsScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Hero Card */}
-        <View style={styles.topBar}>
-          <DrawerMenuButton />
-          <View style={styles.topBarSpacer} />
-        </View>
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
-          <Text style={[styles.heroNumber, { color: colors.red }]}>
-            {latestLog?.weight !== undefined ? `${latestLog.weight} kg` : '—'}
-          </Text>
-          <Text style={[styles.heroSub, { color: colors.sub }]}>
-            {daysSinceLast === null
-              ? 'No logs yet — add your first below'
-              : daysSinceLast === 0
-                ? 'Logged today'
-                : `${daysSinceLast} day${daysSinceLast === 1 ? '' : 's'} since last log`}
-          </Text>
+          <View style={styles.heroHeaderRow}>
+            <DrawerMenuButton />
+            <View style={styles.heroHeaderText}>
+              <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
+              <Text style={[styles.heroNumber, { color: colors.red }]}>
+                {latestLog?.weight !== undefined ? `${latestLog.weight} kg` : '—'}
+              </Text>
+              <Text style={[styles.heroSub, { color: colors.sub }]}>
+                {daysSinceLast === null
+                  ? 'No logs yet — add your first below'
+                  : daysSinceLast === 0
+                    ? 'Logged today'
+                    : `${daysSinceLast} day${daysSinceLast === 1 ? '' : 's'} since last log`}
+              </Text>
+            </View>
+          </View>
 
           {latestBMI && (
             <View style={styles.bmiRow}>
@@ -967,8 +970,8 @@ export default function BodyStatsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',

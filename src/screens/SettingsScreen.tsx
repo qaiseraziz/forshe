@@ -155,17 +155,16 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <DrawerMenuButton />
-          <View style={styles.topBarSpacer} />
-        </View>
-
         {/* Hero Card */}
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <Text style={[styles.heroLabel, { color: colors.gold }]}>⚙️ Preferences</Text>
-          <Text style={[styles.title, { color: colors.deep }]}>Settings</Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>Customize your experience</Text>
+          <View style={styles.heroHeaderRow}>
+            <DrawerMenuButton />
+            <View style={styles.heroHeaderText}>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>⚙️ Preferences</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>Settings</Text>
+              <Text style={[styles.subtitle, { color: colors.muted }]}>Customize your experience</Text>
+            </View>
+          </View>
         </Card>
 
         {/* Appearance */}
@@ -359,7 +358,7 @@ export default function SettingsScreen() {
         <Card>
           <View style={styles.aboutSection}>
             <Text style={[styles.aboutName, { color: colors.deep }]}>ForSHE</Text>
-            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.1.1</Text>
+            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.1.2</Text>
             <Text style={[styles.aboutDesc, { color: colors.sub }]}>
               Your complete home management companion. Track expenses, plan meals, manage maid tasks, set reminders, and more — all in one beautiful app.
             </Text>
@@ -383,8 +382,8 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   titleSection: { flex: 1 },
   heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },

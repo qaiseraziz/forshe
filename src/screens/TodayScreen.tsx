@@ -218,17 +218,16 @@ export default function TodayScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <DrawerMenuButton />
-          <View style={styles.topBarSpacer} />
-        </View>
-
         {/* Hero Card */}
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={styles.heroCard}>
-          <Text style={[styles.heroLabel, { color: colors.gold }]}>🏠 Today's Overview</Text>
-          <Text style={[styles.heroGreeting, { color: colors.deep }]}>{greeting}</Text>
-          <Text style={[styles.heroDate, { color: colors.sub }]}>{fullDate}</Text>
+          <View style={styles.heroHeaderRow}>
+            <DrawerMenuButton />
+            <View style={styles.heroHeaderText}>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>🏠 Today's Overview</Text>
+              <Text style={[styles.heroGreeting, { color: colors.deep }]}>{greeting}</Text>
+              <Text style={[styles.heroDate, { color: colors.sub }]}>{fullDate}</Text>
+            </View>
+          </View>
 
           {/* Stat Grid */}
           <View style={styles.statGrid}>
@@ -430,8 +429,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   heroCard: {
     paddingTop: 28,
     paddingBottom: 24,

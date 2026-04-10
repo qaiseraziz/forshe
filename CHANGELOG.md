@@ -2,6 +2,29 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.1.2 — 2026-04-10
+
+Patch release — two UI tightening fixes on top of v1.1.1.
+
+### Fixed
+- **Drawer hamburger button now lives INSIDE the hero card** — on all 11 drawer screens (`TodayScreen`, `ExpensesScreen`, `CookingScreen`, `RemindersScreen`, `MaidScreen`, `CycleScreen`, `BodyStatsScreen`, `MonthlyReportScreen`, `ShoppingListScreen`, `BackupScreen`, `SettingsScreen`) the `DrawerMenuButton` is now the first child of a `heroHeaderRow` flex row inside the hero `<Card>`, left-aligned next to the hero label/title. The v1.1.1 standalone `topBar` row wrapper (which sat ABOVE the hero and added ~56px of empty space on every screen) is gone. All 11 screens remain pixel-identical to each other. Still 44×44 touch target, still `accessibilityLabel` + `hitSlop`.
+- **Bottom tab bar no longer double-counts the safe-area inset** (`src/navigation/BottomTabs.tsx`) — the previous code set BOTH `paddingBottom: Math.max(insets.bottom, 12)` AND `marginBottom: insets.bottom`, effectively reserving the Android nav bar height twice and leaving a visible empty strip under the floating pill. Fixed to a single safe-area-aware `marginBottom: Math.max(insets.bottom, 8)` with NO interior `paddingBottom` override (the tab buttons' `paddingVertical: 10` handles internal spacing). The pill still floats above Android system gestures; touch targets still ≥44×44.
+
+### Changed
+- Every drawer screen style sheet replaces `topBar` + `topBarSpacer` with `heroHeaderRow` (`flexDirection: 'row'`, `alignItems: 'flex-start'`, `gap: 12`, `marginBottom: 4`) and `heroHeaderText` (`flex: 1`).
+- CookingScreen, MaidScreen monthly + daily views: dropped topBar between ScrollView and MonthBar — MonthBar is now the first element under the status bar and owns its own padding.
+- ExpensesScreen: removed the separate `topBar` row (and its `screenTitle` "Expenses" label — the hero's "Remaining Balance" label replaces it).
+- ShoppingListScreen: removed the `topBar` row above the sticky title section; drawer button moved into the hero card inside the `FlatList` `ListHeaderComponent`.
+
+### Chore
+- `app.json` → version `1.1.2`, `ios.buildNumber` `"6"`, `android.versionCode` `6`.
+- `package.json` → version `1.1.2`.
+- `SettingsScreen` About card → `Version 1.1.2`.
+- `DrawerNav` footer → `ForSHE v1.1.2`.
+- `CLAUDE.md` workflow rules updated: the v1.1.1 `topBar` rule is replaced with the new v1.1.2 in-hero `heroHeaderRow` rule.
+- `.claude/agents/ui-designer.md` + `.claude/agents/qa-expert.md` updated to match the new pattern.
+- `CHANGELOG.md` updated with this entry.
+
 ## v1.1.1 — 2026-04-10
 
 Patch release — Body Stats gains health insights + threshold alerts, negative balance now displays correctly, Expenses gains a collapsible budget card and a 15-item Pakistani quick-add rail, and the drawer hamburger button is now standardised on the LEFT of every screen.

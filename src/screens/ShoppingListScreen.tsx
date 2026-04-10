@@ -199,11 +199,16 @@ export default function ShoppingListScreen() {
     <View>
       {/* Hero card */}
       <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero} style={{ backgroundColor: colors.greenBg, borderColor: colors.greenBorder }}>
-        <Text style={[styles.heroLabel, { color: colors.green }]}>🛒 SHOPPING LIST</Text>
-        <Text style={[styles.heroNum, { color: colors.green }]}>{totalCount}</Text>
-        <Text style={[styles.heroNote, { color: colors.sub }]}>
-          {totalCount === 0 ? 'No items yet' : totalCount === 1 ? '1 item on your list' : totalCount + ' items on your list'}
-        </Text>
+        <View style={styles.heroHeaderRow}>
+          <DrawerMenuButton />
+          <View style={styles.heroHeaderText}>
+            <Text style={[styles.heroLabel, { color: colors.green }]}>🛒 SHOPPING LIST</Text>
+            <Text style={[styles.heroNum, { color: colors.green }]}>{totalCount}</Text>
+            <Text style={[styles.heroNote, { color: colors.sub }]}>
+              {totalCount === 0 ? 'No items yet' : totalCount === 1 ? '1 item on your list' : totalCount + ' items on your list'}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.heroStats}>
           <View style={styles.heroStatBox}>
@@ -293,12 +298,6 @@ export default function ShoppingListScreen() {
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={[styles.container, { paddingTop: insets.top }]}
     >
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <DrawerMenuButton />
-        <View style={styles.topBarSpacer} />
-      </View>
-
       {/* Title */}
       <View style={styles.titleRow}>
         <View style={styles.titleSection}>
@@ -331,20 +330,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    marginBottom: 12,
-  },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 12,
     marginBottom: 20,
   },
   titleSection: {

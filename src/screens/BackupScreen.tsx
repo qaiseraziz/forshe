@@ -96,16 +96,15 @@ export default function BackupScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <DrawerMenuButton />
-        <View style={styles.topBarSpacer} />
-      </View>
-
       {/* Hero Card */}
       <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
-        <Text style={[styles.heroLabel, { color: colors.gold }]}>💼 Backup & Restore</Text>
-        <Text style={[styles.heroTitle, { color: colors.deep }]}>Keep your data safe</Text>
+        <View style={styles.heroHeaderRow}>
+          <DrawerMenuButton />
+          <View style={styles.heroHeaderText}>
+            <Text style={[styles.heroLabel, { color: colors.gold }]}>💼 Backup & Restore</Text>
+            <Text style={[styles.heroTitle, { color: colors.deep }]}>Keep your data safe</Text>
+          </View>
+        </View>
         <Text style={[styles.warningText, { color: colors.sub }]}>
           ⚠️ Your data is stored on this device only. Export a backup regularly so you never lose it.
         </Text>
@@ -187,8 +186,8 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 120,
   },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 10 },
+  heroHeaderText: { flex: 1 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',

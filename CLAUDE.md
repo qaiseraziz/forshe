@@ -4,10 +4,10 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.1.1** (tagged 2026-04-10) — see `CHANGELOG.md` for full history.
-- `app.json`: version `1.1.1`, `ios.buildNumber "5"`, `android.versionCode 5`
-- `package.json`: name `forshe`, version `1.1.1`
-- Git tags: `v1.0.0` on 14a2dfe (first APK 2026-03-21), `v1.0.1` on cdf35a0, `v1.0.2`, `v1.1.0`, `v1.1.1` on master
+**v1.1.2** (tagged 2026-04-10) — see `CHANGELOG.md` for full history.
+- `app.json`: version `1.1.2`, `ios.buildNumber "6"`, `android.versionCode 6`
+- `package.json`: name `forshe`, version `1.1.2`
+- Git tags: `v1.0.0` on 14a2dfe (first APK 2026-03-21), `v1.0.1` on cdf35a0, `v1.0.2`, `v1.1.0`, `v1.1.1`, `v1.1.2` on master
 - Orchestration: every task routes through `project-manager` (see Agents section)
 
 ## Tech Stack
@@ -127,7 +127,8 @@ assets/
 22. **Negative Balance + "Over Budget" Badge** (v1.1.1): Balance hero displays negative values in red when `totalReceived - totalSpent < 0`. `pkr`/`pkrF` sign-preserving (v1.1.1 fix — previously stripped the minus). "Over budget" chip shown when balance < 0 or spent > monthlyBudget. Applies to ExpensesScreen, TodayScreen, MonthlyReportScreen.
 23. **Collapsible Monthly Budget** (v1.1.1): ExpensesScreen budget card toggles between collapsed summary ("Monthly Budget: Rs 50,000 · Rs 12,000 remaining") and full editor. Default collapsed when budget set, expanded when unset. `LayoutAnimation.Presets.easeInEaseOut` transition (no new dep). Haptic on toggle.
 24. **Quick-Add Chip Rail** (v1.1.1): 15 Pakistani household expense presets above the Add Expense form on ExpensesScreen — Vegetables, Bread/Naan, Milk, Meat/Chicken, Fruits, Petrol, Grocery, Medicine, Rickshaw/Uber, Mobile top-up, Electricity, Gas, Water, School fees, Eating out. Each chip pre-fills label + category. Horizontal scroll, 88×88 tiles, `useCallback`-wrapped handlers.
-25. **Drawer Button Standardization** (v1.1.1): `DrawerMenuButton` now sits in a shared `topBar` flex row (`justifyContent: 'space-between'`) at the TOP-LEFT of every one of the 11 drawer screens at pixel-identical position, size, and spacing. `DrawerMenuButton` gained accessibilityLabel + 8px hitSlop.
+25. **Drawer Button Standardization** (v1.1.2): `DrawerMenuButton` now sits INSIDE the hero `<Card>` on every one of the 11 drawer screens as the first child of a `heroHeaderRow` flex row (`flexDirection: 'row'`, `alignItems: 'flex-start'`, `gap: 12`, `marginBottom: 4`), sibling to a `heroHeaderText` (`flex: 1`) wrapper that contains the hero label/title/subtitle. Superseded the v1.1.1 standalone `topBar` row which sat ABOVE the hero and added ~56px of wasted vertical space per screen. Button is still 44×44 with `accessibilityLabel` + 8px `hitSlop`.
+26. **Tighter floating bottom tab bar** (v1.1.2): `BottomTabs.tsx` no longer double-counts `insets.bottom`. The floating pill uses a single `marginBottom: Math.max(insets.bottom, 8)` to clear Android nav gestures; interior padding comes from `tabBtn.paddingVertical: 10` only. Removes the visible empty strip that used to sit below the tabs on device.
 
 ## Performance Optimizations
 - **DataContext**: `useMemo` wraps context value to prevent cascade re-renders
@@ -172,8 +173,8 @@ assets/
 - **iOS**: bundleIdentifier = com.forshe.app
 - **Android**: package = com.forshe.app
 - **Dead deps removed**: expo-local-authentication, expo-file-system, expo-sharing, expo-status-bar
-- **Latest APK build**: c534cf09-f9fe-470c-a9b4-de41d78bb21d (v1.1.1, 2026-04-10, in progress at release time) — https://expo.dev/accounts/smartbzss/projects/forshe/builds/c534cf09-f9fe-470c-a9b4-de41d78bb21d
-- **Previous builds**: 04b1be04-8847-405b-9a84-74a74f3e2238 (v1.1.0), ef365c41-75c1-4f26-8429-de3a6def989b (v1.0.2), 92191648-529d-40c0-9be5-2b0d49743154 (v1.0.1), 1e9166de-ad86-47e0-8b24-1d94aee1706d (v1.0.0)
+- **Latest APK build**: TBD-v1.1.2 (v1.1.2, 2026-04-10, queued at release time) — https://expo.dev/accounts/smartbzss/projects/forshe/builds/TBD-v1.1.2
+- **Previous builds**: c534cf09-f9fe-470c-a9b4-de41d78bb21d (v1.1.1), 04b1be04-8847-405b-9a84-74a74f3e2238 (v1.1.0), ef365c41-75c1-4f26-8429-de3a6def989b (v1.0.2), 92191648-529d-40c0-9be5-2b0d49743154 (v1.0.1), 1e9166de-ad86-47e0-8b24-1d94aee1706d (v1.0.0)
 
 ## Build Commands
 ```bash
@@ -201,7 +202,7 @@ eas build --profile production --platform ios
 ## Cross-Platform Status
 ForSHE is already cross-platform — React Native Expo runs natively on **both Android and iOS from the same codebase**. No rewrite needed.
 
-- **Android**: Actively built and tested (latest APK: c534cf09-f9fe-470c-a9b4-de41d78bb21d — v1.1.1)
+- **Android**: Actively built and tested (latest APK: TBD-v1.1.2 — v1.1.2)
 - **iOS**: Config ready (`ios.bundleIdentifier = com.forshe.app`) but never built yet
 
 **To ship iOS (when ready):**
@@ -265,7 +266,8 @@ The global Claude Code agent types available are `ui-designer`, `qa-expert`, `pe
 - Every main screen should have a gradient hero Card using light/dark variants from `gradients.*`
 - Bump both `app.json` version + platform build numbers (`ios.buildNumber`, `android.versionCode`) on every release
 - Tag releases with `v{major}.{minor}.{patch}` and keep CHANGELOG.md in sync
-- **DrawerMenuButton layout (v1.1.1)**: Every drawer screen must place `<DrawerMenuButton />` as the first child inside a `topBar` flex row at the TOP of the screen (before the hero card), with `flexDirection: 'row'`, `justifyContent: 'space-between'`, and a 44×44 spacer on the right if there is no right-side action. All 11 drawer screens must use this pattern so the button is pixel-identical across the app. Never place DrawerMenuButton inside the hero card, inside a ScrollView row, or on the right side of the screen.
+- **DrawerMenuButton layout (v1.1.2)**: Every drawer screen must place `<DrawerMenuButton />` as the FIRST CHILD of a `heroHeaderRow` flex row INSIDE the hero `<Card>`, sibling to a `heroHeaderText` wrapper that contains the hero label + title + subtitle. The row uses `flexDirection: 'row'`, `alignItems: 'flex-start'`, `gap: 12`, `marginBottom: 4`; `heroHeaderText` uses `flex: 1`. NEVER place `DrawerMenuButton` in a standalone `topBar` row ABOVE the hero card (that pattern was v1.1.1 and caused wasted vertical space). All 11 drawer screens (`TodayScreen`, `ExpensesScreen`, `CookingScreen`, `RemindersScreen`, `MaidScreen` both monthly + daily, `CycleScreen`, `BodyStatsScreen` all three states, `MonthlyReportScreen`, `ShoppingListScreen`, `BackupScreen`, `SettingsScreen`) must follow this pattern so the button is pixel-identical across the app. Still 44×44 min touch target, still `accessibilityLabel`, still `hitSlop`.
+- **Bottom tab bar safe-area (v1.1.2)**: `src/navigation/BottomTabs.tsx` `CustomTabBar` must use a SINGLE safe-area-aware margin (`marginBottom: Math.max(insets.bottom, 8)`) and NO dynamic interior `paddingBottom`. Interior spacing comes from `tabBtn.paddingVertical: 10`. Never stack `paddingBottom` AND `marginBottom` with `insets.bottom` — that double-counts the Android nav inset and creates visible empty space below the pill.
 - **Currency sign preservation (v1.1.1)**: `pkr(n)` and `pkrF(n)` in `src/utils/currency.ts` MUST preserve the sign of negative numbers — output e.g. `Rs -2,500` or `-Rs 2,500`. Balance heroes on ExpensesScreen/TodayScreen/MonthlyReportScreen must render negative values in `colors.red` when `received - spent < 0` and show an "Over budget" chip when spent exceeds the monthly budget.
 - **Body Stats insights memoization (v1.1.1)**: The 7-day + 30-day insights + threshold alerts computation on `BodyStatsScreen` MUST live in a single `useMemo` keyed on `[bodyLogs]` (plus date helpers if referenced inside). Never recompute inline per render.
 - **Collapsible cards (v1.1.1)**: Use `LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` before toggling a `useState` boolean for expand/collapse. No new dependencies. Add `Haptics.selectionAsync()` on toggle. Default collapsed when data is set, expanded when unset (invite empty-state interaction).

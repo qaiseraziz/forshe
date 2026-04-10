@@ -70,21 +70,45 @@ Never start editing before reading. The rest of this file is the style system yo
 - **DrawerMenuButton / icon buttons**: React.memo, minimum 44×44 hit area
 - **CustomDrawerContent**: React.memo, referenced via module-level `renderDrawerContent` constant (never inline arrow on `drawerContent` prop)
 
-## Navigation Pattern
+## Navigation Pattern (v1.1.2)
 - Drawer + 4 bottom tabs hybrid
-- `DrawerMenuButton`: React.memo with `useCallback` on openDrawer handler, accessibilityLabel "Open menu", 8px hitSlop
-- Every drawer screen must include `<DrawerMenuButton />` in a `topBar` flex row as the FIRST child, at the TOP of the screen (BEFORE the hero card, not inside it)
-- `topBar` style: `{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: insets.top + 12, paddingBottom: 8 }`
-- If the screen has no right-side action, place a 44×44 empty View as a spacer so the drawer button stays pixel-identically positioned on every screen
-- NEVER place DrawerMenuButton inside the hero card, inside a ScrollView row, on the right side of the screen, or below other content — this was the v1.1.1 bug that made the button appear to "move around"
-- All 11 drawer screens use the identical `topBar` pattern (TodayScreen, ExpensesScreen, CookingScreen, MaidScreen, RemindersScreen, CycleScreen, BodyStatsScreen, ShoppingListScreen, MonthlyReportScreen, BackupScreen, SettingsScreen)
+- `DrawerMenuButton`: React.memo with `useCallback` on openDrawer handler, accessibilityLabel "Open navigation menu", 8px hitSlop, 44×44 hit area
+- Every drawer screen must place `<DrawerMenuButton />` INSIDE the hero `<Card>` as the FIRST child of a `heroHeaderRow` flex row, sibling to a `heroHeaderText` wrapper containing the hero label + title (+ subtitle)
+- Canonical JSX pattern (identical on all 11 drawer screens):
+  ```tsx
+  <Card gradient={dark ? gradients.xHeroDark : gradients.xHero}>
+    <View style={styles.heroHeaderRow}>
+      <DrawerMenuButton />
+      <View style={styles.heroHeaderText}>
+        <Text style={[styles.heroLabel, { color: colors.accent }]}>📊 LABEL</Text>
+        <Text style={[styles.title, { color: colors.deep }]}>Title line</Text>
+        <Text style={[styles.subtitle, { color: colors.sub }]}>Optional subtitle</Text>
+      </View>
+    </View>
+    {/* rest of hero body content (stats, charts, etc.) */}
+  </Card>
+  ```
+- Canonical StyleSheet entries (identical on all 11 drawer screens):
+  ```ts
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
+  ```
+- NEVER place `DrawerMenuButton` in a standalone `topBar` row ABOVE the hero card — that was the v1.1.1 pattern and caused visible wasted vertical space (~56px) at the top of every screen. The v1.1.1 `topBar` + `topBarSpacer` styles have been deleted.
+- The hero Card is responsible for being the visual top of the screen; the `ScrollView` still receives `paddingTop: insets.top + 16` (or `insets.top` when the first element is a `MonthBar`)
+- All 11 drawer screens use the identical in-hero pattern (TodayScreen, ExpensesScreen, CookingScreen, MaidScreen both views, RemindersScreen, CycleScreen, BodyStatsScreen all three states, ShoppingListScreen, MonthlyReportScreen, BackupScreen, SettingsScreen)
+
+## Bottom Tab Bar Safe-Area (v1.1.2)
+- `CustomTabBar` in `src/navigation/BottomTabs.tsx` must use a SINGLE safe-area-aware margin: `marginBottom: Math.max(insets.bottom, 8)`.
+- DO NOT stack `paddingBottom: Math.max(insets.bottom, N)` AND `marginBottom: insets.bottom` — that double-counts the Android nav inset and leaves a visible empty strip below the floating pill (v1.1.1 bug, fixed in v1.1.2).
+- Interior spacing comes exclusively from `tabBtn.paddingVertical: 10` + `tabBar.paddingTop: 8`. No dynamic interior padding.
+- Touch targets on tab buttons remain ≥ 44×44 via label + icon + `paddingVertical`.
 
 ## Screen Template (mandatory for every screen)
 1. Wrap content in `<LinearGradient colors={[colors.gradientStart, colors.gradientEnd]}>`
 2. Use `useSafeAreaInsets()` for paddingTop on ALL views (not just some filter modes)
 3. Set contentContainerStyle `paddingBottom: 120` (for tab bar clearance)
 4. Have a title section with `PlayfairDisplay-Bold 28px` title
-5. Include `DrawerMenuButton` in the title row
+5. Include `DrawerMenuButton` INSIDE the hero Card as the first child of a `heroHeaderRow` flex row (v1.1.2 pattern — never in a standalone `topBar` row above the hero)
 6. Use theme colors exclusively — no hardcoded color values in styles or inline
 7. Extract all inline styles to `StyleSheet` (colors in dynamic styles via `useMemo` if needed)
 8. Use dark hero gradient variants when `dark` is true from `useTheme()`
@@ -108,7 +132,7 @@ List everything that violates the design principles above:
 ### Step B — Plan the redesign
 Write down the target structure BEFORE editing:
 ```
-Title row (DrawerMenuButton)
+Hero Card (heroHeaderRow: DrawerMenuButton + heroHeaderText with label/title/subtitle)
   ↓
 Hero card (gradient, 42px number, stat boxes)
   ↓

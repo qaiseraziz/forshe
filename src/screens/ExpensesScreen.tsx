@@ -408,10 +408,15 @@ export default function ExpensesScreen() {
     <View>
       {/* Balance Hero */}
       <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
-        <Text style={[styles.balLabel, { color: colors.gold }]}>💼 Remaining Balance</Text>
-        <Text style={[styles.balNum, { color: bal < 0 ? colors.red : colors.green }]}>
-          {pkrF(bal)}
-        </Text>
+        <View style={styles.heroHeaderRow}>
+          <DrawerMenuButton />
+          <View style={styles.heroHeaderText}>
+            <Text style={[styles.balLabel, { color: colors.gold }]}>💼 Remaining Balance</Text>
+            <Text style={[styles.balNum, { color: bal < 0 ? colors.red : colors.green }]}>
+              {pkrF(bal)}
+            </Text>
+          </View>
+        </View>
         {(bal < 0 || (budget > 0 && monthSpent > budget)) && (
           <View style={[styles.overBudgetBadge, { backgroundColor: colors.redBg }]}>
             <Text style={[styles.overBudgetBadgeText, { color: colors.red }]}>
@@ -750,11 +755,6 @@ export default function ExpensesScreen() {
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.topBar}>
-        <DrawerMenuButton />
-        <Text style={[styles.screenTitle, { color: colors.deep }]}>Expenses</Text>
-        <View style={{ width: 44 }} />
-      </View>
       {/* MonthBar filter */}
       <MonthBar
         filter={filter}
@@ -867,8 +867,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 8 },
-  screenTitle: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 28 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   listContent: {
     padding: 20,
     paddingBottom: 120,

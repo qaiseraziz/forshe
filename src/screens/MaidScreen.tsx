@@ -156,10 +156,6 @@ export default function MaidScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-          <View style={styles.topBar}>
-            <DrawerMenuButton />
-            <View style={styles.topBarSpacer} />
-          </View>
           <MonthBar
             filter={filter}
             setFilter={setFilter}
@@ -171,11 +167,16 @@ export default function MaidScreen() {
           <View style={styles.bodyWrap}>
           {/* Hero + Summary card */}
           <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero} style={{ borderColor: colors.greenBorder, backgroundColor: colors.greenBg }}>
-            <Text style={[styles.heroLabel, { color: colors.green }]}>🧹 Maid Planner</Text>
-            <Text style={[styles.title, { color: colors.deep }]}>
-              {MONTHS[selMonth]} {selYear}
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.sub }]}>Weekly chores overview</Text>
+            <View style={styles.heroHeaderRow}>
+              <DrawerMenuButton />
+              <View style={styles.heroHeaderText}>
+                <Text style={[styles.heroLabel, { color: colors.green }]}>🧹 Maid Planner</Text>
+                <Text style={[styles.title, { color: colors.deep }]}>
+                  {MONTHS[selMonth]} {selYear}
+                </Text>
+                <Text style={[styles.subtitle, { color: colors.sub }]}>Weekly chores overview</Text>
+              </View>
+            </View>
             <View style={[styles.statsGrid, { marginTop: 16 }]}>
               <View style={styles.statBox}>
                 <Text style={[styles.statVal, { color: colors.green }]}>{totalDone}</Text>
@@ -267,10 +268,6 @@ export default function MaidScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.topBar}>
-        <DrawerMenuButton />
-        <View style={styles.topBarSpacer} />
-      </View>
       <MonthBar
         filter={filter}
         setFilter={setFilter}
@@ -281,15 +278,20 @@ export default function MaidScreen() {
       />
       <View style={styles.heroWrap}>
         <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero}>
-          <Text style={[styles.heroLabel, { color: colors.green }]}>🧹 Maid Planner</Text>
-          <Text style={[styles.title, { color: colors.deep }]}>
-            {isToday ? "Today's Tasks" : FULL_DAYS[DAYS.indexOf(activeDay as typeof DAYS[number])]}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.sub }]}>
-            {tasks.length === 0
-              ? 'No tasks yet · Tap below to add'
-              : `${done} of ${tasks.length} done · ${pct}% complete`}
-          </Text>
+          <View style={styles.heroHeaderRow}>
+            <DrawerMenuButton />
+            <View style={styles.heroHeaderText}>
+              <Text style={[styles.heroLabel, { color: colors.green }]}>🧹 Maid Planner</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>
+                {isToday ? "Today's Tasks" : FULL_DAYS[DAYS.indexOf(activeDay as typeof DAYS[number])]}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.sub }]}>
+                {tasks.length === 0
+                  ? 'No tasks yet · Tap below to add'
+                  : `${done} of ${tasks.length} done · ${pct}% complete`}
+              </Text>
+            </View>
+          </View>
         </Card>
       </View>
 
@@ -515,8 +517,8 @@ const styles = StyleSheet.create({
   heroWrap: { paddingHorizontal: 20, paddingTop: 12 },
   dayStripWrap: { paddingHorizontal: 20 },
   bodyWrap: { paddingHorizontal: 20 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 20, paddingTop: 12 },
-  topBarSpacer: { width: 44, height: 44 },
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  heroHeaderText: { flex: 1 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   section: {
     flex: 1,

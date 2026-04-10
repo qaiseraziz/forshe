@@ -152,20 +152,39 @@ Grep: "borderWidth:" in src/components src/navigation
 ```
 Only Card, Input, and some dividers may have borders.
 
-### DrawerMenuButton position consistency (v1.1.1 rule)
-Every one of the 11 drawer screens MUST render `<DrawerMenuButton />` as the FIRST child of a `topBar` flex row at the TOP of the screen, BEFORE the hero card. The row must use `flexDirection: 'row'`, `justifyContent: 'space-between'`. Screens with no right-side action need a 44×44 spacer View.
+### DrawerMenuButton position consistency (v1.1.2 rule — supersedes v1.1.1 topBar rule)
+Every one of the 11 drawer screens MUST render `<DrawerMenuButton />` INSIDE the hero `<Card>` as the FIRST child of a `heroHeaderRow` flex row, sibling to a `heroHeaderText` wrapper containing the hero label/title/subtitle.
 
-Audit: for each of the 11 screens, find the `DrawerMenuButton` render location and verify:
-1. It is NOT inside the hero Card
-2. It is NOT on the right side
-3. It is NOT inside a ScrollView row below content
-4. It IS inside a `topBar` row at the top with `justifyContent: 'space-between'`
-5. The `topBar` style is identical (paddingHorizontal, paddingTop: insets.top + 12, paddingBottom)
+Audit: for each of the 11 screens, find every `DrawerMenuButton` render location and verify:
+1. It IS inside the hero `<Card>` (not above it, not below it, not outside it)
+2. It IS the first child of a `View` with style `styles.heroHeaderRow`
+3. The second sibling IS a `View` with style `styles.heroHeaderText` containing the label/title Text nodes
+4. The `heroHeaderRow` style is identical across all 11 screens: `{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 }`
+5. The `heroHeaderText` style is identical: `{ flex: 1 }`
+6. There is NO standalone `topBar` row ABOVE the hero card anywhere in the screen (the v1.1.1 pattern is forbidden)
+7. There are NO leftover `topBar` or `topBarSpacer` styles in the StyleSheet
+8. Touch target on the button is still ≥ 44×44; `accessibilityLabel` + `hitSlop` still present
 
 ```
-Grep: "DrawerMenuButton" in src/screens
+Grep: "topBar|topBarSpacer" in src/screens — must return ZERO matches
+Grep: "heroHeaderRow" in src/screens — must return the same count as "DrawerMenuButton" (i.e. every button usage has a matching row + the style definition)
+Grep: "DrawerMenuButton" in src/screens — verify all 11 screens import + render it
 ```
-Every match should live inside a `topBar` row. This was the v1.1.1 bug — user saw the button "jumping around" between screens.
+
+MaidScreen has 2 views (monthly + daily) → 2 DrawerMenuButton render sites + 1 import = 3 matches.
+CookingScreen has 2 views → 3 matches.
+BodyStatsScreen has 3 states (disabled, height-setup, main) → 4 matches.
+All other screens → 2 matches each.
+Total across 11 files: 26 `DrawerMenuButton` matches and 26 `heroHeaderRow` matches (the style def + the usages).
+
+### Bottom tab bar safe-area double-count (v1.1.2 rule)
+`src/navigation/BottomTabs.tsx` `CustomTabBar` must use a SINGLE safe-area-aware margin — `marginBottom: Math.max(insets.bottom, 8)` — and must NOT set a dynamic `paddingBottom` in parallel. The v1.1.1 pattern (`paddingBottom: Math.max(insets.bottom, 12)` + `marginBottom: insets.bottom`) reserved the Android nav inset TWICE and is forbidden.
+
+Audit:
+```
+Grep: "paddingBottom:|marginBottom:" in src/navigation/BottomTabs.tsx
+```
+Must only see ONE `insets.bottom` reference, on `marginBottom`. Interior spacing comes from `tabBtn.paddingVertical: 10` + `tabBar.paddingTop: 8`.
 
 ### Currency sign preservation (v1.1.1 rule)
 `pkr(n)` and `pkrF(n)` in `src/utils/currency.ts` MUST preserve the minus sign for negative numbers. Unit-test mentally:
