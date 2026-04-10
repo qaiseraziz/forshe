@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ToastData {
   msg: string;
@@ -27,11 +28,32 @@ export function useToast(): ToastState {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
   return { toast, show, dismiss };
 }
 
 export function Toast({ toast, dismiss }: { toast: ToastData | null; dismiss: () => void }) {
+  const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      backgroundColor: colors.deep,
+      shadowColor: colors.shadow,
+    },
+    msg: {
+      color: colors.bg,
+    },
+    undoBtn: {
+      backgroundColor: colors.gold,
+    },
+    undoText: {
+      color: colors.bg,
+    },
+  }), [colors]);
 
   useEffect(() => {
     if (toast) {
@@ -44,11 +66,11 @@ export function Toast({ toast, dismiss }: { toast: ToastData | null; dismiss: ()
   if (!toast) return null;
 
   return (
-    <Animated.View style={[styles.container, { opacity }]}>
-      <Text style={styles.msg}>{toast.msg}</Text>
+    <Animated.View style={[styles.container, dynamicStyles.container, { opacity }]}>
+      <Text style={[styles.msg, dynamicStyles.msg]}>{toast.msg}</Text>
       {toast.undoFn && (
-        <TouchableOpacity onPress={() => { toast.undoFn?.(); dismiss(); }} style={styles.undoBtn}>
-          <Text style={styles.undoText}>Undo</Text>
+        <TouchableOpacity onPress={() => { toast.undoFn?.(); dismiss(); }} style={[styles.undoBtn, dynamicStyles.undoBtn]}>
+          <Text style={[styles.undoText, dynamicStyles.undoText]}>Undo</Text>
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -60,14 +82,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 140,
     alignSelf: 'center',
-    backgroundColor: '#1a1a2e',
     borderRadius: 20,
     paddingHorizontal: 22,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.3,
     shadowRadius: 40,
@@ -75,18 +95,15 @@ const styles = StyleSheet.create({
     zIndex: 300,
   },
   msg: {
-    color: '#fff',
     fontSize: 13,
     fontFamily: 'Outfit-SemiBold',
   },
   undoBtn: {
-    backgroundColor: '#c8860a',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   undoText: {
-    color: '#fff',
     fontSize: 12,
     fontFamily: 'Outfit-Bold',
   },

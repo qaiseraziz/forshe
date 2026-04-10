@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import { parseDMY } from '../utils/dates';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 export default function MonthlyReportScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { history, budget } = useData();
 
@@ -66,14 +66,14 @@ export default function MonthlyReportScreen() {
 
   const budgetPct = budget > 0 ? Math.min(Math.round((data.totalExp / budget) * 100), 100) : 0;
 
-  const prevMonth = () => {
+  const prevMonth = useCallback(() => {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
     else setMonth(m => m - 1);
-  };
-  const nextMonth = () => {
+  }, [month]);
+  const nextMonth = useCallback(() => {
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
-  };
+  }, [month]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -100,7 +100,7 @@ export default function MonthlyReportScreen() {
         </View>
 
         {/* Overview Hero */}
-        <Card gradient={gradients.goldHero}>
+        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
           <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Overview</Text>
           <View style={styles.overviewGrid}>
             <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>

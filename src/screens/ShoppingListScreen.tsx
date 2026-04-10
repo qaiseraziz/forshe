@@ -20,18 +20,12 @@ import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
-
-interface ShoppingItem {
-  id: number;
-  name: string;
-  qty: string;
-  done: boolean;
-}
+import { ShoppingItem } from '../types';
 
 const QUICK_ADD = ['Milk', 'Bread', 'Eggs', 'Rice', 'Oil', 'Sugar', 'Atta', 'Chicken', 'Onions', 'Tomatoes'];
 
 export default function ShoppingListScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { shopping, setShopping } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
@@ -135,8 +129,10 @@ export default function ShoppingListScreen() {
     }
   }, [shopping, sorted, totalCount, doneCount, showToast]);
 
+  const keyExtractor = useCallback((item: ShoppingItem) => String(item.id), []);
+
   // Render shopping item
-  const renderItem = ({ item }: { item: ShoppingItem }) => (
+  const renderItem = useCallback(({ item }: { item: ShoppingItem }) => (
     <Card>
       <View style={styles.itemRow}>
         <TouchableOpacity
@@ -190,13 +186,13 @@ export default function ShoppingListScreen() {
         </TouchableOpacity>
       </View>
     </Card>
-  );
+  ), [colors, toggleItem, deleteItem]);
 
-  // List header
-  const ListHeader = () => (
+  // List header (memoized JSX element to avoid FlatList remounting on every render)
+  const listHeader = useMemo(() => (
     <View>
       {/* Hero card */}
-      <Card gradient={gradients.greenHero} style={{ backgroundColor: colors.greenBg, borderColor: colors.greenBorder }}>
+      <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero} style={{ backgroundColor: colors.greenBg, borderColor: colors.greenBorder }}>
         <Text style={[styles.heroLabel, { color: colors.green }]}>🛒 SHOPPING LIST</Text>
         <Text style={[styles.heroNum, { color: colors.green }]}>{totalCount}</Text>
         <Text style={[styles.heroNote, { color: colors.sub }]}>
@@ -284,7 +280,7 @@ export default function ShoppingListScreen() {
         <EmptyState icon="🛒" text="Your shopping list is empty. Add some items above!" />
       )}
     </View>
-  );
+  ), [colors, totalCount, doneCount, pendingCount, shareList, clearDone, nameInput, qtyInput, addItem, sorted.length]);
 
   return (
     <LinearGradient
@@ -302,12 +298,17 @@ export default function ShoppingListScreen() {
 
       <FlatList
         data={sorted}
-        keyExtractor={item => String(item.id)}
+        keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={10}
+        initialNumToRender={15}
+        removeClippedSubviews
       />
 
       <Toast toast={toast} dismiss={dismissToast} />

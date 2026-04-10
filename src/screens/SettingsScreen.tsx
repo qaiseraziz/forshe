@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Linking, Switch, Alert, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { Input } from '../components/ui/Input';
 import { Divider } from '../components/ui/Divider';
 import { Picker } from '@react-native-picker/picker';
 import { useStorage } from '../hooks/useStorage';
+import { useSecureStorage } from '../hooks/useSecureStorage';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { CAT_KEYS } from '../constants/data';
 import { pkrF } from '../utils/currency';
@@ -18,14 +19,25 @@ import { RecurringExpense } from '../types';
 export default function SettingsScreen() {
   const { colors, dark, setDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { recurring, setRecurring, history, setHistory } = useData();
-  const [pin, setPin] = useStorage<string>('forshe_pin', '');
+  const { recurring, setRecurring } = useData();
+  const [pin, setPin] = useSecureStorage('forshe_pin', '');
   const [pinInput, setPinInput] = useState('');
   const [showPinInput, setShowPinInput] = useState(false);
   const [recLabel, setRecLabel] = useState('');
   const [recAmt, setRecAmt] = useState('');
   const [recCat, setRecCat] = useState(CAT_KEYS[0]);
   const [recDay, setRecDay] = useState('1');
+
+  const addRecurring = useCallback(() => {
+    const amt = parseFloat(recAmt);
+    const day = parseInt(recDay);
+    if (!recLabel.trim() || !amt || day < 1 || day > 28) {
+      Alert.alert('Invalid', 'Fill all fields. Day must be 1-28.');
+      return;
+    }
+    setRecurring(r => [...r, { id: Date.now(), label: recLabel.trim(), amount: amt, cat: recCat, dayOfMonth: day, enabled: true }]);
+    setRecLabel(''); setRecAmt(''); setRecDay('1');
+  }, [recLabel, recAmt, recDay, recCat, setRecurring]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -86,7 +98,7 @@ export default function SettingsScreen() {
             />
           </View>
           {showPinInput && !pin && (
-            <View style={{ marginTop: 12 }}>
+            <View style={styles.pinInputWrap}>
               <Input
                 label="Set 4-digit PIN"
                 placeholder="Enter 4 digits"
@@ -125,29 +137,20 @@ export default function SettingsScreen() {
 
           {/* Add form */}
           <Input placeholder="e.g. Rent, Electricity..." value={recLabel} onChangeText={setRecLabel} style={{ marginBottom: 8 }} />
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-            <View style={{ flex: 1 }}>
+          <View style={styles.recRow}>
+            <View style={styles.recFlex}>
               <Input placeholder="Amount (PKR)" keyboardType="numeric" value={recAmt} onChangeText={setRecAmt} />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.recFlex}>
               <Input placeholder="Day (1-28)" keyboardType="numeric" value={recDay} onChangeText={(t: string) => setRecDay(t.replace(/[^0-9]/g, '').slice(0, 2))} />
             </View>
           </View>
-          <View style={[{ borderRadius: 16, overflow: 'hidden', marginBottom: 8, backgroundColor: colors.bg3 }]}>
+          <View style={[styles.recPickerWrap, { backgroundColor: colors.bg3 }]}>
             <Picker selectedValue={recCat} onValueChange={setRecCat} style={{ color: colors.text }} dropdownIconColor={colors.muted}>
               {CAT_KEYS.map(c => <Picker.Item key={c} value={c} label={c} />)}
             </Picker>
           </View>
-          <Button title="+ Add Recurring" variant="gold" small onPress={() => {
-            const amt = parseFloat(recAmt);
-            const day = parseInt(recDay);
-            if (!recLabel.trim() || !amt || day < 1 || day > 28) {
-              Alert.alert('Invalid', 'Fill all fields. Day must be 1-28.');
-              return;
-            }
-            setRecurring(r => [...r, { id: Date.now(), label: recLabel.trim(), amount: amt, cat: recCat, dayOfMonth: day, enabled: true }]);
-            setRecLabel(''); setRecAmt(''); setRecDay('1');
-          }} style={{ alignSelf: 'flex-start', marginBottom: 12 }} />
+          <Button title="+ Add Recurring" variant="gold" small onPress={addRecurring} style={styles.addRecurringBtn} />
 
           {/* List */}
           {recurring.map(r => (
@@ -230,4 +233,9 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: 'Outfit-Regular', lineHeight: 22, textAlign: 'center',
   },
   bottomPad: { height: 40 },
+  pinInputWrap: { marginTop: 12 },
+  recRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  recFlex: { flex: 1 },
+  recPickerWrap: { borderRadius: 16, overflow: 'hidden', marginBottom: 8 },
+  addRecurringBtn: { alignSelf: 'flex-start', marginBottom: 12 },
 });

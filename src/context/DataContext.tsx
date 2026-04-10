@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useStorage } from '../hooks/useStorage';
 import { STORAGE_KEYS } from '../constants/data';
 import { SEED_HISTORY, SEED_COOKING, SEED_MAID } from '../constants/seedData';
@@ -45,8 +45,51 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [recurring, setRecurring, l8] = useStorage<RecurringExpense[]>(STORAGE_KEYS.recurring, []);
   const [shopping, setShopping, l9] = useStorage<ShoppingItem[]>(STORAGE_KEYS.shopping, []);
   const [maidSalary, setMaidSalary, l10] = useStorage<MaidSalary[]>(STORAGE_KEYS.maidSalary, []);
-
   const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10;
+
+  // Auto-trigger recurring expenses on app open
+  const recurringProcessed = useRef(false);
+  useEffect(() => {
+    if (!allLoaded || recurringProcessed.current) return;
+
+    const now = new Date();
+    const todayDay = now.getDate();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const todayStr = `${String(todayDay).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+    const enabledRecurring = recurring.filter(r => r.enabled && todayDay >= r.dayOfMonth);
+    if (enabledRecurring.length === 0) return;
+
+    // Check which recurring expenses haven't been added this month yet
+    const newTransactions: Transaction[] = [];
+    for (const re of enabledRecurring) {
+      const alreadyAdded = history.some(t => {
+        if (t.label !== re.label || t.amount !== re.amount) return false;
+        // Parse DD/MM/YYYY and check if same month/year
+        const parts = t.date.split('/');
+        if (parts.length !== 3) return false;
+        const tMonth = `${parts[2]}-${parts[1]}`;
+        return tMonth === currentMonth;
+      });
+
+      if (!alreadyAdded) {
+        newTransactions.push({
+          id: Date.now() + Math.random(),
+          type: 'expense',
+          label: re.label,
+          amount: re.amount,
+          cat: re.cat,
+          date: todayStr,
+        });
+      }
+    }
+
+    if (newTransactions.length > 0) {
+      setHistory(prev => [...newTransactions, ...prev]);
+    }
+
+    recurringProcessed.current = true;
+  }, [allLoaded, recurring, history, setHistory]);
 
   const handleImport = useCallback((data: BackupData) => {
     if (data.history) setHistory(data.history);
@@ -61,21 +104,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.maidSalary) setMaidSalary(data.maidSalary);
   }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setMaidSalary]);
 
+  const value = useMemo(() => ({
+    history, setHistory,
+    cooking, setCooking,
+    maidData, setMaidData,
+    attendance, setAttendance,
+    reminders, setReminders,
+    periods, setPeriods,
+    budget, setBudget,
+    recurring, setRecurring,
+    shopping, setShopping,
+    maidSalary, setMaidSalary,
+    allLoaded,
+    handleImport,
+  }), [
+    history, setHistory, cooking, setCooking, maidData, setMaidData,
+    attendance, setAttendance, reminders, setReminders, periods, setPeriods,
+    budget, setBudget, recurring, setRecurring, shopping, setShopping,
+    maidSalary, setMaidSalary, allLoaded, handleImport,
+  ]);
+
   return (
-    <DataContext.Provider value={{
-      history, setHistory,
-      cooking, setCooking,
-      maidData, setMaidData,
-      attendance, setAttendance,
-      reminders, setReminders,
-      periods, setPeriods,
-      budget, setBudget,
-      recurring, setRecurring,
-      shopping, setShopping,
-      maidSalary, setMaidSalary,
-      allLoaded,
-      handleImport,
-    }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );

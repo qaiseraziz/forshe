@@ -10,6 +10,7 @@ export function useStorage<T>(key: string, defaultValue: T): [T, (v: T | ((prev:
       if (raw !== null) {
         try { setValue(JSON.parse(raw)); } catch {}
       }
+    }).catch(() => {}).finally(() => {
       setLoaded(true);
     });
   }, [key]);

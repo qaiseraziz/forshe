@@ -7,100 +7,151 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 - **Framework**: Expo SDK 55 (React Native 0.83)
 - **Language**: TypeScript
 - **Navigation**: Hybrid — @react-navigation/drawer + @react-navigation/bottom-tabs (4 tabs + drawer)
-- **State**: React Context (DataContext) + @react-native-async-storage via useStorage hook
+- **State**: React Context (DataContext + ThemeContext) + @react-native-async-storage via useStorage hook
 - **Styling**: StyleSheet + expo-linear-gradient for gradient backgrounds
-- **Fonts**: @expo-google-fonts — PlayfairDisplay-Bold, Outfit-Regular/SemiBold/Bold
-- **Notifications**: expo-notifications (local reminders)
-- **File I/O**: expo-file-system, expo-document-picker, expo-sharing, expo-clipboard
-- **Security**: expo-secure-store (PIN storage), expo-local-authentication
-- **Media**: expo-image-picker (receipt photos)
+- **Fonts**: @expo-google-fonts — PlayfairDisplay-Bold/ExtraBold, Outfit-Regular/SemiBold/Bold
+- **Notifications**: expo-notifications (local reminders + budget alerts, typed triggers + cancellation)
+- **File I/O**: expo-document-picker, expo-clipboard
+- **Security**: expo-secure-store (PIN via useSecureStorage hook)
+- **Media**: expo-image-picker (receipt photos — attached and displayed as thumbnails)
 - **Haptics**: expo-haptics for tactile feedback
 - **Date picker**: @react-native-community/datetimepicker
+- **Category picker**: @react-native-picker/picker
 - **Build**: EAS Build (project ID: 51ca4967-73b1-4656-9b1b-045e2933a842, owner: smartbzss)
+- **Babel**: babel.config.js with babel-preset-expo + react-native-reanimated/plugin
 
 ## Project Structure
 ```
 src/
   components/
-    ui/                  # Card, Button, Input, Badge, Toast, Divider, EmptyState, Pill, ProgressBar
-    DayStrip.tsx         # Day selector strip
-    MonthBar.tsx         # Month filter bar
-    DrawerMenuButton.tsx # Hamburger menu button (opens drawer)
+    ui/                  # Card, Button, Input, Badge, Toast, Divider, EmptyState, Pill, ProgressBar (all React.memo)
+    DayStrip.tsx         # Day selector strip (React.memo)
+    MonthBar.tsx         # Month filter bar (React.memo, static FILTERS array)
+    DrawerMenuButton.tsx # Hamburger menu button (React.memo, useCallback)
   constants/
-    colors.ts    # Theme colors + gradients (light/dark)
-    data.ts      # DAYS, MONTHS constants
+    colors.ts    # Theme colors + gradients (light/dark hero variants)
+    data.ts      # DAYS, MONTHS, EXPENSE_PRESETS, SHOPPING_CATS, CAT_KEYS, STORAGE_KEYS
     seedData.ts  # Default seed data from user's real data
   context/
-    DataContext.tsx  # Central data provider (history, cooking, maid, etc.)
-    ThemeContext.tsx # Light/dark theme
+    DataContext.tsx  # Central data provider (history, cooking, maid, recurring, shopping, maidSalary, recurring auto-trigger)
+    ThemeContext.tsx # Light/dark theme (useMemo on context value)
   navigation/
-    BottomTabs.tsx  # 4-tab floating pill bar (Today, Expenses, Cooking, Remind)
+    BottomTabs.tsx  # 4-tab floating pill bar (React.memo, theme-aware colors)
     DrawerNav.tsx   # Drawer wrapping BottomTabs + extra screens
   screens/
-    SplashScreen.tsx       # Animated splash with logo + slogan
-    OnboardingScreen.tsx   # 5-slide first-launch walkthrough
-    AppLockScreen.tsx      # 4-digit PIN lock screen
-    TodayScreen.tsx        # Dashboard/home
-    ExpensesScreen.tsx     # Finance tracking (topups + expenses + search)
-    CookingScreen.tsx      # Meal planning
-    MaidScreen.tsx         # Maid task & attendance
-    RemindersScreen.tsx    # Reminders with notifications
-    CycleScreen.tsx        # Period/cycle tracker
-    MonthlyReportScreen.tsx  # Monthly spending report with charts
-    ShoppingListScreen.tsx   # Grocery/shopping checklist with sharing
-    BackupScreen.tsx         # Import/export data
+    SplashScreen.tsx       # Full-screen branded splash (theme-aware)
+    OnboardingScreen.tsx   # 5-slide first-launch walkthrough (theme-aware)
+    AppLockScreen.tsx      # 4-digit PIN lock (theme-aware, brute-force protection, functional updater for failCount)
+    TodayScreen.tsx        # Dashboard/home (Quick Add with category picker)
+    ExpensesScreen.tsx     # Finance tracking (edit Modal, receipt thumbnails, memoized ListHeader)
+    CookingScreen.tsx      # Meal planning (safe area on all views)
+    MaidScreen.tsx         # Maid task & attendance (salary validation)
+    RemindersScreen.tsx    # Reminders with typed triggers + notification cancellation on delete/done
+    CycleScreen.tsx        # Period/cycle tracker (all handlers useCallback)
+    MonthlyReportScreen.tsx  # Monthly spending report with charts (handlers useCallback)
+    ShoppingListScreen.tsx   # Grocery/shopping checklist (memoized ListHeader, imports ShoppingItem from types)
+    BackupScreen.tsx         # Import/export data (schema validation, CSV escaping, handlers useCallback, summaryItems useMemo)
     SettingsScreen.tsx       # Dark mode, PIN lock, recurring expenses, about
   hooks/
-    useStorage.ts   # AsyncStorage hook with default values
+    useStorage.ts        # AsyncStorage hook with error handling (.catch/.finally) + JSON serialization
+    useSecureStorage.ts  # SecureStore hook for sensitive data (PIN)
   utils/
-    backup.ts        # JSON/CSV export & import
-    budgetAlerts.ts  # Push notifications at 80%/100% budget
-    currency.ts      # PKR formatter
-    dates.ts         # Date formatting utilities
+    backup.ts        # JSON/CSV export & import with validateBackupData(), csvEscape(), safeParse()
+    budgetAlerts.ts  # Push notifications at 80%/100% budget (deduplicated per month via AsyncStorage)
+    currency.ts      # PKR formatter (pkrF)
+    dates.ts         # Date formatting utilities (locale-independent DD/MM/YYYY)
     share.ts         # Share functionality
-  types.ts       # TypeScript type definitions
+  types.ts       # TypeScript type definitions (Transaction, RecurringExpense, Reminder with notifIds, PeriodLog, ShoppingItem, etc.)
 assets/
-  logo.png       # App logo (woman + heart + home icons)
+  logo.png       # App logo (512x512, 393KB)
+  splash.png     # Full-screen branded splash image (1024w, 3.2MB)
+  icon.png       # App icon (512x512, 393KB)
+  favicon.png    # Web favicon (48x48, 4KB)
+  android-icon-foreground.png  # Android adaptive icon (432x432, 278KB)
 ```
 
 ## Navigation Architecture
 - **Drawer** (top level): Home, Shopping List, Maid Tasks, Cycle Tracker, Monthly Report, Backup, Settings
 - **Bottom Tabs** (inside Home): Today, Expenses, Cooking, Reminders
-- **Hamburger button**: DrawerMenuButton component on every screen opens the drawer
+- **Hamburger button**: DrawerMenuButton (React.memo) on every screen opens the drawer
 - **App flow**: Splash → Onboarding (first time) → PIN Lock (if set) → Main App
 
 ## Design System
 - **Premium/luxury aesthetic**: No visible borders, soft shadows, gradient surfaces
 - **Gradient backgrounds**: Every screen wrapped in LinearGradient
+- **Hero cards**: Use dark gradient variants in dark mode (gradients.goldHeroDark, greenHeroDark, etc.)
 - **Cards**: borderRadius 24, no borders, elevated shadows
 - **Buttons**: Gradient backgrounds (gold/green/blue/red/pink variants)
-- **Tab bar**: Floating pill style, frosted glass bg, rounded corners, 4 tabs only
+- **Tab bar**: Floating pill style, frosted glass bg, rounded corners, 4 tabs only, theme-aware colors
 - **Drawer**: Custom drawer with logo, slogan, active indicator
 - **Typography**: Large hero numbers (42px), titles (28-30px), Outfit font family
-- **Safe areas**: All screens use useSafeAreaInsets for status bar + nav buttons
+- **Safe areas**: All screens + all views use useSafeAreaInsets for status bar + nav buttons
+- **Dark mode**: Full dark theme — all screens, components, splash, onboarding use theme colors
+- **Toast**: Theme-aware colors via useTheme, timer cleanup on unmount
 - **Currency**: Pakistani Rupees (Rs)
 - **Logo**: assets/logo.png used in splash, drawer header, app lock
 
 ## Features
-1. **Expense Tracking**: Unified toggle form (received/spent), categories, search, monthly budget
-2. **Quick Add Expense**: FAB on Today screen for instant expense logging
+1. **Expense Tracking**: Unified toggle form (received/spent), categories, search, monthly budget, NaN/negative validation
+2. **Quick Add Expense**: FAB on Today screen with category picker for instant expense logging
 3. **Preset Templates**: One-tap expense presets (Milk, Bread, Bills, etc.)
-4. **Receipt Photos**: Attach photos to expenses via expo-image-picker
-5. **Recurring Expenses**: Auto-add rent, utilities on a set day each month (Settings)
-6. **Budget Alerts**: Push notifications at 80% and 100% of monthly budget
+4. **Receipt Photos**: Attach photos to expenses — displayed as thumbnails in transaction list
+5. **Recurring Expenses**: Auto-add on app open if today >= dayOfMonth and not yet added this month
+6. **Budget Alerts**: Push notifications at 80%/100% — deduplicated per month via AsyncStorage keys
 7. **Shopping List**: Checkable grocery list with presets, sharing, clear-done
 8. **Cooking Planner**: Weekly meal planning by day and meal type
-9. **Maid Management**: Daily task lists, attendance tracking, salary tracker
-10. **Reminders**: Push notifications at 24h and 12h before due
+9. **Maid Management**: Daily task lists, attendance tracking, salary tracker (validates salary > 0)
+10. **Reminders**: Push notifications with typed triggers (SchedulableTriggerInputTypes.DATE), cancelled on delete/done
 11. **Cycle Tracker**: Period logging with symptoms and flow
 12. **Monthly Reports**: Category breakdown, daily spending chart, top expenses
 13. **Expense Insights**: Month-over-month comparison, top category, avg daily spend
 14. **Weekly Trend**: 7-day spending bar chart on Today dashboard
-15. **Backup/Restore**: JSON export/import, CSV export (includes all new data)
+15. **Backup/Restore**: JSON export/import with schema validation, CSV export with proper escaping, legacy format safety
 16. **Settings**: Dark mode toggle, PIN lock, recurring expenses, about info
-17. **Onboarding**: 5-slide walkthrough on first launch
-18. **App Lock**: 4-digit PIN protection
-19. **Splash Screen**: Animated logo with slogan "Your home, your way"
+17. **Onboarding**: 5-slide walkthrough (theme-aware dark mode)
+18. **App Lock**: 4-digit PIN with brute-force protection (5 attempts → 30s lockout, functional updater pattern)
+19. **Splash Screen**: Full-screen branded image — theme-aware background
+
+## Performance Optimizations
+- **DataContext**: `useMemo` wraps context value to prevent cascade re-renders
+- **ThemeContext**: `useMemo` wraps context value (same pattern)
+- **FlatList**: `maxToRenderPerBatch`, `windowSize`, `removeClippedSubviews`, `initialNumToRender` on ExpensesScreen & ShoppingListScreen
+- **renderItem**: Wrapped in `useCallback` with minimal deps in all FlatList screens
+- **ExpensesScreen**: Edit form in Modal, ListHeader memoized with `useMemo`, receipt thumbnail in renderItem
+- **ShoppingListScreen**: ListHeader memoized with `useMemo`
+- **React.memo**: ALL components — Card, Button, Pill, DayStrip, MonthBar, DrawerMenuButton, CustomTabBar, Badge, Divider, EmptyState, Input, ProgressBar
+- **useMemo**: statBoxes (TodayScreen), monthly stats (MaidScreen), presets (MaidScreen), monthViewData (CookingScreen), consolidated cycle calculations (CycleScreen), greeting/fullDate (TodayScreen), summaryItems (BackupScreen)
+- **useCallback**: ALL event handlers across ALL screens — quickAddExpense, addExpense, addTopup, saveMeal, clearMeal, toggle, del, addPreset, markAtt, saveSalary, prevMonth, nextMonth, toggleSym, onStartChange, onEndChange, handleExportJSON, handleExportCSV, handleImportJSON, addRecurring, openDrawer, etc.
+- **Static constants**: Filter arrays extracted outside components (MonthBar FILTERS, ShoppingListScreen QUICK_ADD, BottomTabs TABS, DrawerNav DRAWER_ITEMS, OnboardingScreen SLIDES)
+- **Inline styles**: Extracted to StyleSheet; dynamic colors via inline styles referencing theme
+- **Image optimization**: All icons/assets compressed — logo 393KB, splash 3.2MB, icon 393KB, favicon 4KB
+- **Haptic debounce**: Button presses debounced via useRef
+- **Toast cleanup**: Timer cleared on unmount to prevent state-after-unmount
+
+## Security
+- **PIN storage**: Uses `expo-secure-store` via `useSecureStorage` hook (not AsyncStorage)
+- **Brute-force protection**: AppLockScreen locks out for 30s after 5 failed PIN attempts (functional updater avoids stale closure)
+- **Backup validation**: `validateBackupData()` checks schema before import (types, required fields, array shapes)
+- **CSV escaping**: `csvEscape()` handles commas, quotes, newlines in export
+- **Legacy backup safety**: `safeParse()` wraps JSON.parse in try/catch for legacy formats
+- **Input validation**: parseFloat results checked for NaN and <= 0 before storing (expenses, topups, quick add, salary)
+- **Notification cancellation**: Reminder notifIds stored and cancelled on delete/done
+- **Error recovery**: useStorage hook has .catch/.finally so AsyncStorage failures don't block app
+
+## Recurring Expenses (Auto-trigger)
+- Logic in DataContext useEffect runs once per app session when `allLoaded` is true
+- Triggers if today >= `dayOfMonth` (catches up if app wasn't opened on exact day)
+- Deduplicates by checking existing history for same label+amount in current month
+- No separate tracking state — dedup relies entirely on history scan
+
+## Build Config
+- **babel.config.js**: babel-preset-expo + react-native-reanimated/plugin
+- **babel-preset-expo**: Must be in `dependencies` (not devDependencies) — version ~55.0.8 for SDK 55
+- **react-native-worklets**: Required peer dependency of react-native-reanimated (v0.7.2)
+- **iOS**: bundleIdentifier = com.forshe.app
+- **Android**: package = com.forshe.app
+- **Dead deps removed**: expo-local-authentication, expo-file-system, expo-sharing, expo-status-bar
+- **Latest successful APK build**: 92191648-529d-40c0-9be5-2b0d49743154 (2026-03-22)
 
 ## Build Commands
 ```bash
@@ -109,19 +160,68 @@ npx expo start
 
 # Type check
 npx tsc --noEmit
+# or
+npm run typecheck
 
-# Build APK (preview)
+# Android APK (preview / testing)
 eas build --profile preview --platform android --non-interactive
 
-# Build production AAB
+# Android AAB (Play Store)
 eas build --profile production --platform android
+
+# iOS preview (requires Apple Developer account — $99/year)
+eas build --profile preview --platform ios --non-interactive
+
+# iOS production (App Store / TestFlight)
+eas build --profile production --platform ios
 ```
+
+## Cross-Platform Status
+ForSHE is already cross-platform — React Native Expo runs natively on **both Android and iOS from the same codebase**. No rewrite needed.
+
+- **Android**: Actively built and tested (latest APK: 92191648-529d-40c0-9be5-2b0d49743154)
+- **iOS**: Config ready (`ios.bundleIdentifier = com.forshe.app`) but never built yet
+
+**To ship iOS (when ready):**
+1. Get an Apple Developer account ($99/year — mandatory for TestFlight + App Store)
+2. Run `eas build --profile preview --platform ios --non-interactive`
+3. Install on a test iPhone via TestFlight link
+4. Visual pass on each screen (iOS safe areas, gestures, haptics feel slightly different)
+5. Submit to App Store via `eas submit` or App Store Connect
+
+**Do NOT switch tech stacks.** Flutter/Native/Ionic rewrites would cost weeks for zero user-visible gain. React Native Expo is the right choice and is already cross-platform.
+
+## Agents (in `.claude/agents/`)
+- **project-manager** — orchestrator, reads project state and delegates to specialists
+- **ui-designer** — reads screens and redesigns them using the luxury design system
+- **qa-expert** — TypeScript + ForSHE-specific code audits (PIN/SecureStore, NaN guards, notification cleanup, stale closures, dark mode coverage)
+- **rn-performance-expert** — React.memo/useCallback/useMemo audit, FlatList tuning, asset sizes, startup cost (mobile-specific, NOT Lighthouse)
+- **eas-release-expert** — EAS Build config, babel/worklets pitfalls, app.json/eas.json verification, build log diagnosis
+- **git-release-manager** — commits, tags, CHANGELOG, version bumps, coordinates git push ↔ EAS Build ↔ Play Store
 
 ## Workflow Rules
 - Update CLAUDE.md after every significant change
 - Update agent files when relevant
 - Route to ui-designer agent for visual/design changes
+- Route to rn-performance-expert for performance concerns
+- Route to qa-expert before any EAS build
+- Route to eas-release-expert for build failures or release prep
 - All screens must use LinearGradient wrapper and safe area insets
 - All screens must include DrawerMenuButton for hamburger access
 - No visible borders — use shadows and filled backgrounds
+- All colors must come from useTheme() — no hardcoded color values (exception: #fff on gradient surfaces)
+- Hero cards must use dark gradient variants in dark mode
+- All UI components must be wrapped in React.memo
+- All event handlers must be wrapped in useCallback
+- FlatList ListHeader must be memoized with useMemo (not inline function)
+- Toast component uses theme colors + timer cleanup on unmount
+- PIN must use useSecureStorage, never useStorage/AsyncStorage
+- Backup imports must pass validateBackupData() before applying
+- Notification triggers must use typed SchedulableTriggerInputTypes (no `as any`)
+- Budget alerts deduplicated per month via AsyncStorage keys
+- Date formatting must be locale-independent (no toLocaleDateString)
+- Salary validation must check > 0 before saving
+- useEffect with state in closures must use functional updaters to avoid stale values
+- `babel-preset-expo` must be in dependencies (not devDependencies) for EAS builds
+- `react-native-worklets` is a required peer dep of react-native-reanimated — do not remove
 - Test with `npx tsc --noEmit` before building APK

@@ -6,7 +6,7 @@ interface Props extends TextInputProps {
   label?: string;
 }
 
-export function Input({ label, style, ...props }: Props) {
+export const Input = React.memo(function Input({ label, style, ...props }: Props) {
   const { colors } = useTheme();
   return (
     <View>
@@ -26,7 +26,7 @@ export function Input({ label, style, ...props }: Props) {
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   label: {

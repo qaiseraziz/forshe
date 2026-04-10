@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,18 +18,19 @@ const TABS = [
   { name: 'Remind', icon: '🔔', component: RemindersScreen },
 ];
 
-function CustomTabBar({ state, descriptors, navigation }: any) {
+const CustomTabBar = React.memo(function CustomTabBar({ state, descriptors, navigation }: any) {
   const { colors } = useTheme();
   const { reminders } = useData();
   const insets = useSafeAreaInsets();
-  const activeReminders = reminders.filter(r => {
+  const activeReminders = useMemo(() => reminders.filter((r: any) => {
     const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59'));
     return t >= new Date() && !r.isDone;
-  }).length;
+  }).length, [reminders]);
 
   return (
     <View style={[styles.tabBar, {
       backgroundColor: colors.tabBarBg,
+      borderColor: colors.border,
       paddingBottom: Math.max(insets.bottom, 12),
       marginBottom: insets.bottom,
     }]}>
@@ -55,7 +56,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               {tab.name}
             </Text>
             {tab.name === 'Remind' && activeReminders > 0 && (
-              <View style={[styles.badge, { backgroundColor: colors.red }]}>
+              <View style={[styles.badge, { backgroundColor: colors.red, borderColor: colors.tabBarBg }]}>
                 <Text style={styles.badgeText}>{activeReminders}</Text>
               </View>
             )}
@@ -64,7 +65,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       })}
     </View>
   );
-}
+});
 
 export function BottomTabs() {
   return (
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: 0,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: undefined,
     paddingTop: 8,
     paddingHorizontal: 4,
     gap: 2,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: undefined,
   },
   badgeText: {
     color: '#fff',

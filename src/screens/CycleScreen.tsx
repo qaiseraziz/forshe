@@ -37,64 +37,52 @@ export default function CycleScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  const toggleSym = (sym: string) =>
-    setSymptoms(s => (s.includes(sym) ? s.filter(x => x !== sym) : [...s, sym]));
-
-  // Calculations
-  const sorted = useMemo(
-    () => [...periods].sort((a, b) => a.start.localeCompare(b.start)),
-    [periods],
+  const toggleSym = useCallback(
+    (sym: string) =>
+      setSymptoms(s => (s.includes(sym) ? s.filter(x => x !== sym) : [...s, sym])),
+    [],
   );
 
-  const durations = useMemo(
-    () => sorted.filter(p => p.end).map(p => daysBetween(p.start, p.end) + 1),
-    [sorted],
-  );
+  // Consolidated cycle calculations
+  const { sorted, avgCycle, avgDur, predictions } = useMemo(() => {
+    const sorted = [...periods].sort((a, b) => a.start.localeCompare(b.start));
 
-  const cycles = useMemo(() => {
-    const c: number[] = [];
+    const durations = sorted.filter(p => p.end).map(p => daysBetween(p.start, p.end) + 1);
+
+    const cycles: number[] = [];
     for (let i = 1; i < sorted.length; i++) {
-      c.push(daysBetween(sorted[i - 1].start, sorted[i].start));
+      cycles.push(daysBetween(sorted[i - 1].start, sorted[i].start));
     }
-    return c;
-  }, [sorted]);
 
-  const avgCycle = cycles.length
-    ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length)
-    : null;
-  const avgDur = durations.length
-    ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-    : null;
+    const avgCycle = cycles.length
+      ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length)
+      : null;
+    const avgDur = durations.length
+      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+      : null;
 
-  const predictions = useMemo(() => {
-    if (sorted.length < 2 || !avgCycle) return null;
-    const last = sorted[sorted.length - 1];
-    const nextStart = addDays(last.start, avgCycle);
-    const ovulation = addDays(nextStart, -14);
-    const fertileStart = addDays(ovulation, -2);
-    const fertileEnd = addDays(ovulation, 2);
-    const pmsStart = addDays(nextStart, -5);
+    let predictions = null;
+    if (sorted.length >= 2 && avgCycle) {
+      const last = sorted[sorted.length - 1];
+      const nextStart = addDays(last.start, avgCycle);
+      const ovulation = addDays(nextStart, -14);
+      const fertileStart = addDays(ovulation, -2);
+      const fertileEnd = addDays(ovulation, 2);
+      const pmsStart = addDays(nextStart, -5);
 
-    const now = new Date();
-    const lastDate = new Date(last.start);
-    const dayInCycle = Math.round((now.getTime() - lastDate.getTime()) / 86400000);
-    const cyclePct = Math.min(Math.round((dayInCycle / avgCycle) * 100), 100);
+      const now = new Date();
+      const lastDate = new Date(last.start);
+      const dayInCycle = Math.round((now.getTime() - lastDate.getTime()) / 86400000);
+      const cyclePct = Math.min(Math.round((dayInCycle / avgCycle) * 100), 100);
+      const daysUntilNext = Math.round(
+        (new Date(nextStart).getTime() - now.getTime()) / 86400000,
+      );
 
-    const daysUntilNext = Math.round(
-      (new Date(nextStart).getTime() - now.getTime()) / 86400000,
-    );
+      predictions = { nextStart, ovulation, fertileStart, fertileEnd, pmsStart, dayInCycle, cyclePct, daysUntilNext };
+    }
 
-    return {
-      nextStart,
-      ovulation,
-      fertileStart,
-      fertileEnd,
-      pmsStart,
-      dayInCycle,
-      cyclePct,
-      daysUntilNext,
-    };
-  }, [sorted, avgCycle]);
+    return { sorted, avgCycle, avgDur, predictions };
+  }, [periods]);
 
   const addLog = useCallback(() => {
     const start = dateToISO(startDate);
@@ -141,15 +129,15 @@ export default function CycleScreen() {
     [setPeriods],
   );
 
-  const onStartChange = (_: DateTimePickerEvent, selected?: Date) => {
+  const onStartChange = useCallback((_: DateTimePickerEvent, selected?: Date) => {
     setShowStartPicker(Platform.OS === 'ios');
     if (selected) setStartDate(selected);
-  };
+  }, []);
 
-  const onEndChange = (_: DateTimePickerEvent, selected?: Date) => {
+  const onEndChange = useCallback((_: DateTimePickerEvent, selected?: Date) => {
     setShowEndPicker(Platform.OS === 'ios');
     if (selected) setEndDate(selected);
-  };
+  }, []);
 
   // descending for display
   const displayPeriods = useMemo(

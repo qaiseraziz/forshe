@@ -14,7 +14,7 @@ interface Props {
   sublabel?: string;
 }
 
-export function Pill({ label, active, onPress, activeColor, activeBg, activeBorder, showDot, dotColor, sublabel }: Props) {
+export const Pill = React.memo(function Pill({ label, active, onPress, activeColor, activeBg, activeBorder, showDot, dotColor, sublabel }: Props) {
   const { colors } = useTheme();
   const ac = activeColor || colors.gold;
   const ab = activeBg || colors.goldBg;
@@ -37,7 +37,7 @@ export function Pill({ label, active, onPress, activeColor, activeBg, activeBord
       {showDot && <View style={[styles.dot, { backgroundColor: dotColor || colors.green, opacity: showDot ? 1 : 0 }]} />}
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   pill: {

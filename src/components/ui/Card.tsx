@@ -9,7 +9,7 @@ interface Props {
   gradient?: [string, string];
 }
 
-export function Card({ children, style, gradient }: Props) {
+export const Card = React.memo(function Card({ children, style, gradient }: Props) {
   const { colors } = useTheme();
   return (
     <View style={[styles.card, { backgroundColor: colors.bg2, borderColor: colors.border, shadowColor: colors.shadow }, style]}>
@@ -24,7 +24,7 @@ export function Card({ children, style, gradient }: Props) {
       {children}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

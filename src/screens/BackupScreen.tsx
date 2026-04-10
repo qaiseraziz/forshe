@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,31 +49,31 @@ export default function BackupScreen() {
     [history],
   );
 
-  const handleExportJSON = async () => {
+  const handleExportJSON = useCallback(async () => {
     try {
       await exportBackup({ history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, maidSalary });
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to export backup.');
     }
-  };
+  }, [history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, maidSalary]);
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = useCallback(async () => {
     try {
       await exportCSV(history);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to export CSV.');
     }
-  };
+  }, [history]);
 
-  const handleImportJSON = async () => {
+  const handleImportJSON = useCallback(async () => {
     try {
       await importBackup(handleImport);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to import backup.');
     }
-  };
+  }, [handleImport]);
 
-  const summaryItems = [
+  const summaryItems = useMemo(() => [
     { value: String(history.length), label: 'Transactions', color: colors.deep },
     { value: pkr(totalRec), label: 'Total Received', color: colors.green },
     { value: pkr(totalSpent), label: 'Total Spent', color: colors.red },
@@ -82,7 +82,7 @@ export default function BackupScreen() {
     { value: String(reminders.length), label: 'Reminders', color: colors.purple },
     { value: String(periods.length), label: 'Cycle Logs', color: colors.pink },
     { value: budget ? pkr(budget) : '—', label: 'Budget', color: colors.gold },
-  ];
+  ], [history.length, totalRec, totalSpent, mealCount, taskCount, reminders.length, periods.length, budget, colors]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>

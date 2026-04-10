@@ -8,13 +8,13 @@ interface Props {
   height?: number;
 }
 
-export function ProgressBar({ percent, fillColor, bgColor = 'rgba(0,0,0,0.06)', height = 8 }: Props) {
+export const ProgressBar = React.memo(function ProgressBar({ percent, fillColor, bgColor = 'rgba(128,128,128,0.15)', height = 8 }: Props) {
   return (
     <View style={[styles.bg, { backgroundColor: bgColor, height }]}>
       <View style={[styles.fill, { width: `${Math.min(Math.max(percent, 0), 100)}%`, backgroundColor: fillColor, height }]} />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   bg: {

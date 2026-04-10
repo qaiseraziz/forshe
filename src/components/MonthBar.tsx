@@ -16,7 +16,13 @@ interface Props {
   history?: Transaction[];
 }
 
-export function MonthBar({ filter, setFilter, selMonth, selYear, setSelMonth, setSelYear, history = [] }: Props) {
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'today', label: 'Today' },
+  { key: 'month', label: 'Monthly' },
+];
+
+export const MonthBar = React.memo(function MonthBar({ filter, setFilter, selMonth, selYear, setSelMonth, setSelYear, history = [] }: Props) {
   const { colors } = useTheme();
 
   const months = React.useMemo(() => {
@@ -30,16 +36,16 @@ export function MonthBar({ filter, setFilter, selMonth, selYear, setSelMonth, se
     return [...seen].sort((a, b) => b.localeCompare(a));
   }, [history]);
 
-  const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'today', label: 'Today' },
-    { key: 'month', label: 'Monthly' },
-  ];
+  const onPickerChange = React.useCallback((v: string) => {
+    const [y, m] = v.split('-').map(Number);
+    setSelYear(y);
+    setSelMonth(m);
+  }, [setSelYear, setSelMonth]);
 
   return (
     <View style={[styles.bar, { backgroundColor: colors.bg2, borderBottomColor: colors.border }]}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {filters.map(f => (
+        {FILTERS.map(f => (
           <TouchableOpacity
             key={f.key}
             onPress={() => setFilter(f.key)}
@@ -57,11 +63,7 @@ export function MonthBar({ filter, setFilter, selMonth, selYear, setSelMonth, se
           <View style={[styles.pickerWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
             <Picker
               selectedValue={`${selYear}-${String(selMonth).padStart(2, '0')}`}
-              onValueChange={(v: string) => {
-                const [y, m] = v.split('-').map(Number);
-                setSelYear(y);
-                setSelMonth(m);
-              }}
+              onValueChange={onPickerChange}
               style={{ color: colors.text, height: 36, flex: 1 }}
               dropdownIconColor={colors.sub}
             >
@@ -75,7 +77,7 @@ export function MonthBar({ filter, setFilter, selMonth, selYear, setSelMonth, se
       </ScrollView>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   bar: {

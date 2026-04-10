@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
-export function Divider({ label }: { label: string }) {
+export const Divider = React.memo(function Divider({ label }: { label: string }) {
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
@@ -11,7 +11,7 @@ export function Divider({ label }: { label: string }) {
       <View style={[styles.line, { backgroundColor: colors.border }]} />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14 },

@@ -18,8 +18,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useStorage('hm_dark', false);
   const colors = useMemo(() => (dark ? darkColors : lightColors), [dark]);
 
+  const value = useMemo<ThemeCtx>(
+    () => ({ dark, setDark, colors }),
+    [dark, setDark, colors],
+  );
+
   return (
-    <ThemeContext.Provider value={{ dark, setDark, colors }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

@@ -26,10 +26,11 @@ import { fmtISO, todayISO, dateToISO } from '../utils/dates';
 import { Reminder } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
-async function scheduleNotifications(rem: Reminder) {
+async function scheduleNotifications(rem: Reminder): Promise<string[]> {
+  const ids: string[] = [];
   try {
     const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return;
+    if (status !== 'granted') return ids;
 
     const target = new Date(rem.date + (rem.time ? 'T' + rem.time : 'T23:59'));
     const now = Date.now();
@@ -37,29 +38,32 @@ async function scheduleNotifications(rem: Reminder) {
     // 24h before
     const t24h = target.getTime() - 24 * 3600 * 1000;
     if (t24h > now) {
-      await Notifications.scheduleNotificationAsync({
+      const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '🔔 Reminder Tomorrow',
           body: rem.title,
         },
-        trigger: { date: new Date(t24h) } as any,
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(t24h) },
       });
+      ids.push(id);
     }
 
     // 12h before
     const t12h = target.getTime() - 12 * 3600 * 1000;
     if (t12h > now) {
-      await Notifications.scheduleNotificationAsync({
+      const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '⏰ Reminder in 12 Hours',
           body: rem.title,
         },
-        trigger: { date: new Date(t12h) } as any,
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(t12h) },
       });
+      ids.push(id);
     }
   } catch {
     // silently fail
   }
+  return ids;
 }
 
 function remStatus(rem: Reminder): { label: string; cls: 'past' | 'due' | 'soon' | 'ok' } {
@@ -118,7 +122,7 @@ export default function RemindersScreen() {
     });
   }, [reminders]);
 
-  const addReminder = useCallback(() => {
+  const addReminder = useCallback(async () => {
     if (!title.trim()) {
       Alert.alert('Missing Info', 'Please enter a reminder title.');
       return;
@@ -136,10 +140,24 @@ export default function RemindersScreen() {
       isDone: false,
     };
     setReminders(r => [rem, ...r]);
-    scheduleNotifications(rem);
+    const notifIds = await scheduleNotifications(rem);
+    if (notifIds.length > 0) {
+      setReminders(r => r.map(x => (x.id === rem.id ? { ...x, notifIds } : x)));
+    }
     setTitle('');
     setTime(null);
   }, [title, date, time, cat, setReminders]);
+
+  const cancelNotifications = useCallback(async (notifIds?: string[]) => {
+    if (!notifIds) return;
+    for (const nid of notifIds) {
+      try {
+        await Notifications.cancelScheduledNotificationAsync(nid);
+      } catch {
+        // silently fail
+      }
+    }
+  }, []);
 
   const deleteReminder = useCallback(
     (id: number) => {
@@ -148,29 +166,38 @@ export default function RemindersScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => setReminders(r => r.filter(x => x.id !== id)),
+          onPress: () => {
+            const target = reminders.find(x => x.id === id);
+            cancelNotifications(target?.notifIds);
+            setReminders(r => r.filter(x => x.id !== id));
+          },
         },
       ]);
     },
-    [setReminders],
+    [setReminders, reminders, cancelNotifications],
   );
 
   const toggleDone = useCallback(
     (id: number) => {
+      const target = reminders.find(x => x.id === id);
+      if (target && !target.isDone) {
+        // Marking as done — cancel scheduled notifications
+        cancelNotifications(target.notifIds);
+      }
       setReminders(r => r.map(x => (x.id === id ? { ...x, isDone: !x.isDone } : x)));
     },
-    [setReminders],
+    [setReminders, reminders, cancelNotifications],
   );
 
-  const onDateChange = (_: DateTimePickerEvent, selected?: Date) => {
+  const onDateChange = useCallback((_: DateTimePickerEvent, selected?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (selected) setDate(selected);
-  };
+  }, []);
 
-  const onTimeChange = (_: DateTimePickerEvent, selected?: Date) => {
+  const onTimeChange = useCallback((_: DateTimePickerEvent, selected?: Date) => {
     setShowTimePicker(Platform.OS === 'ios');
     if (selected) setTime(selected);
-  };
+  }, []);
 
   const badgeProps = (cls: string) => {
     switch (cls) {

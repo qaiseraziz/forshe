@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../components/ui/Button';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -50,17 +51,21 @@ interface Props {
 
 export default function OnboardingScreen({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
+  const { colors, dark } = useTheme();
   const [current, setCurrent] = useState(0);
   const slide = SLIDES[current];
   const isLast = current === SLIDES.length - 1;
+  const gradient: [string, string] = dark
+    ? [colors.gradientStart, colors.gradientEnd]
+    : slide.gradient;
 
   return (
-    <LinearGradient colors={slide.gradient} style={styles.container}>
+    <LinearGradient colors={gradient} style={styles.container}>
       <View style={[styles.inner, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
         <View style={styles.slideContent}>
           <Text style={styles.icon}>{slide.icon}</Text>
           <Text style={[styles.title, { color: slide.color }]}>{slide.title}</Text>
-          <Text style={styles.desc}>{slide.desc}</Text>
+          <Text style={[styles.desc, { color: colors.sub }]}>{slide.desc}</Text>
         </View>
 
         {/* Dots */}
@@ -70,7 +75,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
               key={i}
               style={[
                 styles.dot,
-                { backgroundColor: i === current ? slide.color : 'rgba(0,0,0,0.15)' },
+                { backgroundColor: i === current ? slide.color : colors.border },
                 i === current && styles.dotActive,
               ]}
             />
@@ -115,7 +120,7 @@ const styles = StyleSheet.create({
   icon: { fontSize: 80, marginBottom: 30 },
   title: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 32, marginBottom: 16, textAlign: 'center' },
   desc: {
-    fontSize: 16, fontFamily: 'Outfit-Regular', color: '#4a5568', lineHeight: 26,
+    fontSize: 16, fontFamily: 'Outfit-Regular', lineHeight: 26,
     textAlign: 'center', paddingHorizontal: 10,
   },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 30 },

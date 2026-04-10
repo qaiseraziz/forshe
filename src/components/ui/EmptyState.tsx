@@ -7,7 +7,7 @@ interface Props {
   text: string;
 }
 
-export function EmptyState({ icon, text }: Props) {
+export const EmptyState = React.memo(function EmptyState({ icon, text }: Props) {
   const { colors } = useTheme();
   return (
     <View style={styles.wrap}>
@@ -15,7 +15,7 @@ export function EmptyState({ icon, text }: Props) {
       <Text style={[styles.text, { color: colors.muted }]}>{text}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { textAlign: 'center', alignItems: 'center', paddingVertical: 36, paddingHorizontal: 20 },

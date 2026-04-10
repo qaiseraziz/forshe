@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,23 +26,30 @@ export default function CookingScreen() {
 
   const viewDay = filter === 'today' ? todayDay() : day;
 
-  const saveMeal = (key: string) => {
+  const saveMeal = useCallback((key: string) => {
     setCooking((c) => ({ ...c, [key]: editVal.trim() }));
     setEditKey(null);
-  };
+  }, [editVal, setCooking]);
 
-  const clearMeal = (key: string) => {
+  const clearMeal = useCallback((key: string) => {
     setCooking((c) => {
       const next = { ...c };
       delete next[key];
       return next;
     });
     setEditKey(null);
-  };
+  }, [setCooking]);
+
+  const monthViewData = useMemo(() => {
+    let hasAny = false;
+    DAYS.forEach(d => MEALS.forEach(m => {
+      if (cooking[`${d}_${m}`]) hasAny = true;
+    }));
+    return { hasAny };
+  }, [cooking]);
 
   // Monthly view
   if (filter === 'month') {
-    const hasAny = DAYS.some((d) => MEALS.some((m) => cooking[`${d}_${m}`]));
 
     return (
       <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -65,7 +72,7 @@ export default function CookingScreen() {
             <DrawerMenuButton />
           </View>
 
-          {!hasAny ? (
+          {!monthViewData.hasAny ? (
             <EmptyState icon="🍽️" text="No meals planned yet." />
           ) : (
             <View style={styles.monthGrid}>
@@ -102,7 +109,7 @@ export default function CookingScreen() {
   // Daily view (All / Today)
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top }]}>
       <MonthBar
         filter={filter}
         setFilter={setFilter}

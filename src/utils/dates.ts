@@ -1,7 +1,11 @@
 import { DAYS } from '../constants/data';
 
 export function todayStr(): string {
-  return new Date().toLocaleDateString('en-GB');
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 export function todayISO(): string {

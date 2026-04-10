@@ -3,6 +3,94 @@ import { Alert, Share, Platform } from 'react-native';
 import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog } from '../types';
 import { todayStr } from './dates';
 
+// --- Schema validation for backup imports ---
+
+function validateBackupData(data: unknown): { valid: true; data: BackupData } | { valid: false; error: string } {
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+    return { valid: false, error: 'Backup must be a JSON object, not an array or primitive.' };
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  // Type checks for top-level keys
+  if (obj.history !== undefined) {
+    if (!Array.isArray(obj.history)) return { valid: false, error: '"history" must be an array.' };
+    for (let i = 0; i < obj.history.length; i++) {
+      const entry = obj.history[i];
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        return { valid: false, error: `history[${i}] is not a valid object.` };
+      }
+      const e = entry as Record<string, unknown>;
+      if (typeof e.id !== 'number') return { valid: false, error: `history[${i}].id must be a number.` };
+      if (e.type !== 'topup' && e.type !== 'expense') return { valid: false, error: `history[${i}].type must be "topup" or "expense".` };
+      if (typeof e.label !== 'string') return { valid: false, error: `history[${i}].label must be a string.` };
+      if (typeof e.amount !== 'number') return { valid: false, error: `history[${i}].amount must be a number.` };
+      if (typeof e.cat !== 'string') return { valid: false, error: `history[${i}].cat must be a string.` };
+      if (typeof e.date !== 'string') return { valid: false, error: `history[${i}].date must be a string.` };
+    }
+  }
+
+  if (obj.cooking !== undefined) {
+    if (obj.cooking === null || typeof obj.cooking !== 'object' || Array.isArray(obj.cooking)) {
+      return { valid: false, error: '"cooking" must be an object.' };
+    }
+  }
+
+  if (obj.maidData !== undefined) {
+    if (obj.maidData === null || typeof obj.maidData !== 'object' || Array.isArray(obj.maidData)) {
+      return { valid: false, error: '"maidData" must be an object.' };
+    }
+  }
+
+  if (obj.maidAttendance !== undefined) {
+    if (obj.maidAttendance === null || typeof obj.maidAttendance !== 'object' || Array.isArray(obj.maidAttendance)) {
+      return { valid: false, error: '"maidAttendance" must be an object.' };
+    }
+  }
+
+  if (obj.reminders !== undefined) {
+    if (!Array.isArray(obj.reminders)) return { valid: false, error: '"reminders" must be an array.' };
+    for (let i = 0; i < obj.reminders.length; i++) {
+      const r = obj.reminders[i] as Record<string, unknown>;
+      if (r === null || typeof r !== 'object' || Array.isArray(r)) {
+        return { valid: false, error: `reminders[${i}] is not a valid object.` };
+      }
+      if (typeof r.id !== 'number') return { valid: false, error: `reminders[${i}].id must be a number.` };
+      if (typeof r.title !== 'string') return { valid: false, error: `reminders[${i}].title must be a string.` };
+    }
+  }
+
+  if (obj.periodLogs !== undefined) {
+    if (!Array.isArray(obj.periodLogs)) return { valid: false, error: '"periodLogs" must be an array.' };
+    for (let i = 0; i < obj.periodLogs.length; i++) {
+      const p = obj.periodLogs[i] as Record<string, unknown>;
+      if (p === null || typeof p !== 'object' || Array.isArray(p)) {
+        return { valid: false, error: `periodLogs[${i}] is not a valid object.` };
+      }
+      if (typeof p.id !== 'number') return { valid: false, error: `periodLogs[${i}].id must be a number.` };
+      if (typeof p.start !== 'string') return { valid: false, error: `periodLogs[${i}].start must be a string.` };
+    }
+  }
+
+  if (obj.recurringExpenses !== undefined) {
+    if (!Array.isArray(obj.recurringExpenses)) return { valid: false, error: '"recurringExpenses" must be an array.' };
+  }
+
+  if (obj.shoppingList !== undefined) {
+    if (!Array.isArray(obj.shoppingList)) return { valid: false, error: '"shoppingList" must be an array.' };
+  }
+
+  if (obj.maidSalary !== undefined) {
+    if (!Array.isArray(obj.maidSalary)) return { valid: false, error: '"maidSalary" must be an array.' };
+  }
+
+  if (obj.budget !== undefined) {
+    if (typeof obj.budget !== 'number') return { valid: false, error: '"budget" must be a number.' };
+  }
+
+  return { valid: true, data: obj as BackupData };
+}
+
 interface AllData {
   history: Transaction[];
   cooking: CookingData;
@@ -39,11 +127,18 @@ export async function exportBackup(data: AllData) {
   }
 }
 
+function csvEscape(s: string): string {
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 export async function exportCSV(history: Transaction[]) {
   const expenses = history.filter(h => h.type === 'expense');
   let csv = 'Date,Item,Amount,Category\n';
   expenses.forEach(e => {
-    csv += `"${e.date}","${e.label}",${e.amount},"${e.cat}"\n`;
+    csv += `${csvEscape(e.date)},${csvEscape(e.label)},${csvEscape(String(e.amount))},${csvEscape(e.cat)}\n`;
   });
   try {
     await Share.share({ message: csv, title: 'ForSHE Expenses CSV' });
@@ -66,18 +161,31 @@ export async function importBackup(onImport: (data: BackupData) => void) {
     // Handle legacy format (raw localStorage keys)
     if (data.hm_history || data.hm_cooking) {
       const legacy: BackupData = {};
-      if (data.hm_history) legacy.history = typeof data.hm_history === 'string' ? JSON.parse(data.hm_history) : data.hm_history;
-      if (data.hm_cooking) legacy.cooking = typeof data.hm_cooking === 'string' ? JSON.parse(data.hm_cooking) : data.hm_cooking;
-      if (data.hm_maid2) legacy.maidData = typeof data.hm_maid2 === 'string' ? JSON.parse(data.hm_maid2) : data.hm_maid2;
-      if (data.hm_attendance) legacy.maidAttendance = typeof data.hm_attendance === 'string' ? JSON.parse(data.hm_attendance) : data.hm_attendance;
-      if (data.hm_reminders) legacy.reminders = typeof data.hm_reminders === 'string' ? JSON.parse(data.hm_reminders) : data.hm_reminders;
-      if (data.hm_periods) legacy.periodLogs = typeof data.hm_periods === 'string' ? JSON.parse(data.hm_periods) : data.hm_periods;
-      if (data.hm_budget) legacy.budget = typeof data.hm_budget === 'string' ? JSON.parse(data.hm_budget) : data.hm_budget;
+      const safeParse = (value: unknown): any => {
+        if (typeof value === 'string') {
+          try { return JSON.parse(value); } catch { return undefined; }
+        }
+        return value;
+      };
+      if (data.hm_history) legacy.history = safeParse(data.hm_history);
+      if (data.hm_cooking) legacy.cooking = safeParse(data.hm_cooking);
+      if (data.hm_maid2) legacy.maidData = safeParse(data.hm_maid2);
+      if (data.hm_attendance) legacy.maidAttendance = safeParse(data.hm_attendance);
+      if (data.hm_reminders) legacy.reminders = safeParse(data.hm_reminders);
+      if (data.hm_periods) legacy.periodLogs = safeParse(data.hm_periods);
+      if (data.hm_budget) legacy.budget = safeParse(data.hm_budget);
       data = legacy;
     }
 
+    // Validate schema before accepting import
+    const validation = validateBackupData(data);
+    if (!validation.valid) {
+      Alert.alert('Invalid Backup', validation.error);
+      return;
+    }
+
     if (!data.history && !data.periodLogs && !data.reminders && !data.cooking) {
-      Alert.alert('Error', 'This file does not contain valid ForSHE data');
+      Alert.alert('Error', 'This file does not contain any ForSHE data to import.');
       return;
     }
 
@@ -86,7 +194,7 @@ export async function importBackup(onImport: (data: BackupData) => void) {
       'This will replace all your current data. Are you sure?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Import', style: 'destructive', onPress: () => onImport(data) },
+        { text: 'Import', style: 'destructive', onPress: () => onImport(validation.data) },
       ]
     );
   } catch (e: any) {

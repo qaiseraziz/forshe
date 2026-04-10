@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -38,58 +38,61 @@ export default function MaidScreen() {
   const td = todayStr();
   const att = attendance[td];
 
-  const toggle = (day: string, idx: number) => {
+  const toggle = useCallback((day: string, idx: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMaidData((prev) => ({
       ...prev,
       [day]: (prev[day] || []).map((t, i) => (i === idx ? { ...t, done: !t.done } : t)),
     }));
-  };
+  }, [setMaidData]);
 
-  const del = (day: string, idx: number) => {
+  const del = useCallback((day: string, idx: number) => {
     setMaidData((prev) => ({
       ...prev,
       [day]: (prev[day] || []).filter((_, i) => i !== idx),
     }));
-  };
+  }, [setMaidData]);
 
-  const addPreset = (day: string, val: string) => {
+  const addPreset = useCallback((day: string, val: string) => {
     if (!val) return;
-    const tasks = maidData[day] || [];
-    if (tasks.some((t) => t.name.toLowerCase() === val.toLowerCase())) return;
-    setMaidData((prev) => ({
-      ...prev,
-      [day]: [...(prev[day] || []), { id: Date.now(), name: val, done: false }],
-    }));
+    setMaidData((prev) => {
+      const tasks = prev[day] || [];
+      if (tasks.some((t) => t.name.toLowerCase() === val.toLowerCase())) return prev;
+      return { ...prev, [day]: [...tasks, { id: Date.now(), name: val, done: false }] };
+    });
     setPresetVal('');
-  };
+  }, [setMaidData]);
 
-  const addCustom = (day: string) => {
+  const addCustom = useCallback((day: string) => {
     if (!customVal.trim()) return;
-    const tasks = maidData[day] || [];
-    if (tasks.some((t) => t.name.toLowerCase() === customVal.trim().toLowerCase())) return;
-    setMaidData((prev) => ({
-      ...prev,
-      [day]: [...(prev[day] || []), { id: Date.now(), name: customVal.trim(), done: false }],
-    }));
+    setMaidData((prev) => {
+      const tasks = prev[day] || [];
+      if (tasks.some((t) => t.name.toLowerCase() === customVal.trim().toLowerCase())) return prev;
+      return { ...prev, [day]: [...tasks, { id: Date.now(), name: customVal.trim(), done: false }] };
+    });
     setCustomVal('');
-  };
+  }, [customVal, setMaidData]);
 
-  const markAtt = (status: 'Present' | 'Absent' | 'Holiday') => {
+  const markAtt = useCallback((status: 'Present' | 'Absent' | 'Holiday') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAttendance((a) => ({ ...a, [td]: status }));
-  };
+  }, [td, setAttendance]);
 
-  const hasDot = (day: string) => (maidData[day]?.length || 0) > 0;
+  const hasDot = useCallback((day: string) => (maidData[day]?.length || 0) > 0, [maidData]);
 
-  // Monthly view
-  if (filter === 'month') {
+  const monthlyStats = useMemo(() => {
     const totalDone = DAYS.reduce((s, d) => s + (maidData[d]?.filter((t) => t.done).length || 0), 0);
     const totalAll = DAYS.reduce((s, d) => s + (maidData[d]?.length || 0), 0);
     const pct = totalAll ? Math.round((totalDone / totalAll) * 100) : 0;
     const attEntries = Object.entries(attendance);
     const presentDays = attEntries.filter(([, v]) => v === 'Present').length;
     const absentDays = attEntries.filter(([, v]) => v === 'Absent').length;
+    return { totalDone, totalAll, pct, attEntries, presentDays, absentDays };
+  }, [maidData, attendance]);
+
+  // Monthly view
+  if (filter === 'month') {
+    const { totalDone, totalAll, pct, attEntries, presentDays, absentDays } = monthlyStats;
 
     return (
       <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -200,8 +203,33 @@ export default function MaidScreen() {
   const tasks = maidData[activeDay] || [];
   const done = tasks.filter((t) => t.done).length;
   const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  const added = tasks.map((t) => t.name.toLowerCase());
-  const presets = PRESET_TASKS.filter((p) => !added.includes(p.toLowerCase()));
+  const saveSalary = useCallback(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const sal = parseFloat(salaryAmt) || 0;
+    const adv = parseFloat(advanceAmt) || 0;
+    if (sal <= 0) {
+      Alert.alert('Invalid Salary', 'Please enter a salary amount greater than 0.');
+      return;
+    }
+    const existing = maidSalary.find(s => s.month === monthKey);
+    if (existing) {
+      setMaidSalary(ms => ms.map(s => s.month === monthKey ? { ...s, salary: sal, advance: adv } : s));
+    } else {
+      setMaidSalary(ms => [...ms, { id: Date.now(), month: monthKey, salary: sal, advance: adv, deduction: 0, paid: false, note: '' }]);
+    }
+    setSalaryAmt(''); setAdvanceAmt('');
+  }, [salaryAmt, advanceAmt, maidSalary, setMaidSalary]);
+
+  const sortedSalary = useMemo(
+    () => [...maidSalary].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 6),
+    [maidSalary],
+  );
+
+  const presets = useMemo(() => {
+    const added = tasks.map((t) => t.name.toLowerCase());
+    return PRESET_TASKS.filter((p) => !added.includes(p.toLowerCase()));
+  }, [tasks]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -387,43 +415,31 @@ export default function MaidScreen() {
         <Text style={[styles.addLabel, { color: colors.deep }]}>💰 Maid Salary</Text>
 
         {/* Set/Update salary */}
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
+        <View style={styles.salaryInputRow}>
+          <View style={styles.flex1}>
             <Input placeholder="Monthly salary (PKR)" keyboardType="numeric" value={salaryAmt} onChangeText={setSalaryAmt} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={styles.flex1}>
             <Input placeholder="Advance given" keyboardType="numeric" value={advanceAmt} onChangeText={setAdvanceAmt} />
           </View>
         </View>
-        <Button title="Save This Month" variant="gold" small onPress={() => {
-          const now = new Date();
-          const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-          const sal = parseFloat(salaryAmt) || 0;
-          const adv = parseFloat(advanceAmt) || 0;
-          const existing = maidSalary.find(s => s.month === monthKey);
-          if (existing) {
-            setMaidSalary(ms => ms.map(s => s.month === monthKey ? { ...s, salary: sal, advance: adv } : s));
-          } else {
-            setMaidSalary(ms => [...ms, { id: Date.now(), month: monthKey, salary: sal, advance: adv, deduction: 0, paid: false, note: '' }]);
-          }
-          setSalaryAmt(''); setAdvanceAmt('');
-        }} style={{ alignSelf: 'flex-start', marginBottom: 14 }} />
+        <Button title="Save This Month" variant="gold" small onPress={saveSalary} style={styles.salaryBtn} />
 
         {/* History */}
-        {[...maidSalary].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 6).map(s => {
+        {sortedSalary.map(s => {
           const [y, m] = s.month.split('-');
           const due = s.salary - s.advance - s.deduction;
           return (
-            <View key={s.id} style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 15, color: colors.deep }}>{MONTHS[+m - 1]} {y}</Text>
-                <Text style={{ fontFamily: 'Outfit-Bold', fontSize: 15, color: due > 0 ? colors.red : colors.green }}>{pkrF(Math.abs(due))} {due > 0 ? 'due' : 'settled'}</Text>
+            <View key={s.id} style={[styles.salaryRow, { borderTopColor: colors.border }]}>
+              <View style={styles.salaryHeader}>
+                <Text style={[styles.salaryMonth, { color: colors.deep }]}>{MONTHS[+m - 1]} {y}</Text>
+                <Text style={[styles.salaryDue, { color: due > 0 ? colors.red : colors.green }]}>{pkrF(Math.abs(due))} {due > 0 ? 'due' : 'settled'}</Text>
               </View>
-              <Text style={{ fontFamily: 'Outfit-Regular', fontSize: 12, color: colors.muted, marginTop: 2 }}>
+              <Text style={[styles.salaryDetail, { color: colors.muted }]}>
                 Salary: {pkrF(s.salary)} · Advance: {pkrF(s.advance)}{s.deduction > 0 ? ` · Deduct: ${pkrF(s.deduction)}` : ''}
               </Text>
-              <TouchableOpacity onPress={() => setMaidSalary(ms => ms.map(x => x.id === s.id ? { ...x, paid: !x.paid } : x))} style={{ marginTop: 4 }}>
-                <Text style={{ fontFamily: 'Outfit-SemiBold', fontSize: 12, color: s.paid ? colors.green : colors.gold }}>{s.paid ? '✅ Paid' : 'Mark as Paid'}</Text>
+              <TouchableOpacity onPress={() => setMaidSalary(ms => ms.map(x => x.id === s.id ? { ...x, paid: !x.paid } : x))} style={styles.salaryPaidBtn}>
+                <Text style={[styles.salaryPaidText, { color: s.paid ? colors.green : colors.gold }]}>{s.paid ? '✅ Paid' : 'Mark as Paid'}</Text>
               </TouchableOpacity>
             </View>
           );
@@ -668,4 +684,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginVertical: 8,
   },
+  flex1: { flex: 1 },
+  salaryInputRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  salaryBtn: { alignSelf: 'flex-start', marginBottom: 14 },
+  salaryRow: { paddingVertical: 10, borderTopWidth: 1 },
+  salaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  salaryMonth: { fontFamily: 'Outfit-SemiBold', fontSize: 15 },
+  salaryDue: { fontFamily: 'Outfit-Bold', fontSize: 15 },
+  salaryDetail: { fontFamily: 'Outfit-Regular', fontSize: 12, marginTop: 2 },
+  salaryPaidBtn: { marginTop: 4 },
+  salaryPaidText: { fontFamily: 'Outfit-SemiBold', fontSize: 12 },
 });

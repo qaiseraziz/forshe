@@ -52,4 +52,5 @@ export const STORAGE_KEYS = {
   recurring: 'hm_recurring',
   shopping: 'hm_shopping',
   maidSalary: 'hm_maid_salary',
+  recurringLast: 'forshe_recurring_last',
 } as const;

@@ -23,6 +23,7 @@ import SplashScreen from './src/screens/SplashScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AppLockScreen from './src/screens/AppLockScreen';
 import { useStorage } from './src/hooks/useStorage';
+import { useSecureStorage } from './src/hooks/useSecureStorage';
 
 SplashScreenExpo.preventAutoHideAsync();
 
@@ -32,7 +33,7 @@ function AppContent() {
 
   const [showSplash, setShowSplash] = useState(true);
   const [hasOnboarded, setHasOnboarded] = useStorage<boolean>('forshe_onboarded', false);
-  const [pin, setPin] = useStorage<string>('forshe_pin', '');
+  const [pin, setPin] = useSecureStorage('forshe_pin', '');
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   if (!allLoaded) {

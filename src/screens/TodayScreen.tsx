@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,32 +18,30 @@ import { gradients } from '../constants/colors';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 export default function TodayScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { history, cooking, maidData, reminders, attendance, setHistory } = useData();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [qaItem, setQaItem] = useState('');
   const [qaAmt, setQaAmt] = useState('');
+  const [qaCat, setQaCat] = useState(CAT_KEYS[0]);
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
+
+  const openQuickAdd = useCallback(() => setShowQuickAdd(true), []);
+  const closeQuickAdd = useCallback(() => setShowQuickAdd(false), []);
 
   const td = todayStr();
   const day = todayDay();
-  const now = new Date();
-  const hr = now.getHours();
 
-  const greeting = hr < 12
-    ? 'Good morning! ☀️'
-    : hr < 17
-      ? 'Good afternoon! 🌤️'
-      : 'Good evening! 🌙';
-
-  const fullDate = now.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const { greeting, fullDate } = useMemo(() => {
+    const now = new Date();
+    const hr = now.getHours();
+    return {
+      greeting: hr < 12 ? 'Good morning! ☀️' : hr < 17 ? 'Good afternoon! 🌤️' : 'Good evening! 🌙',
+      fullDate: now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+    };
+  }, []);
 
   const totalRec = useMemo(
     () => history.filter(h => h.type === 'topup').reduce((s, h) => s + h.amount, 0),
@@ -64,20 +63,24 @@ export default function TodayScreen() {
   const att = attendance[td];
 
   const upcomingRems = useMemo(
-    () =>
-      reminders.filter(r => {
+    () => {
+      const n = new Date();
+      return reminders.filter(r => {
         const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59'));
-        return t >= now && !r.isDone;
-      }),
+        return t >= n && !r.isDone;
+      });
+    },
     [reminders],
   );
 
   const dueSoon = useMemo(
-    () =>
-      upcomingRems.filter(r => {
+    () => {
+      const n = new Date();
+      return upcomingRems.filter(r => {
         const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59'));
-        return (t.getTime() - now.getTime()) / 3600000 <= 26;
-      }),
+        return (t.getTime() - n.getTime()) / 3600000 <= 26;
+      });
+    },
     [upcomingRems],
   );
 
@@ -87,22 +90,24 @@ export default function TodayScreen() {
     [cooking, day],
   );
 
-  const quickAddExpense = () => {
-    if (!qaItem || !qaAmt) return;
+  const quickAddExpense = useCallback(() => {
+    const amt = parseFloat(qaAmt);
+    if (!qaItem.trim() || isNaN(amt) || amt <= 0) return;
     const entry = {
       id: Date.now(),
       type: 'expense' as const,
-      label: qaItem,
-      amount: parseFloat(qaAmt),
-      cat: CAT_KEYS[0],
+      label: qaItem.trim(),
+      amount: amt,
+      cat: qaCat,
       date: todayStr(),
     };
     setHistory(h => [entry, ...h]);
     showToast('🛒 ' + qaItem + ' logged');
     setQaItem('');
     setQaAmt('');
+    setQaCat(CAT_KEYS[0]);
     setShowQuickAdd(false);
-  };
+  }, [qaItem, qaAmt, qaCat, setHistory, showToast]);
 
   const insights = useMemo(() => {
     const now = new Date();
@@ -171,7 +176,7 @@ export default function TodayScreen() {
 
   const maxWeekly = useMemo(() => Math.max(...weeklySpend.map(d => d.amount), 1), [weeklySpend]);
 
-  const statBoxes = [
+  const statBoxes = useMemo(() => [
     {
       ico: '💰',
       val: pkr(Math.abs(bal)),
@@ -200,7 +205,7 @@ export default function TodayScreen() {
       c: colors.purple,
       tab: 'Reminders',
     },
-  ];
+  ], [bal, todaySpent, maidDone, maidTasks.length, att, upcomingRems.length, colors]);
 
   return (
     <LinearGradient
@@ -213,7 +218,7 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Card */}
-        <Card gradient={gradients.goldHero} style={styles.heroCard}>
+        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <Text style={[styles.heroLabel, { color: colors.gold }]}>🏠 Today's Overview</Text>
             <DrawerMenuButton />
@@ -238,7 +243,7 @@ export default function TodayScreen() {
           </View>
 
           {/* Weekly Trend */}
-          <View style={styles.weeklySection}>
+          <View style={[styles.weeklySection, { borderTopColor: colors.border }]}>
             <Text style={[styles.weeklyLabel, { color: colors.muted }]}>Last 7 Days</Text>
             <View style={styles.weeklyBars}>
               {weeklySpend.map((d, i) => (
@@ -366,7 +371,7 @@ export default function TodayScreen() {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.gold }]}
         activeOpacity={0.85}
-        onPress={() => setShowQuickAdd(true)}
+        onPress={openQuickAdd}
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
@@ -387,11 +392,23 @@ export default function TodayScreen() {
               keyboardType="numeric"
               value={qaAmt}
               onChangeText={setQaAmt}
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 12 }}
             />
+            <View style={[styles.pickerWrapper, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
+              <Picker
+                selectedValue={qaCat}
+                onValueChange={setQaCat}
+                style={{ color: colors.deep }}
+                dropdownIconColor={colors.muted}
+              >
+                {CAT_KEYS.map(k => (
+                  <Picker.Item key={k} label={k} value={k} />
+                ))}
+              </Picker>
+            </View>
             <View style={styles.modalBtns}>
               <Button title="Add" variant="gold" onPress={quickAddExpense} style={{ flex: 1 }} />
-              <Button title="Cancel" variant="outline" onPress={() => setShowQuickAdd(false)} style={{ flex: 1 }} />
+              <Button title="Cancel" variant="outline" onPress={closeQuickAdd} style={{ flex: 1 }} />
             </View>
           </View>
         </View>
@@ -553,9 +570,10 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalTitle: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 20, marginBottom: 16 },
+  pickerWrapper: { borderRadius: 12, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
   modalBtns: { flexDirection: 'row', gap: 12 },
   insightText: { fontSize: 14, fontFamily: 'Outfit-Regular', lineHeight: 22 },
-  weeklySection: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
+  weeklySection: { marginTop: 16, paddingTop: 14, borderTopWidth: 1 },
   weeklyLabel: { fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
   weeklyBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, height: 50 },
   weeklyBarCol: { flex: 1, alignItems: 'center' },

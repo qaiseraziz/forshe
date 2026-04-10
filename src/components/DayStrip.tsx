@@ -13,7 +13,7 @@ interface Props {
   dotColor?: string;
 }
 
-export function DayStrip({ selected, onSelect, hasDot, activeColor, activeBg, activeBorder, dotColor }: Props) {
+export const DayStrip = React.memo(function DayStrip({ selected, onSelect, hasDot, activeColor, activeBg, activeBorder, dotColor }: Props) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
       {DAYS.map(d => (
@@ -31,7 +31,7 @@ export function DayStrip({ selected, onSelect, hasDot, activeColor, activeBg, ac
       ))}
     </ScrollView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   strip: {

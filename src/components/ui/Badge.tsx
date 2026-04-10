@@ -8,13 +8,13 @@ interface Props {
   borderColor?: string;
 }
 
-export function Badge({ text, bg, color, borderColor }: Props) {
+export const Badge = React.memo(function Badge({ text, bg, color, borderColor }: Props) {
   return (
     <View style={[styles.badge, { backgroundColor: bg, borderColor: borderColor || bg }]}>
       <Text style={[styles.text, { color }]}>{text}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   badge: {

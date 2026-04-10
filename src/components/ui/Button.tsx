@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -35,16 +35,20 @@ interface Props {
   disabled?: boolean;
 }
 
-export function Button({ title, onPress, variant = 'gold', small, full, style, textStyle, icon, disabled }: Props) {
+export const Button = React.memo(function Button({ title, onPress, variant = 'gold', small, full, style, textStyle, icon, disabled }: Props) {
   const { colors } = useTheme();
   const isOutline = variant === 'outline';
   const grad = VARIANT_GRADIENTS[variant];
   const shadowColor = VARIANT_SHADOW_COLORS[variant] || '#000';
+  const pressing = useRef(false);
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
+    if (pressing.current) return;
+    pressing.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
-  };
+    setTimeout(() => { pressing.current = false; }, 200);
+  }, [onPress]);
 
   return (
     <TouchableOpacity
@@ -91,7 +95,7 @@ export function Button({ title, onPress, variant = 'gold', small, full, style, t
       </Text>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   btn: {

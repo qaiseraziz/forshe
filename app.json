@@ -12,7 +12,8 @@
       "backgroundColor": "#f5f0eb"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.forshe.app"
     },
     "android": {
       "package": "com.forshe.app",
@@ -32,7 +33,6 @@
     },
     "plugins": [
       "expo-font",
-      "expo-sharing",
       "@react-native-community/datetimepicker",
       [
         "expo-notifications",

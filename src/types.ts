@@ -33,6 +33,7 @@ export interface Reminder {
   time: string; // HH:MM or ""
   cat: string;
   isDone: boolean;
+  notifIds?: string[];
 }
 
 export interface PeriodLog {

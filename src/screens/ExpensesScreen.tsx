@@ -8,6 +8,10 @@ import {
   Alert,
   Platform,
   Share,
+  Modal,
+  KeyboardAvoidingView,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,7 +39,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { checkBudgetAlert } from '../utils/budgetAlerts';
 
 export default function ExpensesScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { history, setHistory, budget, setBudget } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
@@ -76,8 +80,7 @@ export default function ExpensesScreen() {
   // Budget input
   const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
 
-  // Share
-  const [showShareMenu, setShowShareMenu] = useState(false);
+  const keyExtractor = useCallback((item: Transaction) => String(item.id), []);
 
   // Computed values
   const td = todayStr();
@@ -170,13 +173,14 @@ export default function ExpensesScreen() {
   }, [topupNote, topupAmt, td, setHistory, showToast]);
 
   const addExpense = useCallback(() => {
-    if (!expItem || !expAmt) return;
+    const amt = parseFloat(expAmt);
+    if (!expItem.trim() || isNaN(amt) || amt <= 0) return;
     const dateStr = dateToDMY(expDate);
     const entry: Transaction = {
       id: Date.now(),
       type: 'expense',
-      label: expItem,
-      amount: parseFloat(expAmt),
+      label: expItem.trim(),
+      amount: amt,
       cat: expCat,
       date: dateStr,
       receipt: receiptUri || undefined,
@@ -184,7 +188,7 @@ export default function ExpensesScreen() {
     setHistory(h => [entry, ...h]);
     // Check budget alert
     if (budget > 0) {
-      const newMonthSpent = monthSpent + parseFloat(expAmt);
+      const newMonthSpent = monthSpent + amt;
       checkBudgetAlert(newMonthSpent, budget);
     }
     showToast('🛒 ' + expItem + ' logged');
@@ -272,11 +276,10 @@ export default function ExpensesScreen() {
         ? "Today's Transactions"
         : `${MONTHS[selMonth]} ${selYear}`;
 
-  // Render transaction item
-  const renderItem = ({ item: h }: { item: Transaction }) => {
+  // Render transaction item — no edit state dependencies
+  const renderItem = useCallback(({ item: h }: { item: Transaction }) => {
     const isTopup = h.type === 'topup';
     const icon = isTopup ? '💵' : (h.cat?.split(' ')[0] || '🛒');
-    const isEditing = editId === h.id;
 
     return (
       <Card>
@@ -313,87 +316,41 @@ export default function ExpensesScreen() {
           </Text>
         </View>
 
-        {/* Action buttons when not editing */}
-        {!isEditing && (
-          <View style={styles.txActions}>
-            <TouchableOpacity
-              style={[styles.txActionBtn, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
-              onPress={() => startEdit(h)}
-            >
-              <Text style={[styles.txActionText, { color: colors.blue }]}>✏️ Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.txActionBtn, { backgroundColor: colors.redBg, borderColor: colors.redBorder }]}
-              onPress={() => deleteEntry(h.id)}
-            >
-              <Text style={[styles.txActionText, { color: colors.red }]}>🗑 Delete</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Receipt thumbnail */}
+        {h.receipt && (
+          <Image
+            source={{ uri: h.receipt }}
+            style={styles.receiptThumb}
+          />
         )}
 
-        {/* Edit panel */}
-        {isEditing && (
-          <View style={[styles.editPanel, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
-            <Input
-              value={editLabel}
-              onChangeText={setEditLabel}
-              placeholder="Label"
-              style={styles.editInput}
-            />
-            <View style={styles.editRow}>
-              <Input
-                value={editAmt}
-                onChangeText={setEditAmt}
-                placeholder="PKR"
-                keyboardType="numeric"
-                style={[styles.editInput, { flex: 1 }]}
-              />
-              <TouchableOpacity
-                style={[styles.dateBtn, { backgroundColor: colors.bg2, borderColor: colors.border }]}
-                onPress={() => setShowEditDatePicker(true)}
-              >
-                <Text style={[styles.dateBtnText, { color: colors.text }]}>
-                  {dateToDMY(editDate)}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {showEditDatePicker && (
-              <DateTimePicker
-                value={editDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleEditDateChange}
-              />
-            )}
-            {h.type === 'expense' && (
-              <View style={[styles.pickerWrap, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
-                <Picker
-                  selectedValue={editCat}
-                  onValueChange={setEditCat}
-                  style={{ color: colors.text }}
-                  dropdownIconColor={colors.sub}
-                >
-                  {CAT_KEYS.map(c => (
-                    <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
-                  ))}
-                </Picker>
-              </View>
-            )}
-            <View style={styles.editBtns}>
-              <Button title="✓ Save" variant="green" small onPress={() => saveEdit(h.id)} />
-              <Button title="Cancel" variant="outline" small onPress={() => setEditId(null)} />
-            </View>
-          </View>
-        )}
+        {/* Action buttons */}
+        <View style={[styles.txActions, { borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.txActionBtn, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
+            onPress={() => startEdit(h)}
+          >
+            <Text style={[styles.txActionText, { color: colors.blue }]}>✏️ Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.txActionBtn, { backgroundColor: colors.redBg, borderColor: colors.redBorder }]}
+            onPress={() => deleteEntry(h.id)}
+          >
+            <Text style={[styles.txActionText, { color: colors.red }]}>🗑 Delete</Text>
+          </TouchableOpacity>
+        </View>
       </Card>
     );
-  };
+  }, [colors, startEdit, deleteEntry]);
+
+  // Find the transaction being edited (for the modal)
+  const editingTransaction = editId !== null ? history.find(h => h.id === editId) : null;
 
   // Header component for FlatList
-  const ListHeader = () => (
+  const listHeader = useMemo(() => (
     <View>
       {/* Balance Hero */}
-      <Card gradient={gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
+      <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
         <Text style={[styles.balLabel, { color: colors.gold }]}>💼 Remaining Balance</Text>
         <Text style={[styles.balNum, { color: bal < 0 ? colors.red : colors.green }]}>
           {pkrF(Math.abs(bal))}
@@ -703,7 +660,16 @@ export default function ExpensesScreen() {
         <EmptyState icon="📋" text="No transactions found." />
       )}
     </View>
-  );
+  ), [
+    colors, bal, pct, fillColor, totalRec, totalSpent, todaySpent,
+    budget, monthSpent, budgetPct, budgetColor, handleShare,
+    budgetInput, setBudgetInput, setBudget, showToast,
+    filter, selMonth, selYear, monthlySummary,
+    formMode, topupNote, topupAmt, addTopup,
+    expItem, expAmt, expDate, showDatePicker, handleExpDateChange,
+    expCat, addExpense, receiptUri, pickReceipt,
+    sectionTitle, filtered, search,
+  ]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={[styles.container, { paddingTop: insets.top }]}>
@@ -725,13 +691,93 @@ export default function ExpensesScreen() {
 
       <FlatList
         data={filtered}
-        keyExtractor={item => String(item.id)}
+        keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={10}
+        initialNumToRender={10}
+        removeClippedSubviews
       />
+
+      {/* Edit Modal — rendered outside FlatList to avoid re-render on keystroke */}
+      <Modal
+        visible={editId !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditId(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setEditId(null)}
+          />
+          <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={[styles.modalTitle, { color: colors.deep }]}>
+                Edit {editingTransaction?.type === 'topup' ? 'Received' : 'Expense'}
+              </Text>
+              <Input
+                value={editLabel}
+                onChangeText={setEditLabel}
+                placeholder="Label"
+                style={styles.editInput}
+              />
+              <View style={styles.editRow}>
+                <Input
+                  value={editAmt}
+                  onChangeText={setEditAmt}
+                  placeholder="PKR"
+                  keyboardType="numeric"
+                  style={[styles.editInput, { flex: 1 }]}
+                />
+                <TouchableOpacity
+                  style={[styles.dateBtn, { backgroundColor: colors.bg2, borderColor: colors.border }]}
+                  onPress={() => setShowEditDatePicker(true)}
+                >
+                  <Text style={[styles.dateBtnText, { color: colors.text }]}>
+                    {dateToDMY(editDate)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {showEditDatePicker && (
+                <DateTimePicker
+                  value={editDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleEditDateChange}
+                />
+              )}
+              {editingTransaction?.type === 'expense' && (
+                <View style={[styles.pickerWrap, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
+                  <Picker
+                    selectedValue={editCat}
+                    onValueChange={setEditCat}
+                    style={{ color: colors.text }}
+                    dropdownIconColor={colors.sub}
+                  >
+                    {CAT_KEYS.map(c => (
+                      <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
+                    ))}
+                  </Picker>
+                </View>
+              )}
+              <View style={styles.editBtns}>
+                <Button title="✓ Save" variant="green" small onPress={() => editId !== null && saveEdit(editId)} />
+                <Button title="Cancel" variant="outline" small onPress={() => setEditId(null)} />
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
@@ -900,6 +946,7 @@ const styles = StyleSheet.create({
   formToggleBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
   formToggleText: { fontFamily: 'Outfit-Bold', fontSize: 14 },
   // Receipt
+  receiptThumb: { width: 48, height: 48, borderRadius: 8, marginTop: 8 },
   receiptRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   receiptLabel: { fontSize: 13, fontFamily: 'Outfit-Regular' },
   // Forms
@@ -1012,7 +1059,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   txActionBtn: {
     flex: 1,
@@ -1025,12 +1071,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Outfit-SemiBold',
   },
-  // Edit panel
-  editPanel: {
-    marginTop: 10,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 0,
+  // Edit modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontFamily: 'PlayfairDisplay-Bold',
+    fontSize: 20,
+    marginBottom: 16,
   },
   editInput: {
     marginBottom: 8,
