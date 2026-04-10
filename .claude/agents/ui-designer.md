@@ -72,9 +72,12 @@ Never start editing before reading. The rest of this file is the style system yo
 
 ## Navigation Pattern
 - Drawer + 4 bottom tabs hybrid
-- `DrawerMenuButton`: React.memo with `useCallback` on openDrawer handler
-- Every screen must include `<DrawerMenuButton />` in title area for hamburger access
-- Title area: `titleRow` (flexDirection row, space-between) with `titleSection` + `DrawerMenuButton`
+- `DrawerMenuButton`: React.memo with `useCallback` on openDrawer handler, accessibilityLabel "Open menu", 8px hitSlop
+- Every drawer screen must include `<DrawerMenuButton />` in a `topBar` flex row as the FIRST child, at the TOP of the screen (BEFORE the hero card, not inside it)
+- `topBar` style: `{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: insets.top + 12, paddingBottom: 8 }`
+- If the screen has no right-side action, place a 44×44 empty View as a spacer so the drawer button stays pixel-identically positioned on every screen
+- NEVER place DrawerMenuButton inside the hero card, inside a ScrollView row, on the right side of the screen, or below other content — this was the v1.1.1 bug that made the button appear to "move around"
+- All 11 drawer screens use the identical `topBar` pattern (TodayScreen, ExpensesScreen, CookingScreen, MaidScreen, RemindersScreen, CycleScreen, BodyStatsScreen, ShoppingListScreen, MonthlyReportScreen, BackupScreen, SettingsScreen)
 
 ## Screen Template (mandatory for every screen)
 1. Wrap content in `<LinearGradient colors={[colors.gradientStart, colors.gradientEnd]}>`
@@ -127,6 +130,31 @@ Empty state fallback
 - Run through the "Screen Template" checklist
 - Confirm the file matches the pattern of TodayScreen/ExpensesScreen
 - Check that any new styles reference theme tokens
+
+## v1.1.1 Patterns (new — must follow)
+
+### Collapsible cards
+Use `LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` immediately before `setCollapsed(!collapsed)`. Haptic `Haptics.selectionAsync()` on toggle. Default state: collapsed when the data is already set (invite review), expanded when unset (invite input). Reference: ExpensesScreen monthly budget card. No new dependencies — `LayoutAnimation` is in React Native core.
+
+### Quick-add chip rail (expense presets pattern)
+Horizontal `ScrollView` of themed chips above the main input form. Each chip has an emoji + label and pre-fills the form label + category via `useCallback`-wrapped handler. Chip dimensions: 88×88 with 44×44 minimum touch target. Preset array defined as a module-level `const` (NEVER inline per render). Reference: ExpensesScreen `QUICK_ADD_PRESETS`.
+
+### Insights & alerts (threshold-based dashboard pattern)
+For dashboards that surface computed health/financial/goal metrics from time-series data:
+- Compute ALL insights in a SINGLE `useMemo` keyed on the raw logs array
+- Separate "stats" tiles (7-day / 30-day rolling averages) from "alerts" cards (threshold violations)
+- Alerts have three tiers: info (gold/blue tile), warning (amber), urgent (red) — based on severity thresholds
+- Each alert must reference the exact triggering log entry + date
+- Show a calm empty-state reminder card when there are no recent logs
+- For medical/health data, ALWAYS include a disclaimer: "This is not medical advice — consult a healthcare professional."
+- Reference: BodyStatsScreen insights section (v1.1.1)
+
+### Negative values + "over budget" badge
+When a screen displays a difference that can go negative (balance = received - spent, remaining budget, etc.):
+- The number renders in `colors.red` when negative, normal color when positive/zero
+- Add an "Over budget" badge/chip when spent exceeds budget OR balance < 0
+- The formatter MUST preserve the minus sign (check `src/utils/currency.ts` — `pkr`/`pkrF` are sign-preserving as of v1.1.1)
+- Reference: ExpensesScreen balance hero, TodayScreen Balance stat box, MonthlyReportScreen overview
 
 ## App Identity
 - **Name**: ForSHE

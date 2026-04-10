@@ -124,6 +124,17 @@ Task(
 
 ## Common Recipes
 
+### Recipe: "User reports bugs + wants polish + maybe a feature" (v1.1.1 pattern)
+1. Triage the user's complaints into 3 buckets: bugs, polish/UX, content/presets
+2. Decide version bump: patch (`1.X.Y+1`) if no new screens, minor (`1.X+1.0`) if a new feature piece is added
+3. ui-designer — parallel work on all new designs (insights sections, collapsible cards, chip rails) PLUS a full page-by-page audit returning the top 6-8 improvements
+4. frontend-expert — implement in this order: cross-screen consistency bugs FIRST (drawer button, currency formatter), then feature bugs, then new feature pieces, then audit items
+5. qa-expert — typecheck + Rules of Hooks + edge cases for new dashboards (0 data, 1 entry, all-old, all-out-of-range) + verify every affected screen looks consistent
+6. performance-expert — verify new memoization (insights useMemo, chip handlers useCallback) + collapsible doesn't re-render parents
+7. git-release-manager — version bump + CHANGELOG.md + CLAUDE.md + commit + tag + push
+8. devops-expert (as eas-release-expert) — EAS build in background
+9. After build success: housekeeping commit updating CLAUDE.md "Latest successful APK build" line + playbook updates
+
 ### Recipe: "Fix design gaps + deploy"
 1. ui-designer → fix visual gaps
 2. **parallel**: qa-expert + performance-expert → audit + fix regressions from step 1

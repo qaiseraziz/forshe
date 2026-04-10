@@ -154,6 +154,52 @@ Grep: "if \(.*\) return" in src/screens/
 ```
 For every match, read the whole component and verify NO `useState/useEffect/useMemo/useCallback/useRef/useContext` appears below that line.
 
+## Mode 5c — v1.1.1 Patterns (dashboards, collapsibles, chip rails)
+
+### Insights dashboards (BodyStatsScreen pattern)
+Time-series dashboards that compute rolling averages + threshold alerts MUST use a SINGLE `useMemo` keyed on the raw logs array. Do NOT split the computation across multiple memos or — worse — compute inline.
+
+```tsx
+// ✅ CORRECT — BodyStatsScreen v1.1.1
+const insights = useMemo(() => {
+  const now = Date.now();
+  const recent7d = bodyLogs.filter(l => now - l.timestamp < 7 * 86400000);
+  const recent30d = bodyLogs.filter(l => now - l.timestamp < 30 * 86400000);
+  return { stats: { ... }, alerts: [ ... ] };
+}, [bodyLogs]);
+
+// ❌ WRONG — recomputes every render
+const stats = computeStats(bodyLogs);
+const alerts = computeAlerts(bodyLogs);
+```
+
+Audit: read `src/screens/BodyStatsScreen.tsx` and verify the insights block is a single memoized computation.
+
+### Collapsible cards with LayoutAnimation
+`LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` before `setCollapsed(!collapsed)` is the zero-cost animation pattern. Do NOT use `Animated` / `react-native-reanimated` for simple collapse — it's overkill and adds deps. `LayoutAnimation` is in RN core.
+
+The collapsed state MUST only re-render the card itself, not the whole parent screen. If the collapsible state lives in the parent, the parent will re-render — usually fine, but if the parent holds a `FlatList`, extract the collapsible into a memoized child so toggling collapse doesn't re-render list rows.
+
+Reference: ExpensesScreen monthly budget card (v1.1.1).
+
+### Quick-add chip rail
+Preset arrays MUST be module-level `const`s — never inline per render:
+```tsx
+// ✅ CORRECT
+const QUICK_ADD_PRESETS = [
+  { emoji: '🥬', label: 'Vegetables', cat: 'food' },
+  // ...
+];
+function ExpensesScreen() { ... }
+
+// ❌ WRONG
+function ExpensesScreen() {
+  const presets = [{ emoji: '🥬', ... }]; // new array every render
+}
+```
+
+Chip `onPress` handlers MUST be `useCallback`-wrapped so the memoized chip children don't re-render on every keystroke in the main form above.
+
 ## Mode 6 — Startup Performance
 
 Cold start path:

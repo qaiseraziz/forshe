@@ -117,13 +117,16 @@ git push origin v1.0.1
 
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
-**Existing tags:**
-- `v1.0.0` — retroactive, on commit `14a2dfe` (first successful APK build 2026-03-21)
-- `v1.0.1` — on master HEAD (2026-04-10), hooks fix + perf + design cleanup
+**Existing tags (latest first):**
+- `v1.1.1` — 2026-04-10, drawer button standardization + negative balance + Body Stats insights/alerts + collapsible budget + 15 quick-add presets (APK `c534cf09`)
+- `v1.1.0` — 2026-04-10, Body Stats vitals tracker feature (APK `04b1be04`)
+- `v1.0.2` — 2026-04-10, post-release UX polish + perf hardening (APK `ef365c41`)
+- `v1.0.1` — 2026-04-10, Rules of Hooks fix + perf + design cleanup (APK `92191648`)
+- `v1.0.0` — retroactive on commit `14a2dfe` (first successful APK build 2026-03-21, build `1e9166de`)
 
 Template for the next release:
 ```markdown
-## v1.0.2 — YYYY-MM-DD
+## v1.1.2 — YYYY-MM-DD
 
 ### Fixed
 - ...

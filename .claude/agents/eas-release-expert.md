@@ -151,8 +151,14 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Successful Build
-- **APK**: `92191648-529d-40c0-9be5-2b0d49743154` (2026-03-22)
-- Download: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/92191648-529d-40c0-9be5-2b0d49743154`
+- **APK**: `c534cf09-f9fe-470c-a9b4-de41d78bb21d` (v1.1.1, 2026-04-10)
+- Download: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/c534cf09-f9fe-470c-a9b4-de41d78bb21d`
+
+### Previous builds
+- `04b1be04-8847-405b-9a84-74a74f3e2238` — v1.1.0 (Body Stats feature release)
+- `ef365c41-75c1-4f26-8429-de3a6def989b` — v1.0.2 (UX polish)
+- `92191648-529d-40c0-9be5-2b0d49743154` — v1.0.1 (hooks fix + perf)
+- `1e9166de-ad86-47e0-8b24-1d94aee1706d` — v1.0.0 (first successful APK, 2026-03-21)
 
 Keep this updated after every successful build — also update `CLAUDE.md`.
 

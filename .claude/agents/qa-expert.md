@@ -152,6 +152,37 @@ Grep: "borderWidth:" in src/components src/navigation
 ```
 Only Card, Input, and some dividers may have borders.
 
+### DrawerMenuButton position consistency (v1.1.1 rule)
+Every one of the 11 drawer screens MUST render `<DrawerMenuButton />` as the FIRST child of a `topBar` flex row at the TOP of the screen, BEFORE the hero card. The row must use `flexDirection: 'row'`, `justifyContent: 'space-between'`. Screens with no right-side action need a 44×44 spacer View.
+
+Audit: for each of the 11 screens, find the `DrawerMenuButton` render location and verify:
+1. It is NOT inside the hero Card
+2. It is NOT on the right side
+3. It is NOT inside a ScrollView row below content
+4. It IS inside a `topBar` row at the top with `justifyContent: 'space-between'`
+5. The `topBar` style is identical (paddingHorizontal, paddingTop: insets.top + 12, paddingBottom)
+
+```
+Grep: "DrawerMenuButton" in src/screens
+```
+Every match should live inside a `topBar` row. This was the v1.1.1 bug — user saw the button "jumping around" between screens.
+
+### Currency sign preservation (v1.1.1 rule)
+`pkr(n)` and `pkrF(n)` in `src/utils/currency.ts` MUST preserve the minus sign for negative numbers. Unit-test mentally:
+- `pkr(-2500)` → `"Rs -2.5K"` or `"-Rs 2.5K"` (not `"Rs 2.5K"`)
+- `pkrF(-50000)` → `"Rs -50,000"` or `"-Rs 50,000"` (not `"Rs 50,000"`)
+
+Audit: `Grep: "pkrF\(|pkr\(" in src/screens` — verify balance renders on ExpensesScreen, TodayScreen, MonthlyReportScreen handle negative values and show them in `colors.red`. An "Over budget" badge must appear when balance < 0 or spent > monthlyBudget.
+
+### Body Stats insights memoization (v1.1.1 rule)
+BodyStatsScreen must compute 7-day + 30-day stats + threshold alerts in a SINGLE `useMemo` keyed on `bodyLogs`. If the computation is inline, it re-runs every render and causes jank.
+
+Audit: read `src/screens/BodyStatsScreen.tsx` — find the insights computation and verify:
+1. It is wrapped in `useMemo`
+2. The deps array contains `bodyLogs` (and date helpers if referenced)
+3. The medical disclaimer "This is not medical advice..." is rendered at the bottom of the alerts section
+4. Edge cases handled: 0 logs (show empty-state reminder), 1 log only, all logs > 30 days old, all readings simultaneously out of range
+
 ### FlatList configuration
 Any `FlatList` in `src/screens/` must include:
 - `maxToRenderPerBatch`

@@ -123,6 +123,11 @@ assets/
 18. **App Lock**: 4-digit PIN with brute-force protection (5 attempts → 30s lockout, functional updater pattern)
 19. **Splash Screen**: Full-screen branded image — theme-aware background
 20. **Body Stats** (v1.1.0): Optional vitals tracker — weight, BP, blood sugar (fasting/post-meal/random), SpO2, heart rate, BMI calculation, daily reminder notification. Feature-flagged (off by default, enable in Settings). Height set once, logs kept forever. Backup/restore round-tripped. Drawer entry hidden nowhere — disabled state on screen routes user to Settings.
+21. **Body Stats Insights & Alerts** (v1.1.1): 7-day + 30-day rolling stats per metric (weight delta, avg BP/sugar/SpO2/HR) + threshold-based health alerts (High BP ≥140/90 or urgent ≥180/120, low BP <90/60, high sugar fasting ≥126 / post-meal ≥200, low sugar <70, SpO2 <95 or urgent <90, HR <50 or >100, BMI ≥30 obese / <18.5 underweight). Urgent alerts in red, info in gold/blue. Calm tone, always includes medical disclaimer. Single `useMemo` keyed on `bodyLogs`.
+22. **Negative Balance + "Over Budget" Badge** (v1.1.1): Balance hero displays negative values in red when `totalReceived - totalSpent < 0`. `pkr`/`pkrF` sign-preserving (v1.1.1 fix — previously stripped the minus). "Over budget" chip shown when balance < 0 or spent > monthlyBudget. Applies to ExpensesScreen, TodayScreen, MonthlyReportScreen.
+23. **Collapsible Monthly Budget** (v1.1.1): ExpensesScreen budget card toggles between collapsed summary ("Monthly Budget: Rs 50,000 · Rs 12,000 remaining") and full editor. Default collapsed when budget set, expanded when unset. `LayoutAnimation.Presets.easeInEaseOut` transition (no new dep). Haptic on toggle.
+24. **Quick-Add Chip Rail** (v1.1.1): 15 Pakistani household expense presets above the Add Expense form on ExpensesScreen — Vegetables, Bread/Naan, Milk, Meat/Chicken, Fruits, Petrol, Grocery, Medicine, Rickshaw/Uber, Mobile top-up, Electricity, Gas, Water, School fees, Eating out. Each chip pre-fills label + category. Horizontal scroll, 88×88 tiles, `useCallback`-wrapped handlers.
+25. **Drawer Button Standardization** (v1.1.1): `DrawerMenuButton` now sits in a shared `topBar` flex row (`justifyContent: 'space-between'`) at the TOP-LEFT of every one of the 11 drawer screens at pixel-identical position, size, and spacing. `DrawerMenuButton` gained accessibilityLabel + 8px hitSlop.
 
 ## Performance Optimizations
 - **DataContext**: `useMemo` wraps context value to prevent cascade re-renders
@@ -167,8 +172,8 @@ assets/
 - **iOS**: bundleIdentifier = com.forshe.app
 - **Android**: package = com.forshe.app
 - **Dead deps removed**: expo-local-authentication, expo-file-system, expo-sharing, expo-status-bar
-- **Latest successful APK build**: 04b1be04-8847-405b-9a84-74a74f3e2238 (v1.1.0, 2026-04-10) — https://expo.dev/accounts/smartbzss/projects/forshe/builds/04b1be04-8847-405b-9a84-74a74f3e2238
-- **Previous builds**: ef365c41-75c1-4f26-8429-de3a6def989b (v1.0.2), 92191648-529d-40c0-9be5-2b0d49743154 (v1.0.1), 1e9166de-ad86-47e0-8b24-1d94aee1706d (v1.0.0)
+- **Latest APK build**: c534cf09-f9fe-470c-a9b4-de41d78bb21d (v1.1.1, 2026-04-10, in progress at release time) — https://expo.dev/accounts/smartbzss/projects/forshe/builds/c534cf09-f9fe-470c-a9b4-de41d78bb21d
+- **Previous builds**: 04b1be04-8847-405b-9a84-74a74f3e2238 (v1.1.0), ef365c41-75c1-4f26-8429-de3a6def989b (v1.0.2), 92191648-529d-40c0-9be5-2b0d49743154 (v1.0.1), 1e9166de-ad86-47e0-8b24-1d94aee1706d (v1.0.0)
 
 ## Build Commands
 ```bash
@@ -196,7 +201,7 @@ eas build --profile production --platform ios
 ## Cross-Platform Status
 ForSHE is already cross-platform — React Native Expo runs natively on **both Android and iOS from the same codebase**. No rewrite needed.
 
-- **Android**: Actively built and tested (latest APK: 92191648-529d-40c0-9be5-2b0d49743154)
+- **Android**: Actively built and tested (latest APK: c534cf09-f9fe-470c-a9b4-de41d78bb21d — v1.1.1)
 - **iOS**: Config ready (`ios.bundleIdentifier = com.forshe.app`) but never built yet
 
 **To ship iOS (when ready):**
@@ -260,3 +265,8 @@ The global Claude Code agent types available are `ui-designer`, `qa-expert`, `pe
 - Every main screen should have a gradient hero Card using light/dark variants from `gradients.*`
 - Bump both `app.json` version + platform build numbers (`ios.buildNumber`, `android.versionCode`) on every release
 - Tag releases with `v{major}.{minor}.{patch}` and keep CHANGELOG.md in sync
+- **DrawerMenuButton layout (v1.1.1)**: Every drawer screen must place `<DrawerMenuButton />` as the first child inside a `topBar` flex row at the TOP of the screen (before the hero card), with `flexDirection: 'row'`, `justifyContent: 'space-between'`, and a 44×44 spacer on the right if there is no right-side action. All 11 drawer screens must use this pattern so the button is pixel-identical across the app. Never place DrawerMenuButton inside the hero card, inside a ScrollView row, or on the right side of the screen.
+- **Currency sign preservation (v1.1.1)**: `pkr(n)` and `pkrF(n)` in `src/utils/currency.ts` MUST preserve the sign of negative numbers — output e.g. `Rs -2,500` or `-Rs 2,500`. Balance heroes on ExpensesScreen/TodayScreen/MonthlyReportScreen must render negative values in `colors.red` when `received - spent < 0` and show an "Over budget" chip when spent exceeds the monthly budget.
+- **Body Stats insights memoization (v1.1.1)**: The 7-day + 30-day insights + threshold alerts computation on `BodyStatsScreen` MUST live in a single `useMemo` keyed on `[bodyLogs]` (plus date helpers if referenced inside). Never recompute inline per render.
+- **Collapsible cards (v1.1.1)**: Use `LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` before toggling a `useState` boolean for expand/collapse. No new dependencies. Add `Haptics.selectionAsync()` on toggle. Default collapsed when data is set, expanded when unset (invite empty-state interaction).
+- **Quick-add chip rail (v1.1.1)**: Expense presets use a horizontal `ScrollView` of themed chips above the main form. Each chip pre-fills label + category and has a 44×44 minimum touch target. Handlers passed to chips must be `useCallback`'d and the preset array must be module-level (not inline per render).
