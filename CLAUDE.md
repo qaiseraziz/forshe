@@ -173,7 +173,7 @@ assets/
 - **iOS**: bundleIdentifier = com.forshe.app
 - **Android**: package = com.forshe.app
 - **Dead deps removed**: expo-local-authentication, expo-file-system, expo-sharing, expo-status-bar
-- **Latest APK build**: TBD-v1.1.2 (v1.1.2, 2026-04-10, queued at release time) — https://expo.dev/accounts/smartbzss/projects/forshe/builds/TBD-v1.1.2
+- **Latest APK build**: d9dc1bb8-3514-4e4c-9f3c-ed0940449cfe (v1.1.2, 2026-04-10, queued at release time) — https://expo.dev/accounts/smartbzss/projects/forshe/builds/d9dc1bb8-3514-4e4c-9f3c-ed0940449cfe
 - **Previous builds**: c534cf09-f9fe-470c-a9b4-de41d78bb21d (v1.1.1), 04b1be04-8847-405b-9a84-74a74f3e2238 (v1.1.0), ef365c41-75c1-4f26-8429-de3a6def989b (v1.0.2), 92191648-529d-40c0-9be5-2b0d49743154 (v1.0.1), 1e9166de-ad86-47e0-8b24-1d94aee1706d (v1.0.0)
 
 ## Build Commands
@@ -202,7 +202,7 @@ eas build --profile production --platform ios
 ## Cross-Platform Status
 ForSHE is already cross-platform — React Native Expo runs natively on **both Android and iOS from the same codebase**. No rewrite needed.
 
-- **Android**: Actively built and tested (latest APK: TBD-v1.1.2 — v1.1.2)
+- **Android**: Actively built and tested (latest APK: d9dc1bb8-3514-4e4c-9f3c-ed0940449cfe — v1.1.2)
 - **iOS**: Config ready (`ios.bundleIdentifier = com.forshe.app`) but never built yet
 
 **To ship iOS (when ready):**
