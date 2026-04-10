@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { Alert, Share } from 'react-native';
-import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog } from '../types';
+import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, BodyProfile, BodyLog, BodyStatsSettings } from '../types';
 
 // --- Schema validation for backup imports ---
 
@@ -87,6 +87,40 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
     if (typeof obj.budget !== 'number') return { valid: false, error: '"budget" must be a number.' };
   }
 
+  if (obj.bodyProfile !== undefined) {
+    if (obj.bodyProfile === null || typeof obj.bodyProfile !== 'object' || Array.isArray(obj.bodyProfile)) {
+      return { valid: false, error: '"bodyProfile" must be an object.' };
+    }
+    const bp = obj.bodyProfile as Record<string, unknown>;
+    if (typeof bp.height !== 'number') return { valid: false, error: 'bodyProfile.height must be a number.' };
+    if (bp.heightUnit !== 'cm' && bp.heightUnit !== 'ft') {
+      return { valid: false, error: 'bodyProfile.heightUnit must be "cm" or "ft".' };
+    }
+  }
+
+  if (obj.bodyLogs !== undefined) {
+    if (!Array.isArray(obj.bodyLogs)) return { valid: false, error: '"bodyLogs" must be an array.' };
+    for (let i = 0; i < obj.bodyLogs.length; i++) {
+      const entry = obj.bodyLogs[i];
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        return { valid: false, error: `bodyLogs[${i}] is not a valid object.` };
+      }
+      const e = entry as Record<string, unknown>;
+      if (typeof e.id !== 'number') return { valid: false, error: `bodyLogs[${i}].id must be a number.` };
+      if (typeof e.date !== 'string') return { valid: false, error: `bodyLogs[${i}].date must be a string.` };
+    }
+  }
+
+  if (obj.bodyStatsSettings !== undefined) {
+    if (obj.bodyStatsSettings === null || typeof obj.bodyStatsSettings !== 'object' || Array.isArray(obj.bodyStatsSettings)) {
+      return { valid: false, error: '"bodyStatsSettings" must be an object.' };
+    }
+    const bs = obj.bodyStatsSettings as Record<string, unknown>;
+    if (typeof bs.enabled !== 'boolean') return { valid: false, error: 'bodyStatsSettings.enabled must be a boolean.' };
+    if (typeof bs.reminderEnabled !== 'boolean') return { valid: false, error: 'bodyStatsSettings.reminderEnabled must be a boolean.' };
+    if (typeof bs.reminderTime !== 'string') return { valid: false, error: 'bodyStatsSettings.reminderTime must be a string.' };
+  }
+
   return { valid: true, data: obj as BackupData };
 }
 
@@ -101,11 +135,14 @@ interface AllData {
   recurring?: any[];
   shopping?: any[];
   maidSalary?: any[];
+  bodyProfile?: BodyProfile;
+  bodyLogs?: BodyLog[];
+  bodyStatsSettings?: BodyStatsSettings;
 }
 
 export async function exportBackup(data: AllData) {
   const backup = {
-    version: '2.0',
+    version: '2.1',
     exported: new Date().toISOString(),
     history: data.history,
     cooking: data.cooking,
@@ -117,6 +154,9 @@ export async function exportBackup(data: AllData) {
     recurringExpenses: data.recurring,
     shoppingList: data.shopping,
     maidSalary: data.maidSalary,
+    bodyProfile: data.bodyProfile,
+    bodyLogs: data.bodyLogs,
+    bodyStatsSettings: data.bodyStatsSettings,
   };
   const json = JSON.stringify(backup, null, 2);
   try {
@@ -183,7 +223,7 @@ export async function importBackup(onImport: (data: BackupData) => void) {
       return;
     }
 
-    if (!data.history && !data.periodLogs && !data.reminders && !data.cooking) {
+    if (!data.history && !data.periodLogs && !data.reminders && !data.cooking && !data.bodyLogs) {
       Alert.alert('Error', 'This file does not contain any ForSHE data to import.');
       return;
     }

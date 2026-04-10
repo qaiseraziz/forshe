@@ -5,7 +5,16 @@ import { SEED_HISTORY, SEED_COOKING, SEED_MAID } from '../constants/seedData';
 import {
   Transaction, CookingData, MaidData, Attendance, Reminder, PeriodLog,
   BackupData, RecurringExpense, ShoppingItem, MaidSalary,
+  BodyProfile, BodyLog, BodyStatsSettings,
 } from '../types';
+
+const DEFAULT_BODY_PROFILE: BodyProfile = { height: 0, heightUnit: 'cm' };
+const DEFAULT_BODY_SETTINGS: BodyStatsSettings = {
+  enabled: false,
+  reminderEnabled: false,
+  reminderTime: '08:00',
+  reminderNotifIds: [],
+};
 
 interface DataCtx {
   history: Transaction[];
@@ -28,6 +37,12 @@ interface DataCtx {
   setShopping: (v: ShoppingItem[] | ((p: ShoppingItem[]) => ShoppingItem[])) => void;
   maidSalary: MaidSalary[];
   setMaidSalary: (v: MaidSalary[] | ((p: MaidSalary[]) => MaidSalary[])) => void;
+  bodyProfile: BodyProfile;
+  setBodyProfile: (v: BodyProfile | ((p: BodyProfile) => BodyProfile)) => void;
+  bodyLogs: BodyLog[];
+  setBodyLogs: (v: BodyLog[] | ((p: BodyLog[]) => BodyLog[])) => void;
+  bodyStatsSettings: BodyStatsSettings;
+  setBodyStatsSettings: (v: BodyStatsSettings | ((p: BodyStatsSettings) => BodyStatsSettings)) => void;
   allLoaded: boolean;
   handleImport: (data: BackupData) => void;
 }
@@ -45,7 +60,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [recurring, setRecurring, l8] = useStorage<RecurringExpense[]>(STORAGE_KEYS.recurring, []);
   const [shopping, setShopping, l9] = useStorage<ShoppingItem[]>(STORAGE_KEYS.shopping, []);
   const [maidSalary, setMaidSalary, l10] = useStorage<MaidSalary[]>(STORAGE_KEYS.maidSalary, []);
-  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10;
+  const [bodyProfile, setBodyProfile, l11] = useStorage<BodyProfile>(STORAGE_KEYS.bodyProfile, DEFAULT_BODY_PROFILE);
+  const [bodyLogs, setBodyLogs, l12] = useStorage<BodyLog[]>(STORAGE_KEYS.bodyLogs, []);
+  const [bodyStatsSettings, setBodyStatsSettings, l13] = useStorage<BodyStatsSettings>(STORAGE_KEYS.bodyStatsSettings, DEFAULT_BODY_SETTINGS);
+  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13;
 
   // Auto-trigger recurring expenses on app open
   const recurringProcessed = useRef(false);
@@ -102,7 +120,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.recurringExpenses) setRecurring(data.recurringExpenses);
     if (data.shoppingList) setShopping(data.shoppingList);
     if (data.maidSalary) setMaidSalary(data.maidSalary);
-  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setMaidSalary]);
+    if (data.bodyProfile) setBodyProfile(data.bodyProfile);
+    if (data.bodyLogs) setBodyLogs(data.bodyLogs);
+    if (data.bodyStatsSettings) setBodyStatsSettings(data.bodyStatsSettings);
+  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings]);
 
   const value = useMemo(() => ({
     history, setHistory,
@@ -115,13 +136,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     recurring, setRecurring,
     shopping, setShopping,
     maidSalary, setMaidSalary,
+    bodyProfile, setBodyProfile,
+    bodyLogs, setBodyLogs,
+    bodyStatsSettings, setBodyStatsSettings,
     allLoaded,
     handleImport,
   }), [
     history, setHistory, cooking, setCooking, maidData, setMaidData,
     attendance, setAttendance, reminders, setReminders, periods, setPeriods,
     budget, setBudget, recurring, setRecurring, shopping, setShopping,
-    maidSalary, setMaidSalary, allLoaded, handleImport,
+    maidSalary, setMaidSalary,
+    bodyProfile, setBodyProfile, bodyLogs, setBodyLogs,
+    bodyStatsSettings, setBodyStatsSettings,
+    allLoaded, handleImport,
   ]);
 
   return (

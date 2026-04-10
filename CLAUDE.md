@@ -4,10 +4,10 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.0.2** (tagged 2026-04-10) — see `CHANGELOG.md` for full history.
-- `app.json`: version `1.0.2`, `ios.buildNumber "3"`, `android.versionCode 3`
-- `package.json`: name `forshe`, version `1.0.2`
-- Git tags: `v1.0.0` on 14a2dfe (first APK 2026-03-21), `v1.0.1` on cdf35a0, `v1.0.2` on master
+**v1.1.0** (tagged 2026-04-10) — see `CHANGELOG.md` for full history.
+- `app.json`: version `1.1.0`, `ios.buildNumber "4"`, `android.versionCode 4`
+- `package.json`: name `forshe`, version `1.1.0`
+- Git tags: `v1.0.0` on 14a2dfe (first APK 2026-03-21), `v1.0.1` on cdf35a0, `v1.0.2`, `v1.1.0` on master
 - Orchestration: every task routes through `project-manager` (see Agents section)
 
 ## Tech Stack
@@ -55,6 +55,7 @@ src/
     MaidScreen.tsx         # Maid task & attendance (salary validation)
     RemindersScreen.tsx    # Reminders with typed triggers + notification cancellation on delete/done
     CycleScreen.tsx        # Period/cycle tracker (all handlers useCallback)
+    BodyStatsScreen.tsx    # Body vitals tracker — weight, BP, sugar, oxygen, HR (feature-flagged, BMI, memoized LogRow)
     MonthlyReportScreen.tsx  # Monthly spending report with charts (handlers useCallback)
     ShoppingListScreen.tsx   # Grocery/shopping checklist (memoized ListHeader, imports ShoppingItem from types)
     BackupScreen.tsx         # Import/export data (schema validation, CSV escaping, handlers useCallback, summaryItems useMemo)
@@ -63,12 +64,13 @@ src/
     useStorage.ts        # AsyncStorage hook with error handling (.catch/.finally) + JSON serialization
     useSecureStorage.ts  # SecureStore hook for sensitive data (PIN)
   utils/
-    backup.ts        # JSON/CSV export & import with validateBackupData(), csvEscape(), safeParse()
-    budgetAlerts.ts  # Push notifications at 80%/100% budget (deduplicated per month via AsyncStorage)
-    currency.ts      # PKR formatter (pkrF)
-    dates.ts         # Date formatting utilities (locale-independent DD/MM/YYYY)
-    share.ts         # Share functionality
-  types.ts       # TypeScript type definitions (Transaction, RecurringExpense, Reminder with notifIds, PeriodLog, ShoppingItem, etc.)
+    backup.ts                  # JSON/CSV export & import with validateBackupData(), csvEscape(), safeParse(), body stats schema
+    budgetAlerts.ts            # Push notifications at 80%/100% budget (deduplicated per month via AsyncStorage)
+    bodyStatsNotifications.ts  # schedule/cancel daily body stats reminder (DAILY trigger, graceful permission handling)
+    currency.ts                # PKR formatter (pkrF)
+    dates.ts                   # Date formatting utilities (locale-independent DD/MM/YYYY)
+    share.ts                   # Share functionality
+  types.ts       # TypeScript type definitions (Transaction, RecurringExpense, Reminder with notifIds, PeriodLog, ShoppingItem, BodyProfile, BodyLog, BodyStatsSettings, etc.)
 assets/
   logo.png       # App logo (512x512, 393KB)
   splash.png     # Full-screen branded splash image (1024w, 3.2MB)
@@ -78,7 +80,7 @@ assets/
 ```
 
 ## Navigation Architecture
-- **Drawer** (top level): Home, Shopping List, Maid Tasks, Cycle Tracker, Monthly Report, Backup, Settings
+- **Drawer** (top level): Home, Shopping List, Maid Tasks, Cycle Tracker, Body Stats, Monthly Report, Backup, Settings
 - **Bottom Tabs** (inside Home): Today, Expenses, Cooking, Reminders
 - **Hamburger button**: DrawerMenuButton (React.memo) on every screen opens the drawer
 - **App flow**: Splash → Onboarding (first time) → PIN Lock (if set) → Main App
@@ -120,6 +122,7 @@ assets/
 17. **Onboarding**: 5-slide walkthrough (theme-aware dark mode)
 18. **App Lock**: 4-digit PIN with brute-force protection (5 attempts → 30s lockout, functional updater pattern)
 19. **Splash Screen**: Full-screen branded image — theme-aware background
+20. **Body Stats** (v1.1.0): Optional vitals tracker — weight, BP, blood sugar (fasting/post-meal/random), SpO2, heart rate, BMI calculation, daily reminder notification. Feature-flagged (off by default, enable in Settings). Height set once, logs kept forever. Backup/restore round-tripped. Drawer entry hidden nowhere — disabled state on screen routes user to Settings.
 
 ## Performance Optimizations
 - **DataContext**: `useMemo` wraps context value to prevent cascade re-renders

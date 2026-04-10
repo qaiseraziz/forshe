@@ -2,6 +2,41 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.1.0 — 2026-04-10
+
+Minor feature release — adds an opt-in **Body Stats** module for tracking personal vitals alongside the household data already in the app. No breaking changes to existing data; v1.0.2 backups import cleanly.
+
+### Added
+- **Body Stats screen** (`src/screens/BodyStatsScreen.tsx`) — log weight, blood pressure (sys/dia), blood sugar with context (fasting/post-meal/random), SpO2 oxygen, heart rate, and free-form notes. Stored as timestamped `BodyLog` entries alongside a one-time `BodyProfile` (height + optional birth year + gender).
+- **BMI calculation** — hero card on BodyStatsScreen shows latest weight, computed BMI, and category (Underweight / Normal / Overweight / Obese) whenever a recent log contains weight and the profile has a height.
+- **Feature flag** — Body Stats is off by default. Users enable it from `Settings → 💪 Body Stats → Enable Body Stats`. Disabling the feature cancels scheduled reminders and hides the feed behind a dedicated disabled-state empty view, but preserves all logs.
+- **Daily reminder notification** — optional local push at a user-chosen time, wired to `expo-notifications` `SchedulableTriggerInputTypes.DAILY`. Schedules on enable, reschedules on time change, cancels on disable. Graceful fallback if permission is denied.
+- **Drawer entry** — `💪 Body Stats` now appears in the drawer between Cycle Tracker and Monthly Report. Always visible (even when feature disabled) so users can discover it; disabled state routes back to Settings.
+- **Backup schema** — `bodyProfile`, `bodyLogs`, `bodyStatsSettings` added to `BackupData`, `validateBackupData()`, export JSON, and import flow. Export format version bumped to `2.1`. `BackupScreen` data summary now includes a "Body Logs" tile.
+- **New utility** — `src/utils/bodyStatsNotifications.ts` exports `scheduleBodyStatsReminder(time)` / `cancelBodyStatsReminder(ids)`.
+- **New AsyncStorage keys** — `hm_body_profile`, `hm_body_logs`, `hm_body_settings` (added to `STORAGE_KEYS` in `constants/data.ts`).
+- **New types** — `BodyProfile`, `BodyLog`, `BodyStatsSettings`, `BloodSugarContext` in `src/types.ts`.
+
+### Validation
+- Weight 20–300 kg, systolic 60–250, diastolic 40–150 (diastolic must be < systolic), blood sugar 40–600 mg/dL, SpO2 50–100%, heart rate 30–220 bpm, height 50–260 cm. At least one metric required per log. All `parseFloat` / `parseInt` results guarded for NaN. Inline alerts on invalid input.
+
+### Performance
+- `LogRow` extracted as a `React.memo` sub-component — the recent-logs list won't re-render each parent update.
+- All BodyStatsScreen handlers (`saveHeight`, `logEntry`, `deleteLog`, `resetForm`, gender/sugar context pickers, navigation to Settings) wrapped in `useCallback`.
+- `latestLog`, `daysSinceLast`, `latestBMI`, `displayLogs`, and `sugarCtxHandlers` all `useMemo`'d with minimal deps.
+- Recent logs are capped at 10 rendered rows — no FlatList virtualization needed.
+
+### Style
+- Reuses the existing luxury design system — gold gradient hero with dark variant, no borders on chips, 44×44 minimum touch targets everywhere, `useSafeAreaInsets` wrapper, locale-independent date formatting via `fmtISO` / `todayISO`.
+- All colors sourced from `useTheme()`; only `#fff` literal is used for text on gradient surfaces (per design system rule).
+
+### Chore
+- `app.json` → version `1.1.0`, `ios.buildNumber` `"4"`, `android.versionCode` `4`.
+- `package.json` → version `1.1.0`.
+- `SettingsScreen` About card → `Version 1.1.0`.
+- `DrawerNav` footer → `ForSHE v1.1.0`.
+- `CLAUDE.md` updated — current version, feature list, drawer architecture, utils listing, types listing.
+
 ## v1.0.2 — 2026-04-10
 
 Post-v1.0.1 UX polish and performance hardening. No new features — focused on closing design gaps, tightening memoization, and improving accessibility.

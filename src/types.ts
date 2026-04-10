@@ -71,6 +71,36 @@ export interface MaidSalary {
   note: string;
 }
 
+export interface BodyProfile {
+  height: number;                       // cm
+  heightUnit: 'cm' | 'ft';              // display preference
+  birthYear?: number;
+  gender?: 'female' | 'male' | 'other';
+}
+
+export type BloodSugarContext = 'fasting' | 'post-meal' | 'random';
+
+export interface BodyLog {
+  id: number;                           // Date.now()
+  date: string;                         // YYYY-MM-DD
+  weight?: number;                      // kg
+  bpSystolic?: number;                  // mmHg
+  bpDiastolic?: number;                 // mmHg
+  bloodSugar?: number;                  // mg/dL
+  bloodSugarContext?: BloodSugarContext;
+  oxygen?: number;                      // SpO2 %
+  heartRate?: number;                   // bpm
+  temperature?: number;                 // °C
+  notes?: string;
+}
+
+export interface BodyStatsSettings {
+  enabled: boolean;                     // master switch (default false)
+  reminderEnabled: boolean;
+  reminderTime: string;                 // "HH:MM" 24h
+  reminderNotifIds?: string[];          // scheduled notification IDs
+}
+
 export interface BackupData {
   version?: string;
   exported?: string;
@@ -84,4 +114,7 @@ export interface BackupData {
   recurringExpenses?: RecurringExpense[];
   shoppingList?: ShoppingItem[];
   maidSalary?: MaidSalary[];
+  bodyProfile?: BodyProfile;
+  bodyLogs?: BodyLog[];
+  bodyStatsSettings?: BodyStatsSettings;
 }

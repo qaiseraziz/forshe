@@ -53,4 +53,7 @@ export const STORAGE_KEYS = {
   shopping: 'hm_shopping',
   maidSalary: 'hm_maid_salary',
   recurringLast: 'forshe_recurring_last',
+  bodyProfile: 'hm_body_profile',
+  bodyLogs: 'hm_body_logs',
+  bodyStatsSettings: 'hm_body_settings',
 } as const;

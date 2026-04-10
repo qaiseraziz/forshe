@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
@@ -14,11 +15,12 @@ import { useSecureStorage } from '../hooks/useSecureStorage';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { CAT_KEYS } from '../constants/data';
 import { pkrF } from '../utils/currency';
+import { scheduleBodyStatsReminder, cancelBodyStatsReminder } from '../utils/bodyStatsNotifications';
 
 export default function SettingsScreen() {
   const { colors, dark, setDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { recurring, setRecurring } = useData();
+  const { recurring, setRecurring, bodyStatsSettings, setBodyStatsSettings } = useData();
   const [pin, setPin] = useSecureStorage('forshe_pin', '');
   const [pinInput, setPinInput] = useState('');
   const [showPinInput, setShowPinInput] = useState(false);
@@ -26,6 +28,7 @@ export default function SettingsScreen() {
   const [recAmt, setRecAmt] = useState('');
   const [recCat, setRecCat] = useState(CAT_KEYS[0]);
   const [recDay, setRecDay] = useState('1');
+  const [showBodyTimePicker, setShowBodyTimePicker] = useState(false);
 
   const addRecurring = useCallback(() => {
     const amt = parseFloat(recAmt);
@@ -66,6 +69,83 @@ export default function SettingsScreen() {
 
   const handleRecDayChange = useCallback((t: string) => {
     setRecDay(t.replace(/[^0-9]/g, '').slice(0, 2));
+  }, []);
+
+  // --- Body Stats ---
+  const toggleBodyStats = useCallback(async (val: boolean) => {
+    if (val) {
+      Alert.alert(
+        'Enable Body Stats',
+        'Body Stats lets you log weight, blood pressure, sugar and more. Open the drawer and tap "Body Stats" to get started.',
+        [{ text: 'OK' }],
+      );
+      setBodyStatsSettings(s => ({ ...s, enabled: true }));
+    } else {
+      Alert.alert(
+        'Disable Body Stats?',
+        'Your existing logs will be preserved but the Body Stats screen will show a disabled message until re-enabled.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Disable',
+            style: 'destructive',
+            onPress: async () => {
+              await cancelBodyStatsReminder(bodyStatsSettings.reminderNotifIds);
+              setBodyStatsSettings(s => ({
+                ...s,
+                enabled: false,
+                reminderEnabled: false,
+                reminderNotifIds: [],
+              }));
+            },
+          },
+        ],
+      );
+    }
+  }, [bodyStatsSettings.reminderNotifIds, setBodyStatsSettings]);
+
+  const toggleBodyReminder = useCallback(async (val: boolean) => {
+    if (val) {
+      const ids = await scheduleBodyStatsReminder(bodyStatsSettings.reminderTime);
+      if (ids.length === 0) {
+        Alert.alert(
+          'Permission Needed',
+          'Please grant notification permission in your device settings to receive reminders.',
+        );
+        return;
+      }
+      setBodyStatsSettings(s => ({ ...s, reminderEnabled: true, reminderNotifIds: ids }));
+    } else {
+      await cancelBodyStatsReminder(bodyStatsSettings.reminderNotifIds);
+      setBodyStatsSettings(s => ({ ...s, reminderEnabled: false, reminderNotifIds: [] }));
+    }
+  }, [bodyStatsSettings.reminderTime, bodyStatsSettings.reminderNotifIds, setBodyStatsSettings]);
+
+  const openBodyTimePicker = useCallback(() => setShowBodyTimePicker(true), []);
+
+  const onBodyTimeChange = useCallback(async (_: DateTimePickerEvent, selected?: Date) => {
+    setShowBodyTimePicker(Platform.OS === 'ios');
+    if (!selected) return;
+    const hh = String(selected.getHours()).padStart(2, '0');
+    const mm = String(selected.getMinutes()).padStart(2, '0');
+    const newTime = `${hh}:${mm}`;
+
+    // If reminders were already enabled, reschedule
+    if (bodyStatsSettings.reminderEnabled) {
+      await cancelBodyStatsReminder(bodyStatsSettings.reminderNotifIds);
+      const ids = await scheduleBodyStatsReminder(newTime);
+      setBodyStatsSettings(s => ({ ...s, reminderTime: newTime, reminderNotifIds: ids }));
+    } else {
+      setBodyStatsSettings(s => ({ ...s, reminderTime: newTime }));
+    }
+  }, [bodyStatsSettings.reminderEnabled, bodyStatsSettings.reminderNotifIds, setBodyStatsSettings]);
+
+  // Parse HH:MM into a Date for the native picker
+  const parseTimeToDate = useCallback((t: string): Date => {
+    const [hStr, mStr] = t.split(':');
+    const d = new Date();
+    d.setHours(parseInt(hStr, 10) || 0, parseInt(mStr, 10) || 0, 0, 0);
+    return d;
   }, []);
 
   return (
@@ -145,6 +225,71 @@ export default function SettingsScreen() {
           )}
         </Card>
 
+        {/* Body Stats */}
+        <Card>
+          <Text style={[styles.sectionLabel, { color: colors.deep }]}>💪 Body Stats</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingTitle, { color: colors.deep }]}>Enable Body Stats</Text>
+              <Text style={[styles.settingSub, { color: colors.muted }]}>
+                {bodyStatsSettings.enabled
+                  ? 'Track weight, BP, sugar, oxygen and more'
+                  : 'Turn on to log your vitals from the drawer'}
+              </Text>
+            </View>
+            <Switch
+              value={bodyStatsSettings.enabled}
+              onValueChange={toggleBodyStats}
+              trackColor={{ false: colors.border, true: colors.gold }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <View style={[styles.settingRow, styles.bodyRowSpace, { opacity: bodyStatsSettings.enabled ? 1 : 0.4 }]}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingTitle, { color: colors.deep }]}>Daily Reminder</Text>
+              <Text style={[styles.settingSub, { color: colors.muted }]}>
+                Push a notification once a day at your chosen time
+              </Text>
+            </View>
+            <Switch
+              value={bodyStatsSettings.reminderEnabled}
+              onValueChange={toggleBodyReminder}
+              disabled={!bodyStatsSettings.enabled}
+              trackColor={{ false: colors.border, true: colors.gold }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <TouchableOpacity
+            onPress={openBodyTimePicker}
+            disabled={!bodyStatsSettings.enabled || !bodyStatsSettings.reminderEnabled}
+            accessibilityRole="button"
+            accessibilityLabel="Change body stats reminder time"
+            style={[
+              styles.timePickerBtn,
+              {
+                backgroundColor: colors.bg3,
+                opacity:
+                  bodyStatsSettings.enabled && bodyStatsSettings.reminderEnabled ? 1 : 0.4,
+              },
+            ]}
+          >
+            <Text style={[styles.timePickerLabel, { color: colors.muted }]}>REMINDER TIME</Text>
+            <Text style={[styles.timePickerValue, { color: colors.text }]}>
+              ⏰ {bodyStatsSettings.reminderTime}
+            </Text>
+          </TouchableOpacity>
+          {showBodyTimePicker && (
+            <DateTimePicker
+              value={parseTimeToDate(bodyStatsSettings.reminderTime)}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onBodyTimeChange}
+            />
+          )}
+        </Card>
+
         {/* Recurring Expenses */}
         <Card>
           <Text style={[styles.sectionLabel, { color: colors.deep }]}>🔄 Recurring Expenses</Text>
@@ -213,7 +358,7 @@ export default function SettingsScreen() {
         <Card>
           <View style={styles.aboutSection}>
             <Text style={[styles.aboutName, { color: colors.deep }]}>ForSHE</Text>
-            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.0.2</Text>
+            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.1.0</Text>
             <Text style={[styles.aboutDesc, { color: colors.sub }]}>
               Your complete home management companion. Track expenses, plan meals, manage maid tasks, set reminders, and more — all in one beautiful app.
             </Text>
@@ -266,4 +411,23 @@ const styles = StyleSheet.create({
   recFlex: { flex: 1 },
   recPickerWrap: { borderRadius: 16, overflow: 'hidden', marginBottom: 8 },
   addRecurringBtn: { alignSelf: 'flex-start', marginBottom: 12 },
+  bodyRowSpace: { marginTop: 14 },
+  timePickerBtn: {
+    marginTop: 14,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    minHeight: 54,
+  },
+  timePickerLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  timePickerValue: {
+    fontSize: 17,
+    fontFamily: 'Outfit-SemiBold',
+  },
 });

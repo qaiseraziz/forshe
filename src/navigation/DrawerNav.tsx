@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { BottomTabs } from './BottomTabs';
 import MaidScreen from '../screens/MaidScreen';
 import CycleScreen from '../screens/CycleScreen';
+import BodyStatsScreen from '../screens/BodyStatsScreen';
 import MonthlyReportScreen from '../screens/MonthlyReportScreen';
 import BackupScreen from '../screens/BackupScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -18,6 +19,7 @@ const DRAWER_ITEMS = [
   { name: 'Shopping', icon: '🛒', label: 'Shopping List' },
   { name: 'MaidTasks', icon: '🧹', label: 'Maid Tasks' },
   { name: 'CycleTracker', icon: '🌸', label: 'Cycle Tracker' },
+  { name: 'BodyStats', icon: '💪', label: 'Body Stats' },
   { name: 'MonthlyReport', icon: '📊', label: 'Monthly Report' },
   { name: 'Backup', icon: '💾', label: 'Backup & Restore' },
   { name: 'Settings', icon: '⚙️', label: 'Settings' },
@@ -68,7 +70,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.0.2</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.1.0</Text>
       </View>
     </View>
   );
@@ -96,6 +98,7 @@ export function DrawerNav() {
       <Drawer.Screen name="Shopping" component={ShoppingListScreen} />
       <Drawer.Screen name="MaidTasks" component={MaidScreen} />
       <Drawer.Screen name="CycleTracker" component={CycleScreen} />
+      <Drawer.Screen name="BodyStats" component={BodyStatsScreen} />
       <Drawer.Screen name="MonthlyReport" component={MonthlyReportScreen} />
       <Drawer.Screen name="Backup" component={BackupScreen} />
       <Drawer.Screen name="Settings" component={SettingsScreen} />

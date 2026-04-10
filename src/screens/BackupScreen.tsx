@@ -27,6 +27,9 @@ export default function BackupScreen() {
     recurring,
     shopping,
     maidSalary,
+    bodyProfile,
+    bodyLogs,
+    bodyStatsSettings,
     handleImport,
   } = useData();
 
@@ -52,11 +55,11 @@ export default function BackupScreen() {
 
   const handleExportJSON = useCallback(async () => {
     try {
-      await exportBackup({ history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, maidSalary });
+      await exportBackup({ history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, maidSalary, bodyProfile, bodyLogs, bodyStatsSettings });
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to export backup.');
     }
-  }, [history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, maidSalary]);
+  }, [history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, maidSalary, bodyProfile, bodyLogs, bodyStatsSettings]);
 
   const handleExportCSV = useCallback(async () => {
     try {
@@ -82,8 +85,9 @@ export default function BackupScreen() {
     { value: String(taskCount), label: 'Maid Tasks', color: colors.blue },
     { value: String(reminders.length), label: 'Reminders', color: colors.purple },
     { value: String(periods.length), label: 'Cycle Logs', color: colors.pink },
+    { value: String(bodyLogs.length), label: 'Body Logs', color: colors.red },
     { value: budget ? pkr(budget) : '—', label: 'Budget', color: colors.gold },
-  ], [history.length, totalRec, totalSpent, mealCount, taskCount, reminders.length, periods.length, budget, colors]);
+  ], [history.length, totalRec, totalSpent, mealCount, taskCount, reminders.length, periods.length, bodyLogs.length, budget, colors]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
