@@ -33,7 +33,7 @@ function AppContent() {
 
   const [showSplash, setShowSplash] = useState(true);
   const [hasOnboarded, setHasOnboarded] = useStorage<boolean>('forshe_onboarded', false);
-  const [pin, setPin] = useSecureStorage('forshe_pin', '');
+  const [pin] = useSecureStorage('forshe_pin', '');
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   if (!allLoaded) {
@@ -74,7 +74,7 @@ function AppContent() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'PlayfairDisplay-Bold': PlayfairDisplay_700Bold,
     'PlayfairDisplay-ExtraBold': PlayfairDisplay_800ExtraBold,
     'Outfit-Light': Outfit_300Light,
@@ -85,12 +85,13 @@ export default function App() {
   });
 
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
+    if (fontsLoaded || fontError) {
       await SplashScreenExpo.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) {
+  // If fonts failed to load, proceed with system fonts rather than blocking the app forever
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 

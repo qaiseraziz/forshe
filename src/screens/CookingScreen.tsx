@@ -123,7 +123,10 @@ export default function CookingScreen() {
           <Text style={[styles.title, { color: colors.deep }]}>Meal Planner</Text>
           <Text style={[styles.subtitle, { color: colors.muted }]}>
             {filter === 'today'
-              ? new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+              ? (() => {
+                  const n = new Date();
+                  return `${FULL_DAYS[(n.getDay() + 6) % 7]}, ${n.getDate()} ${MONTHS[n.getMonth()]}`;
+                })()
               : 'Tap a day to plan meals'}
           </Text>
         </View>
@@ -269,7 +272,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 24,
-    borderWidth: 1,
+    borderWidth: 0,
     marginBottom: 10,
   },
   mealBadgeText: {

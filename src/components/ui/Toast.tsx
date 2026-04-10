@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 interface ToastData {
@@ -35,7 +35,7 @@ export function useToast(): ToastState {
   return { toast, show, dismiss };
 }
 
-export function Toast({ toast, dismiss }: { toast: ToastData | null; dismiss: () => void }) {
+function ToastImpl({ toast, dismiss }: { toast: ToastData | null; dismiss: () => void }) {
   const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -76,6 +76,8 @@ export function Toast({ toast, dismiss }: { toast: ToastData | null; dismiss: ()
     </Animated.View>
   );
 }
+
+export const Toast = React.memo(ToastImpl);
 
 const styles = StyleSheet.create({
   container: {

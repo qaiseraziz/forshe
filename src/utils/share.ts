@@ -2,7 +2,7 @@ import { Share, Linking, Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Transaction } from '../types';
 import { MONTHS } from '../constants/data';
-import { pkrF, pkr } from './currency';
+import { pkrF } from './currency';
 import { todayStr, parseDMY } from './dates';
 
 export function buildShareText(

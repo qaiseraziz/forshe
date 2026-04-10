@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
-import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { BottomTabs } from './BottomTabs';
@@ -23,7 +23,7 @@ const DRAWER_ITEMS = [
   { name: 'Settings', icon: '⚙️', label: 'Settings' },
 ];
 
-function CustomDrawerContent(props: any) {
+const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { state, navigation } = props;
@@ -68,18 +68,20 @@ function CustomDrawerContent(props: any) {
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.0.0</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.0.1</Text>
       </View>
     </View>
   );
-}
+});
+
+const renderDrawerContent = (props: any) => <CustomDrawerContent {...props} />;
 
 export function DrawerNav() {
   const { colors } = useTheme();
 
   return (
     <Drawer.Navigator
-      drawerContent={props => <CustomDrawerContent {...props} />}
+      drawerContent={renderDrawerContent}
       screenOptions={{
         headerShown: false,
         drawerType: 'front',

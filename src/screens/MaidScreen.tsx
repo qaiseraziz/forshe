@@ -6,6 +6,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { gradients } from '../constants/colors';
 import { MonthBar } from '../components/MonthBar';
 import { DayStrip } from '../components/DayStrip';
 import { Card } from '../components/ui/Card';
@@ -16,12 +17,11 @@ import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { DAYS, FULL_DAYS, MONTHS, PRESET_TASKS } from '../constants/data';
 import { todayDay, todayStr } from '../utils/dates';
-import { MaidTask, MaidSalary } from '../types';
 import { pkrF } from '../utils/currency';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 export default function MaidScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { maidData, setMaidData, attendance, setAttendance, maidSalary, setMaidSalary } = useData();
 
@@ -90,9 +90,42 @@ export default function MaidScreen() {
     return { totalDone, totalAll, pct, attEntries, presentDays, absentDays };
   }, [maidData, attendance]);
 
+  // Daily view derived data (hooks must run on every render regardless of filter)
+  const tasks = maidData[activeDay] || [];
+  const done = tasks.filter((t) => t.done).length;
+  const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+
+  const saveSalary = useCallback(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const sal = parseFloat(salaryAmt) || 0;
+    const adv = parseFloat(advanceAmt) || 0;
+    if (sal <= 0) {
+      Alert.alert('Invalid Salary', 'Please enter a salary amount greater than 0.');
+      return;
+    }
+    const existing = maidSalary.find(s => s.month === monthKey);
+    if (existing) {
+      setMaidSalary(ms => ms.map(s => s.month === monthKey ? { ...s, salary: sal, advance: adv } : s));
+    } else {
+      setMaidSalary(ms => [...ms, { id: Date.now(), month: monthKey, salary: sal, advance: adv, deduction: 0, paid: false, note: '' }]);
+    }
+    setSalaryAmt(''); setAdvanceAmt('');
+  }, [salaryAmt, advanceAmt, maidSalary, setMaidSalary]);
+
+  const sortedSalary = useMemo(
+    () => [...maidSalary].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 6),
+    [maidSalary],
+  );
+
+  const presets = useMemo(() => {
+    const added = tasks.map((t) => t.name.toLowerCase());
+    return PRESET_TASKS.filter((p) => !added.includes(p.toLowerCase()));
+  }, [tasks]);
+
   // Monthly view
   if (filter === 'month') {
-    const { totalDone, totalAll, pct, attEntries, presentDays, absentDays } = monthlyStats;
+    const { totalDone, totalAll, pct: monthPct, attEntries, presentDays, absentDays } = monthlyStats;
 
     return (
       <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -116,7 +149,7 @@ export default function MaidScreen() {
           </View>
 
           {/* Summary card */}
-          <Card style={{ borderColor: colors.greenBorder, backgroundColor: colors.greenBg }}>
+          <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero} style={{ borderColor: colors.greenBorder, backgroundColor: colors.greenBg }}>
             <Text style={[styles.summaryTitle, { color: colors.green }]}>🧹 Weekly Chores Overview</Text>
             <View style={styles.statsGrid}>
               <View style={styles.statBox}>
@@ -128,7 +161,7 @@ export default function MaidScreen() {
                 <Text style={[styles.statLabel, { color: colors.muted }]}>Pending</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={[styles.statVal, { color: colors.gold }]}>{pct}%</Text>
+                <Text style={[styles.statVal, { color: colors.gold }]}>{monthPct}%</Text>
                 <Text style={[styles.statLabel, { color: colors.muted }]}>Completion</Text>
               </View>
               <View style={styles.statBox}>
@@ -200,37 +233,6 @@ export default function MaidScreen() {
   }
 
   // Daily view
-  const tasks = maidData[activeDay] || [];
-  const done = tasks.filter((t) => t.done).length;
-  const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  const saveSalary = useCallback(() => {
-    const now = new Date();
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const sal = parseFloat(salaryAmt) || 0;
-    const adv = parseFloat(advanceAmt) || 0;
-    if (sal <= 0) {
-      Alert.alert('Invalid Salary', 'Please enter a salary amount greater than 0.');
-      return;
-    }
-    const existing = maidSalary.find(s => s.month === monthKey);
-    if (existing) {
-      setMaidSalary(ms => ms.map(s => s.month === monthKey ? { ...s, salary: sal, advance: adv } : s));
-    } else {
-      setMaidSalary(ms => [...ms, { id: Date.now(), month: monthKey, salary: sal, advance: adv, deduction: 0, paid: false, note: '' }]);
-    }
-    setSalaryAmt(''); setAdvanceAmt('');
-  }, [salaryAmt, advanceAmt, maidSalary, setMaidSalary]);
-
-  const sortedSalary = useMemo(
-    () => [...maidSalary].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 6),
-    [maidSalary],
-  );
-
-  const presets = useMemo(() => {
-    const added = tasks.map((t) => t.name.toLowerCase());
-    return PRESET_TASKS.filter((p) => !added.includes(p.toLowerCase()));
-  }, [tasks]);
-
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top }]}>
@@ -503,7 +505,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 4,
     paddingHorizontal: 12,
-    borderWidth: 1,
+    borderWidth: 0,
   },
   attBadgeText: {
     fontFamily: 'Outfit-Bold',
@@ -524,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 10,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 0,
   },
   monthDayBadgeText: {
     fontFamily: 'Outfit-SemiBold',
@@ -649,7 +651,10 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   delBtn: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   delBtnText: {
     fontSize: 22,

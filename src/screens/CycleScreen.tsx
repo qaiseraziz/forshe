@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { gradients } from '../constants/colors';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -25,7 +26,7 @@ import { PeriodLog } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 export default function CycleScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { periods, setPeriods } = useData();
 
@@ -44,7 +45,7 @@ export default function CycleScreen() {
   );
 
   // Consolidated cycle calculations
-  const { sorted, avgCycle, avgDur, predictions } = useMemo(() => {
+  const { avgCycle, avgDur, predictions } = useMemo(() => {
     const sorted = [...periods].sort((a, b) => a.start.localeCompare(b.start));
 
     const durations = sorted.filter(p => p.end).map(p => daysBetween(p.start, p.end) + 1);
@@ -81,7 +82,7 @@ export default function CycleScreen() {
       predictions = { nextStart, ovulation, fertileStart, fertileEnd, pmsStart, dayInCycle, cyclePct, daysUntilNext };
     }
 
-    return { sorted, avgCycle, avgDur, predictions };
+    return { avgCycle, avgDur, predictions };
   }, [periods]);
 
   const addLog = useCallback(() => {
@@ -153,7 +154,7 @@ export default function CycleScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Hero Card */}
-      <Card style={{ backgroundColor: colors.pinkBg, borderColor: colors.pinkBorder }}>
+      <Card gradient={dark ? gradients.pinkHeroDark : gradients.pinkHero} style={{ backgroundColor: colors.pinkBg, borderColor: colors.pinkBorder }}>
         <View style={styles.heroTopRow}>
           <Text style={[styles.heroLabel, { color: colors.pink }]}>🌸 Next Period</Text>
           <DrawerMenuButton />
@@ -573,8 +574,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   clearBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     borderWidth: 0,
     alignItems: 'center',

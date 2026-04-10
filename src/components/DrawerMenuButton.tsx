@@ -29,8 +29,8 @@ export const DrawerMenuButton = React.memo(function DrawerMenuButton() {
 
 const styles = StyleSheet.create({
   btn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +18,7 @@ const TABS = [
   { name: 'Remind', icon: '🔔', component: RemindersScreen },
 ];
 
-const CustomTabBar = React.memo(function CustomTabBar({ state, descriptors, navigation }: any) {
+const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any) {
   const { colors } = useTheme();
   const { reminders } = useData();
   const insets = useSafeAreaInsets();
@@ -84,8 +84,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 0,
-    borderWidth: 1,
-    borderColor: undefined,
+    borderWidth: 0,
     paddingTop: 8,
     paddingHorizontal: 4,
     gap: 2,

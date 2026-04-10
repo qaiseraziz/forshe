@@ -15,6 +15,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { gradients } from '../constants/colors';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -22,7 +23,7 @@ import { Badge } from '../components/ui/Badge';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { REMINDER_CATS } from '../constants/data';
-import { fmtISO, todayISO, dateToISO } from '../utils/dates';
+import { fmtISO, dateToISO } from '../utils/dates';
 import { Reminder } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
@@ -88,7 +89,7 @@ function daysUntil(d: string, t: string): string | null {
 }
 
 export default function RemindersScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { reminders, setReminders } = useData();
 
@@ -222,7 +223,7 @@ export default function RemindersScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Hero Card */}
-      <Card style={{ backgroundColor: colors.purpleBg, borderColor: colors.purpleBorder }}>
+      <Card gradient={dark ? gradients.purpleHeroDark : gradients.purpleHero} style={{ backgroundColor: colors.purpleBg, borderColor: colors.purpleBorder }}>
         <View style={styles.heroTopRow}>
           <Text style={[styles.heroLabel, { color: colors.purple }]}>🔔 Active Reminders</Text>
           <DrawerMenuButton />
@@ -482,8 +483,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   clearBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     borderWidth: 0,
     alignItems: 'center',
@@ -538,7 +539,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   actionBtn: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notifyRow: {
     flexDirection: 'row',

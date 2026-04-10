@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
   Platform,
-  Share,
   Modal,
   KeyboardAvoidingView,
   ScrollView,
@@ -25,13 +24,12 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { MonthBar } from '../components/MonthBar';
 import { CAT_KEYS, CAT_COLORS, MONTHS, EXPENSE_PRESETS } from '../constants/data';
 import { pkr, pkrF } from '../utils/currency';
-import { todayStr, todayISO, parseDMY, dateToDMY } from '../utils/dates';
+import { todayStr, parseDMY, dateToDMY } from '../utils/dates';
 import { buildShareText, doShare } from '../utils/share';
 import { Transaction } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
@@ -225,14 +223,23 @@ export default function ExpensesScreen() {
 
   const saveEdit = useCallback(
     (id: number) => {
+      const parsedAmt = parseFloat(editAmt);
+      if (isNaN(parsedAmt) || parsedAmt <= 0) {
+        Alert.alert('Invalid Amount', 'Please enter an amount greater than 0.');
+        return;
+      }
+      if (!editLabel.trim()) {
+        Alert.alert('Missing Label', 'Please enter a label.');
+        return;
+      }
       setHistory(h =>
         h.map(x => {
           if (x.id !== id) return x;
           const dateStr = dateToDMY(editDate);
           return {
             ...x,
-            label: editLabel,
-            amount: parseFloat(editAmt) || x.amount,
+            label: editLabel.trim(),
+            amount: parsedAmt,
             date: dateStr,
             cat: x.type === 'expense' ? editCat : x.cat,
           };
@@ -249,17 +256,17 @@ export default function ExpensesScreen() {
     await doShare(text, 'share');
   }, [history, filter, selMonth, selYear, budget]);
 
-  const handleExpDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+  const handleExpDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (date) setExpDate(date);
-  };
+  }, []);
 
-  const handleEditDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+  const handleEditDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
     setShowEditDatePicker(Platform.OS === 'ios');
     if (date) setEditDate(date);
-  };
+  }, []);
 
-  const pickReceipt = async () => {
+  const pickReceipt = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.5,
@@ -267,7 +274,7 @@ export default function ExpensesScreen() {
     if (!result.canceled && result.assets[0]) {
       setReceiptUri(result.assets[0].uri);
     }
-  };
+  }, []);
 
   const sectionTitle =
     filter === 'all'
@@ -676,7 +683,7 @@ export default function ExpensesScreen() {
       <View style={styles.topBar}>
         <DrawerMenuButton />
         <Text style={[styles.screenTitle, { color: colors.deep }]}>Expenses</Text>
-        <View style={{ width: 42 }} />
+        <View style={{ width: 44 }} />
       </View>
       {/* MonthBar filter */}
       <MonthBar
@@ -789,7 +796,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 8 },
-  screenTitle: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 20 },
+  screenTitle: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 28 },
   listContent: {
     padding: 20,
     paddingBottom: 120,

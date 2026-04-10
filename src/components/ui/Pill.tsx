@@ -8,17 +8,16 @@ interface Props {
   onPress: () => void;
   activeColor?: string;
   activeBg?: string;
-  activeBorder?: string;
+  activeBorder?: string; // deprecated — kept for API compatibility
   showDot?: boolean;
   dotColor?: string;
   sublabel?: string;
 }
 
-export const Pill = React.memo(function Pill({ label, active, onPress, activeColor, activeBg, activeBorder, showDot, dotColor, sublabel }: Props) {
+export const Pill = React.memo(function Pill({ label, active, onPress, activeColor, activeBg, showDot, dotColor, sublabel }: Props) {
   const { colors } = useTheme();
   const ac = activeColor || colors.gold;
   const ab = activeBg || colors.goldBg;
-  const abr = activeBorder || colors.goldBorder;
 
   return (
     <TouchableOpacity
@@ -27,8 +26,7 @@ export const Pill = React.memo(function Pill({ label, active, onPress, activeCol
       style={[
         styles.pill,
         {
-          backgroundColor: active ? ab : 'transparent',
-          borderColor: active ? abr : colors.border,
+          backgroundColor: active ? ab : colors.bg3,
         },
       ]}
     >
@@ -42,11 +40,12 @@ export const Pill = React.memo(function Pill({ label, active, onPress, activeCol
 const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
-    borderWidth: 1.5,
     alignItems: 'center',
     minWidth: 48,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   text: {
     fontSize: 13,

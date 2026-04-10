@@ -17,7 +17,7 @@ export default function AppLockScreen({ onUnlock, storedPin }: Props) {
   const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const [failCount, setFailCount] = useState(0);
+  const [, setFailCount] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [lockRemaining, setLockRemaining] = useState(0);
 

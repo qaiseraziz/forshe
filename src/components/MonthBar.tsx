@@ -103,10 +103,10 @@ const styles = StyleSheet.create({
   pickerWrap: {
     flex: 1,
     minWidth: 140,
-    borderWidth: 1.5,
+    borderWidth: 0,
     borderRadius: 20,
     overflow: 'hidden',
-    height: 36,
+    height: 44,
     justifyContent: 'center',
   },
 });

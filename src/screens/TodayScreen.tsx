@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -11,9 +11,9 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { useToast, Toast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { MEALS, MEAL_ICONS, CAT_KEYS } from '../constants/data';
+import { MEALS, MEAL_ICONS, CAT_KEYS, FULL_DAYS, MONTHS } from '../constants/data';
 import { pkr } from '../utils/currency';
-import { todayStr, todayDay, fmtISO, dateToDMY } from '../utils/dates';
+import { todayStr, todayDay, fmtISO } from '../utils/dates';
 import { gradients } from '../constants/colors';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
@@ -37,9 +37,10 @@ export default function TodayScreen() {
   const { greeting, fullDate } = useMemo(() => {
     const now = new Date();
     const hr = now.getHours();
+    const weekday = FULL_DAYS[(now.getDay() + 6) % 7]; // JS Sunday=0; our FULL_DAYS starts Monday
     return {
       greeting: hr < 12 ? 'Good morning! ☀️' : hr < 17 ? 'Good afternoon! 🌤️' : 'Good evening! 🌙',
-      fullDate: now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      fullDate: `${weekday}, ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
     };
   }, []);
 
@@ -570,7 +571,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalTitle: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 20, marginBottom: 16 },
-  pickerWrapper: { borderRadius: 12, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
+  pickerWrapper: { borderRadius: 12, borderWidth: 0, marginBottom: 16, overflow: 'hidden' },
   modalBtns: { flexDirection: 'row', gap: 12 },
   insightText: { fontSize: 14, fontFamily: 'Outfit-Regular', lineHeight: 22 },
   weeklySection: { marginTop: 16, paddingTop: 14, borderTopWidth: 1 },

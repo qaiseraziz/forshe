@@ -1,6 +1,6 @@
 {
-  "name": "homemanagerapp",
-  "version": "1.0.0",
+  "name": "forshe",
+  "version": "1.0.1",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

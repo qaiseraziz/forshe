@@ -1,20 +1,19 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, Linking, Switch, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
+import { gradients } from '../constants/colors';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Divider } from '../components/ui/Divider';
 import { Picker } from '@react-native-picker/picker';
-import { useStorage } from '../hooks/useStorage';
 import { useSecureStorage } from '../hooks/useSecureStorage';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { CAT_KEYS } from '../constants/data';
 import { pkrF } from '../utils/currency';
-import { RecurringExpense } from '../types';
 
 export default function SettingsScreen() {
   const { colors, dark, setDark } = useTheme();
@@ -30,9 +29,9 @@ export default function SettingsScreen() {
 
   const addRecurring = useCallback(() => {
     const amt = parseFloat(recAmt);
-    const day = parseInt(recDay);
-    if (!recLabel.trim() || !amt || day < 1 || day > 28) {
-      Alert.alert('Invalid', 'Fill all fields. Day must be 1-28.');
+    const day = parseInt(recDay, 10);
+    if (!recLabel.trim() || isNaN(amt) || amt <= 0 || isNaN(day) || day < 1 || day > 28) {
+      Alert.alert('Invalid', 'Fill all fields correctly. Amount must be > 0 and day must be 1-28.');
       return;
     }
     setRecurring(r => [...r, { id: Date.now(), label: recLabel.trim(), amount: amt, cat: recCat, dayOfMonth: day, enabled: true }]);
@@ -55,7 +54,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Appearance */}
-        <Card>
+        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
           <Text style={[styles.sectionLabel, { color: colors.deep }]}>🎨 Appearance</Text>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
@@ -167,7 +166,7 @@ export default function SettingsScreen() {
                 trackColor={{ false: colors.border, true: colors.gold }}
                 thumbColor="#fff"
               />
-              <TouchableOpacity onPress={() => setRecurring(rr => rr.filter(x => x.id !== r.id))} style={{ padding: 8 }}>
+              <TouchableOpacity onPress={() => setRecurring(rr => rr.filter(x => x.id !== r.id))} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 16 }}>🗑</Text>
               </TouchableOpacity>
             </View>

@@ -1,7 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { Alert, Share, Platform } from 'react-native';
+import { Alert, Share } from 'react-native';
 import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog } from '../types';
-import { todayStr } from './dates';
 
 // --- Schema validation for backup imports ---
 

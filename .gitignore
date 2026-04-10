@@ -31,7 +31,25 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Expo shared
+.expo-shared/
+
+# Firebase / Google services
+google-services.json
+GoogleService-Info.plist
+
+# Credentials
+credentials.json
 
 # typescript
 *.tsbuildinfo

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { gradients } from '../constants/colors';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Divider } from '../components/ui/Divider';
@@ -13,7 +14,7 @@ import { pkr } from '../utils/currency';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 export default function BackupScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const {
     history,
@@ -100,18 +101,13 @@ export default function BackupScreen() {
         <DrawerMenuButton />
       </View>
 
-      {/* Warning Banner */}
-      <View
-        style={[
-          styles.warningBanner,
-          { backgroundColor: colors.goldBg, borderColor: colors.goldBorder },
-        ]}
-      >
+      {/* Warning Hero */}
+      <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
         <Text style={[styles.warningText, { color: colors.sub }]}>
           ⚠️ Your data is stored on this device only. Export a backup regularly to avoid losing
           it!
         </Text>
-      </View>
+      </Card>
 
       {/* Export JSON */}
       <Card>
