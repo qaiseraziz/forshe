@@ -21,6 +21,9 @@ export const DrawerMenuButton = React.memo(function DrawerMenuButton() {
       style={[styles.btn, { backgroundColor: colors.surfaceMuted }]}
       activeOpacity={0.7}
       onPress={openDrawer}
+      accessibilityRole="button"
+      accessibilityLabel="Open navigation menu"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Text style={[styles.icon, { color: colors.deep }]}>☰</Text>
     </TouchableOpacity>

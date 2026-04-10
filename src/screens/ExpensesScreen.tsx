@@ -11,7 +11,10 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Image,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -35,6 +38,11 @@ import { Transaction } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import * as ImagePicker from 'expo-image-picker';
 import { checkBudgetAlert } from '../utils/budgetAlerts';
+
+// Enable LayoutAnimation on Android (iOS has it on by default)
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function ExpensesScreen() {
   const { colors, dark } = useTheme();
@@ -77,6 +85,26 @@ export default function ExpensesScreen() {
 
   // Budget input
   const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
+  // Collapsed by default if a budget is set; expanded if not set
+  const [budgetCollapsed, setBudgetCollapsed] = useState(budget > 0);
+
+  const toggleBudgetCollapsed = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.selectionAsync();
+    setBudgetCollapsed(c => !c);
+  }, []);
+
+  // Quick Add preset handler — stable per-preset
+  const applyPreset = useCallback(
+    (p: typeof EXPENSE_PRESETS[number]) => {
+      Haptics.selectionAsync();
+      setFormMode('expense');
+      setExpItem(p.label);
+      setExpCat(p.cat);
+      if (p.amount > 0) setExpAmt(String(p.amount));
+    },
+    [],
+  );
 
   const keyExtractor = useCallback((item: Transaction) => String(item.id), []);
 
@@ -382,8 +410,15 @@ export default function ExpensesScreen() {
       <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
         <Text style={[styles.balLabel, { color: colors.gold }]}>💼 Remaining Balance</Text>
         <Text style={[styles.balNum, { color: bal < 0 ? colors.red : colors.green }]}>
-          {pkrF(Math.abs(bal))}
+          {pkrF(bal)}
         </Text>
+        {(bal < 0 || (budget > 0 && monthSpent > budget)) && (
+          <View style={[styles.overBudgetBadge, { backgroundColor: colors.redBg }]}>
+            <Text style={[styles.overBudgetBadgeText, { color: colors.red }]}>
+              ⚠️ Over budget
+            </Text>
+          </View>
+        )}
         <Text style={[styles.balNote, { color: colors.sub }]}>
           {bal < 0
             ? '⚠️ Overspent! Add more funds'
@@ -437,36 +472,50 @@ export default function ExpensesScreen() {
         style={styles.shareBtn}
       />
 
-      {/* Monthly Budget Setting */}
+      {/* Monthly Budget Setting (collapsible) */}
       <Card>
-        <View style={styles.budgetHeader}>
+        <TouchableOpacity
+          onPress={toggleBudgetCollapsed}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={budgetCollapsed ? 'Expand monthly budget settings' : 'Collapse monthly budget settings'}
+          accessibilityState={{ expanded: !budgetCollapsed }}
+          style={styles.budgetHeader}
+        >
           <Text style={[styles.sectionLabel, { color: colors.deep }]}>🎯 Monthly Budget</Text>
-          <Text style={[styles.budgetStatus, { color: colors.muted }]}>
-            {budget > 0 ? pkrF(budget) + ' set' : 'Not set'}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Input
-              placeholder="Set budget in PKR"
-              keyboardType="numeric"
-              value={budgetInput}
-              onChangeText={setBudgetInput}
+          <View style={styles.budgetHeaderRight}>
+            <Text style={[styles.budgetStatus, { color: colors.muted }]}>
+              {budget > 0 ? pkrF(budget) + ' set' : 'Not set'}
+            </Text>
+            <Text style={[styles.budgetChevron, { color: colors.muted }]}>
+              {budgetCollapsed ? '▾' : '▴'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        {!budgetCollapsed && (
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <Input
+                placeholder="Set budget in PKR"
+                keyboardType="numeric"
+                value={budgetInput}
+                onChangeText={setBudgetInput}
+              />
+            </View>
+            <Button
+              title="Set"
+              variant="blue"
+              small
+              onPress={handleSetBudget}
+            />
+            <Button
+              title="Clear"
+              variant="outline"
+              small
+              onPress={handleClearBudget}
             />
           </View>
-          <Button
-            title="Set"
-            variant="blue"
-            small
-            onPress={handleSetBudget}
-          />
-          <Button
-            title="Clear"
-            variant="outline"
-            small
-            onPress={handleClearBudget}
-          />
-        </View>
+        )}
       </Card>
 
       {/* Monthly Summary */}
@@ -491,7 +540,7 @@ export default function ExpensesScreen() {
                   { color: monthlySummary.net >= 0 ? colors.green : colors.red },
                 ]}
               >
-                {pkrF(Math.abs(monthlySummary.net))}
+                {pkrF(monthlySummary.net)}
               </Text>
               <Text style={[styles.summaryLbl, { color: colors.muted }]}>
                 {monthlySummary.net >= 0 ? 'Saved' : 'Deficit'}
@@ -528,27 +577,36 @@ export default function ExpensesScreen() {
         </Card>
       )}
 
-      {/* Quick Presets */}
+      {/* Quick Presets — horizontal Pakistani household rail */}
       <Card>
         <Text style={[styles.sectionLabel, { color: colors.deep }]}>⚡ Quick Add</Text>
-        <View style={styles.presetsGrid}>
-          {EXPENSE_PRESETS.slice(0, 8).map(p => (
+        <Text style={[styles.presetHint, { color: colors.muted }]}>
+          Tap to prefill the expense form
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.presetRail}
+        >
+          {EXPENSE_PRESETS.map(p => (
             <TouchableOpacity
               key={p.label}
-              style={[styles.presetChip, { backgroundColor: colors.surfaceMuted }]}
+              style={[styles.presetTile, { backgroundColor: colors.surfaceMuted }]}
               activeOpacity={0.7}
-              onPress={() => {
-                setFormMode('expense');
-                setExpItem(p.label);
-                setExpCat(p.cat);
-                if (p.amount > 0) setExpAmt(String(p.amount));
-              }}
+              onPress={() => applyPreset(p)}
+              accessibilityRole="button"
+              accessibilityLabel={`Quick add ${p.label}${p.amount > 0 ? `, default amount Rs ${p.amount}` : ''}`}
             >
-              <Text style={[styles.presetText, { color: colors.sub }]}>{p.label}</Text>
-              {p.amount > 0 && <Text style={[styles.presetAmt, { color: colors.muted }]}>Rs {p.amount}</Text>}
+              <Text style={styles.presetIcon}>{p.icon}</Text>
+              <Text style={[styles.presetText, { color: colors.sub }]} numberOfLines={1}>
+                {p.label}
+              </Text>
+              {p.amount > 0 && (
+                <Text style={[styles.presetAmt, { color: colors.muted }]}>Rs {p.amount}</Text>
+              )}
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </Card>
 
       {/* Unified Add Form */}
@@ -834,6 +892,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-Regular',
     marginTop: 6,
   },
+  overBudgetBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  overBudgetBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Bold',
+    letterSpacing: 0.5,
+  },
   balBarWrap: {
     marginTop: 14,
     marginBottom: 16,
@@ -892,10 +962,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    minHeight: 44,
+  },
+  budgetHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   budgetStatus: {
     fontSize: 11,
     fontFamily: 'Outfit-Regular',
+  },
+  budgetChevron: {
+    fontSize: 16,
+    fontFamily: 'Outfit-Bold',
+    width: 16,
+    textAlign: 'center',
   },
   // Monthly summary
   summaryTitle: {
@@ -958,10 +1040,41 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   // Presets
-  presetsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  presetChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
-  presetText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  presetAmt: { fontSize: 11, fontFamily: 'Outfit-Regular', marginTop: 1 },
+  presetHint: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Regular',
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  presetRail: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    gap: 10,
+  },
+  presetTile: {
+    minWidth: 88,
+    minHeight: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presetIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  presetText: {
+    fontSize: 12,
+    fontFamily: 'Outfit-SemiBold',
+    textAlign: 'center',
+    maxWidth: 76,
+  },
+  presetAmt: {
+    fontSize: 10,
+    fontFamily: 'Outfit-Regular',
+    marginTop: 2,
+  },
   // Form toggle
   formToggle: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   formToggleBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },

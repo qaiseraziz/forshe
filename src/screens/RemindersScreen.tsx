@@ -232,12 +232,15 @@ export default function RemindersScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
     >
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <DrawerMenuButton />
+        <View style={styles.topBarSpacer} />
+      </View>
+
       {/* Hero Card */}
       <Card gradient={dark ? gradients.purpleHeroDark : gradients.purpleHero} style={{ backgroundColor: colors.purpleBg, borderColor: colors.purpleBorder }}>
-        <View style={styles.heroTopRow}>
-          <Text style={[styles.heroLabel, { color: colors.purple }]}>🔔 Active Reminders</Text>
-          <DrawerMenuButton />
-        </View>
+        <Text style={[styles.heroLabel, { color: colors.purple }]}>🔔 Active Reminders</Text>
         <Text style={[styles.heroCount, { color: colors.purple }]}>{upcoming.length}</Text>
         <Text style={[styles.heroSub, { color: colors.sub }]}>
           {nextUpcomingTitle ? `Next: ${nextUpcomingTitle}` : 'No upcoming reminders'}
@@ -451,7 +454,8 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 120,
   },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  topBarSpacer: { width: 44, height: 44 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',

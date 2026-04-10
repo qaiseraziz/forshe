@@ -82,20 +82,21 @@ export default function MonthlyReportScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Top bar */}
+        <View style={styles.topBar}>
+          <DrawerMenuButton />
+          <View style={styles.topBarSpacer} />
+        </View>
+
         {/* Hero Card */}
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <View style={styles.titleRow}>
-            <View style={styles.titleSection}>
-              <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Report</Text>
-              <Text style={[styles.title, { color: colors.deep }]}>
-                {MONTHS[month]} {year}
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.sub }]}>
-                {data.expCount} {data.expCount === 1 ? 'expense' : 'expenses'} tracked
-              </Text>
-            </View>
-            <DrawerMenuButton />
-          </View>
+          <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Report</Text>
+          <Text style={[styles.title, { color: colors.deep }]}>
+            {MONTHS[month]} {year}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.sub }]}>
+            {data.expCount} {data.expCount === 1 ? 'expense' : 'expenses'} tracked
+          </Text>
 
           {/* Month Navigator */}
           <View style={styles.monthNav}>
@@ -113,7 +114,7 @@ export default function MonthlyReportScreen() {
             </View>
             <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
               <Text style={[styles.overviewVal, { color: data.net >= 0 ? colors.green : colors.red }]}>
-                {pkrF(Math.abs(data.net))}
+                {pkrF(data.net)}
               </Text>
               <Text style={[styles.overviewLbl, { color: colors.muted }]}>
                 {data.net >= 0 ? 'Saved' : 'Deficit'}
@@ -221,6 +222,8 @@ export default function MonthlyReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  topBarSpacer: { width: 44, height: 44 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   titleSection: { flex: 1 },
   title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },

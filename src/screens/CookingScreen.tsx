@@ -75,6 +75,10 @@ export default function CookingScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.topBar}>
+            <DrawerMenuButton />
+            <View style={styles.topBarSpacer} />
+          </View>
           <MonthBar
             filter={filter}
             setFilter={setFilter}
@@ -85,18 +89,13 @@ export default function CookingScreen() {
           />
           <View style={styles.heroWrap}>
             <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-              <View style={styles.titleRow}>
-                <View style={styles.section}>
-                  <Text style={[styles.heroLabel, { color: colors.gold }]}>🍳 Meal Planner</Text>
-                  <Text style={[styles.title, { color: colors.deep }]}>
-                    {MONTHS[selMonth]} {selYear}
-                  </Text>
-                  <Text style={[styles.subtitle, { color: colors.sub }]}>
-                    {monthViewData.plannedCount} of {monthViewData.total} meals planned
-                  </Text>
-                </View>
-                <DrawerMenuButton />
-              </View>
+              <Text style={[styles.heroLabel, { color: colors.gold }]}>🍳 Meal Planner</Text>
+              <Text style={[styles.title, { color: colors.deep }]}>
+                {MONTHS[selMonth]} {selYear}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.sub }]}>
+                {monthViewData.plannedCount} of {monthViewData.total} meals planned
+              </Text>
             </Card>
           </View>
 
@@ -146,6 +145,10 @@ export default function CookingScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      <View style={styles.topBar}>
+        <DrawerMenuButton />
+        <View style={styles.topBarSpacer} />
+      </View>
       <MonthBar
         filter={filter}
         setFilter={setFilter}
@@ -156,23 +159,18 @@ export default function CookingScreen() {
       />
       <View style={styles.heroWrap}>
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <View style={styles.titleRow}>
-            <View style={styles.section}>
-              <Text style={[styles.heroLabel, { color: colors.gold }]}>🍳 Meal Planner</Text>
-              <Text style={[styles.title, { color: colors.deep }]}>
-                {filter === 'today'
-                  ? (() => {
-                      const n = new Date();
-                      return `${FULL_DAYS[(n.getDay() + 6) % 7]}`;
-                    })()
-                  : FULL_DAYS[DAYS.indexOf(viewDay as typeof DAYS[number])]}
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.sub }]}>
-                {dayCount} of {MEALS.length} meals planned
-              </Text>
-            </View>
-            <DrawerMenuButton />
-          </View>
+          <Text style={[styles.heroLabel, { color: colors.gold }]}>🍳 Meal Planner</Text>
+          <Text style={[styles.title, { color: colors.deep }]}>
+            {filter === 'today'
+              ? (() => {
+                  const n = new Date();
+                  return `${FULL_DAYS[(n.getDay() + 6) % 7]}`;
+                })()
+              : FULL_DAYS[DAYS.indexOf(viewDay as typeof DAYS[number])]}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.sub }]}>
+            {dayCount} of {MEALS.length} meals planned
+          </Text>
         </Card>
       </View>
 
@@ -261,6 +259,8 @@ const styles = StyleSheet.create({
   heroWrap: { paddingHorizontal: 20, paddingTop: 12 },
   dayStripWrap: { paddingHorizontal: 20 },
   mealList: { paddingHorizontal: 20 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, marginBottom: 4 },
+  topBarSpacer: { width: 44, height: 44 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   section: {
     flex: 1,

@@ -2,6 +2,44 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.1.1 — 2026-04-10
+
+Patch release — Body Stats gains health insights + threshold alerts, negative balance now displays correctly, Expenses gains a collapsible budget card and a 15-item Pakistani quick-add rail, and the drawer hamburger button is now standardised on the LEFT of every screen.
+
+### Added
+- **Body Stats insights + alerts** (`BodyStatsScreen.tsx`) — new single `useMemo` computes 7-day and 30-day summary tiles (weight delta, avg BP, avg sugar, avg SpO2, avg HR) plus threshold-based health alerts. Alert rules: Systolic ≥140 or Diastolic ≥90 → "High blood pressure"; ≥180/≥120 → urgent red "Very high blood pressure"; <90/<60 → "Low blood pressure"; fasting sugar ≥126 / post-meal ≥200 / random ≥200 → "High blood sugar"; <70 → "Low blood sugar"; SpO2 <95 → "Low oxygen", <90 → urgent red "Very low oxygen"; resting HR <50 or >100 → "Abnormal heart rate"; BMI ≥30 → "BMI in obese range"; BMI <18.5 → "BMI in underweight range". Each alert card references the most recent triggering reading and date. Calm tone, includes "This is not medical advice" disclaimer at the bottom of the alerts block.
+- **15 Pakistani household quick-add presets** on `ExpensesScreen` (`constants/data.ts` → `EXPENSE_PRESETS`) — Vegetables, Bread/Naan, Milk, Meat/Chicken, Fruits, Grocery, Petrol/Fuel, Rickshaw/Uber, Medicine, Mobile Top-up, Electricity Bill, Gas Bill, Water Bill, School Fees, Eating Out. Rendered as a horizontal rail above the Add expense form; each tile has an icon, label, optional default amount, 88×88 minimum touch target, and stable `applyPreset` handler wrapped in `useCallback` + haptic selection feedback.
+- **Collapsible monthly budget card** on `ExpensesScreen` — tap the header to expand or collapse the budget input. Default state collapses when a budget is set, expands when no budget is set. Uses `LayoutAnimation.configureNext` (no new dependencies), haptic selection on toggle, proper `accessibilityState.expanded` reporting, chevron indicator (`▴`/`▾`).
+- **"Over budget" badge** on Expenses balance hero — shown when balance goes negative OR when monthly spent exceeds monthly budget.
+- Accessibility label and 8px hitSlop on `DrawerMenuButton`.
+
+### Fixed
+- **Negative balance display** — `pkr()` and `pkrF()` in `src/utils/currency.ts` no longer strip the minus sign; they now render `-Rs 1.2K` / `-Rs 1,200` when passed a negative number. `ExpensesScreen` balance hero, `TodayScreen` Balance stat box, `MonthlyReportScreen` Saved/Deficit tile, and the Expenses monthly summary `Deficit` tile now pass the raw (possibly negative) value to `pkrF` instead of wrapping it in `Math.abs()`, so overspending surfaces as a real red number across every screen that shows it.
+- **Drawer hamburger button placement** — every one of the 11 drawer screens (`TodayScreen`, `ExpensesScreen`, `CookingScreen`, `RemindersScreen`, `MaidScreen`, `CycleScreen`, `BodyStatsScreen`, `MonthlyReportScreen`, `ShoppingListScreen`, `BackupScreen`, `SettingsScreen`) now renders the hamburger on the LEFT via a dedicated `topBar` flex row (`justifyContent: 'space-between'`, 44×44 drawer button, 44×44 right spacer). Hero labels / titles moved inline into the Hero Card body directly below the top bar. Pixel-identical positioning across the whole app.
+
+### Changed
+- `EXPENSE_PRESETS` shape now includes an `icon` field (typed inline in `constants/data.ts`). Previous 13 generic items replaced by the new 15-item Pakistani household list.
+- `MaidScreen`, `CookingScreen`, `MonthlyReportScreen`, `BodyStatsScreen`, `BackupScreen`, `RemindersScreen`, `CycleScreen`, `TodayScreen`, `ShoppingListScreen`, `SettingsScreen` — removed the in-hero `heroTopRow` / `titleRow + section` wrapper around the drawer button, added a reusable `topBar` + `topBarSpacer` pair at the top of each ScrollView.
+
+### Performance
+- `applyPreset` (ExpensesScreen) — `useCallback`'d so the 15 preset tiles don't recreate handler closures every render.
+- `toggleBudgetCollapsed` — `useCallback`'d with `LayoutAnimation.configureNext` for a single frame cost toggle.
+- `insights` useMemo on BodyStatsScreen computes both windows and all alerts in a single pass, keyed only on `bodyLogs`, `bodyProfile.height`, and `hasHeight`.
+
+### Style
+- Over-budget badge: tinted red pill (`colors.redBg` + `colors.red` text), Outfit-Bold 12px, `⚠️ Over budget` copy.
+- Body Stats alert cards: 18px radius, 14px padding, icon + bold coloured title, muted detail, muted-semibold "Most recent" reading line, urgent variant uses `redBg`/`red`, warn variant uses `goldBg`/`gold`.
+- Insights tiles: 14px radius, flex-basis 48%, 2-col grid with 8px gap, icon+value+label stack, labels uppercased with 0.6 letter-spacing.
+- Quick Add preset rail: 88×88 tiles, 24px icon, centered 12px label, 16px border radius, 10px gap, `colors.surfaceMuted` background.
+
+### Chore
+- `app.json` → version `1.1.1`, `ios.buildNumber` `"5"`, `android.versionCode` `5`.
+- `package.json` → version `1.1.1`.
+- `SettingsScreen` About card → `Version 1.1.1`.
+- `DrawerNav` footer → `ForSHE v1.1.1`.
+- `CHANGELOG.md` updated with this entry.
+- `CLAUDE.md` updated — current version, drawer architecture note, utility + playbook refs.
+
 ## v1.1.0 — 2026-04-10
 
 Minor feature release — adds an opt-in **Body Stats** module for tracking personal vitals alongside the household data already in the app. No breaking changes to existing data; v1.0.2 backups import cleanly.

@@ -22,20 +22,23 @@ export const FLOW_OPTIONS = ['Spotting', 'Light', 'Medium', 'Heavy'];
 
 export const REMINDER_CATS = ['📋 General', '💡 Bills', '🏥 Health', '🛒 Shopping', '👨‍👩‍👧 Family', '🎂 Birthday', '📚 School', '🎁 Other'];
 
-export const EXPENSE_PRESETS = [
-  { label: 'Milk', cat: '🍔 Food', amount: 200 },
-  { label: 'Bread', cat: '🍔 Food', amount: 150 },
-  { label: 'Groceries', cat: '🍔 Food', amount: 0 },
-  { label: 'Vegetables', cat: '🍔 Food', amount: 0 },
-  { label: 'Electricity Bill', cat: '💡 Bills', amount: 0 },
-  { label: 'Gas Bill', cat: '💡 Bills', amount: 0 },
-  { label: 'Water Bill', cat: '💡 Bills', amount: 0 },
-  { label: 'Internet', cat: '💡 Bills', amount: 0 },
-  { label: 'Mobile Recharge', cat: '💡 Bills', amount: 0 },
-  { label: 'Medicine', cat: '💊 Health', amount: 0 },
-  { label: 'Petrol', cat: '🚗 Transport', amount: 0 },
-  { label: 'Rickshaw', cat: '🚗 Transport', amount: 0 },
-  { label: 'School Fee', cat: '📚 Education', amount: 0 },
+// 15 Pakistani household quick-add presets — ordered by frequency of use
+export const EXPENSE_PRESETS: { label: string; icon: string; cat: string; amount: number }[] = [
+  { label: 'Vegetables', icon: '🥬', cat: '🍔 Food', amount: 0 },
+  { label: 'Bread / Naan', icon: '🫓', cat: '🍔 Food', amount: 0 },
+  { label: 'Milk', icon: '🥛', cat: '🍔 Food', amount: 200 },
+  { label: 'Meat / Chicken', icon: '🍗', cat: '🍔 Food', amount: 0 },
+  { label: 'Fruits', icon: '🍎', cat: '🍔 Food', amount: 0 },
+  { label: 'Grocery', icon: '🛒', cat: '🛒 Shopping', amount: 0 },
+  { label: 'Petrol / Fuel', icon: '⛽', cat: '🚗 Transport', amount: 0 },
+  { label: 'Rickshaw / Uber', icon: '🛺', cat: '🚗 Transport', amount: 0 },
+  { label: 'Medicine', icon: '💊', cat: '💊 Health', amount: 0 },
+  { label: 'Mobile Top-up', icon: '📱', cat: '💡 Bills', amount: 0 },
+  { label: 'Electricity Bill', icon: '💡', cat: '💡 Bills', amount: 0 },
+  { label: 'Gas Bill', icon: '🔥', cat: '💡 Bills', amount: 0 },
+  { label: 'Water Bill', icon: '💧', cat: '💡 Bills', amount: 0 },
+  { label: 'School Fees', icon: '📚', cat: '📚 Education', amount: 0 },
+  { label: 'Eating Out', icon: '🍽️', cat: '🍔 Food', amount: 0 },
 ];
 
 export const SHOPPING_CATS = ['🥬 Vegetables', '🍎 Fruits', '🥛 Dairy', '🍖 Meat', '🧴 Household', '🛒 General'];

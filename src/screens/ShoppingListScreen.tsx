@@ -293,13 +293,18 @@ export default function ShoppingListScreen() {
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={[styles.container, { paddingTop: insets.top }]}
     >
-      {/* Title row */}
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <DrawerMenuButton />
+        <View style={styles.topBarSpacer} />
+      </View>
+
+      {/* Title */}
       <View style={styles.titleRow}>
         <View style={styles.titleSection}>
           <Text style={[styles.title, { color: colors.deep }]}>Shopping List</Text>
           <Text style={[styles.subtitle, { color: colors.muted }]}>Tap to check off items</Text>
         </View>
-        <DrawerMenuButton />
       </View>
 
       <FlatList
@@ -326,12 +331,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    marginBottom: 12,
+  },
+  topBarSpacer: { width: 44, height: 44 },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
     marginBottom: 20,
   },
   titleSection: {

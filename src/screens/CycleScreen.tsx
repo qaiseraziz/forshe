@@ -188,12 +188,15 @@ export default function CycleScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <DrawerMenuButton />
+        <View style={styles.topBarSpacer} />
+      </View>
+
       {/* Hero Card */}
       <Card gradient={dark ? gradients.pinkHeroDark : gradients.pinkHero} style={{ backgroundColor: colors.pinkBg, borderColor: colors.pinkBorder }}>
-        <View style={styles.heroTopRow}>
-          <Text style={[styles.heroLabel, { color: colors.pink }]}>🌸 Next Period</Text>
-          <DrawerMenuButton />
-        </View>
+        <Text style={[styles.heroLabel, { color: colors.pink }]}>🌸 Next Period</Text>
         <Text style={[styles.heroDate, { color: colors.pink }]}>
           {predictions ? fmtISO(predictions.nextStart) : '—'}
         </Text>
@@ -472,7 +475,8 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 120,
   },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  topBarSpacer: { width: 44, height: 44 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',

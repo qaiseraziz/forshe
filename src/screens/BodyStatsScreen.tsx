@@ -172,6 +172,271 @@ export default function BodyStatsScreen() {
     [bodyLogs],
   );
 
+  // --- Insights & Alerts (single useMemo on bodyLogs + profile) ---
+  const insights = useMemo(() => {
+    type Stat = { key: string; label: string; value: string; icon: string };
+    type Alert = {
+      key: string;
+      severity: 'warn' | 'urgent';
+      icon: string;
+      title: string;
+      detail: string;
+      reading: string;
+      date: string;
+    };
+
+    const empty = { stats7: [] as Stat[], stats30: [] as Stat[], alerts: [] as Alert[] };
+    if (!bodyLogs.length) return empty;
+
+    const today = new Date(todayISO());
+    const msDay = 86400000;
+    const sorted = [...bodyLogs].sort((a, b) => b.date.localeCompare(a.date));
+
+    const inWindow = (days: number) =>
+      sorted.filter(l => {
+        const d = new Date(l.date);
+        const diff = (today.getTime() - d.getTime()) / msDay;
+        return diff >= 0 && diff <= days;
+      });
+
+    const avg = (arr: number[]) =>
+      arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+
+    const buildStats = (days: number): Stat[] => {
+      const win = inWindow(days);
+      if (!win.length) return [];
+      const out: Stat[] = [];
+
+      // Weight delta: latest in window - earliest in window
+      const weights = win.filter(l => l.weight !== undefined).sort((a, b) => a.date.localeCompare(b.date));
+      if (weights.length >= 2) {
+        const delta = (weights[weights.length - 1].weight as number) - (weights[0].weight as number);
+        const sign = delta > 0 ? '+' : '';
+        out.push({
+          key: 'weight',
+          label: 'Weight change',
+          value: `${sign}${delta.toFixed(1)} kg`,
+          icon: '⚖️',
+        });
+      } else if (weights.length === 1) {
+        out.push({
+          key: 'weight',
+          label: 'Weight',
+          value: `${weights[0].weight} kg`,
+          icon: '⚖️',
+        });
+      }
+
+      // Avg BP
+      const bps = win.filter(l => l.bpSystolic !== undefined && l.bpDiastolic !== undefined);
+      if (bps.length) {
+        const avgSys = Math.round(avg(bps.map(l => l.bpSystolic as number)) as number);
+        const avgDia = Math.round(avg(bps.map(l => l.bpDiastolic as number)) as number);
+        out.push({
+          key: 'bp',
+          label: 'Avg BP',
+          value: `${avgSys}/${avgDia}`,
+          icon: '🩺',
+        });
+      }
+
+      // Avg sugar
+      const sugars = win.filter(l => l.bloodSugar !== undefined);
+      if (sugars.length) {
+        const avgSugar = Math.round(avg(sugars.map(l => l.bloodSugar as number)) as number);
+        out.push({
+          key: 'sugar',
+          label: 'Avg sugar',
+          value: `${avgSugar} mg/dL`,
+          icon: '🍬',
+        });
+      }
+
+      // Avg oxygen
+      const oxys = win.filter(l => l.oxygen !== undefined);
+      if (oxys.length) {
+        const avgOx = Math.round(avg(oxys.map(l => l.oxygen as number)) as number);
+        out.push({
+          key: 'oxygen',
+          label: 'Avg SpO2',
+          value: `${avgOx}%`,
+          icon: '🫁',
+        });
+      }
+
+      // Avg heart rate
+      const hrs = win.filter(l => l.heartRate !== undefined);
+      if (hrs.length) {
+        const avgHr = Math.round(avg(hrs.map(l => l.heartRate as number)) as number);
+        out.push({
+          key: 'hr',
+          label: 'Avg HR',
+          value: `${avgHr} bpm`,
+          icon: '❤️',
+        });
+      }
+
+      return out;
+    };
+
+    // Alerts — check the MOST RECENT reading for each metric (not averages)
+    const alerts: Alert[] = [];
+    const dateLabel = (iso: string) => fmtISO(iso);
+
+    // Most recent BP
+    const recentBP = sorted.find(l => l.bpSystolic !== undefined && l.bpDiastolic !== undefined);
+    if (recentBP) {
+      const sys = recentBP.bpSystolic as number;
+      const dia = recentBP.bpDiastolic as number;
+      if (sys >= 180 || dia >= 120) {
+        alerts.push({
+          key: 'bp-urgent',
+          severity: 'urgent',
+          icon: '🩺',
+          title: 'Very high blood pressure',
+          detail: 'This reading is in the hypertensive crisis range. Please seek medical attention.',
+          reading: `${sys}/${dia} mmHg`,
+          date: dateLabel(recentBP.date),
+        });
+      } else if (sys >= 140 || dia >= 90) {
+        alerts.push({
+          key: 'bp-high',
+          severity: 'warn',
+          icon: '🩺',
+          title: 'High blood pressure',
+          detail: 'Readings above 140/90 are considered high. Consider discussing with your doctor.',
+          reading: `${sys}/${dia} mmHg`,
+          date: dateLabel(recentBP.date),
+        });
+      } else if (sys < 90 || dia < 60) {
+        alerts.push({
+          key: 'bp-low',
+          severity: 'warn',
+          icon: '🩺',
+          title: 'Low blood pressure',
+          detail: 'Readings below 90/60 may indicate hypotension. Rest and hydrate if feeling unwell.',
+          reading: `${sys}/${dia} mmHg`,
+          date: dateLabel(recentBP.date),
+        });
+      }
+    }
+
+    // Most recent sugar
+    const recentSugar = sorted.find(l => l.bloodSugar !== undefined);
+    if (recentSugar) {
+      const sug = recentSugar.bloodSugar as number;
+      const ctx = recentSugar.bloodSugarContext;
+      const ctxLabel = ctx ? ` (${ctx})` : '';
+      if (sug < 70) {
+        alerts.push({
+          key: 'sugar-low',
+          severity: 'warn',
+          icon: '🍬',
+          title: 'Low blood sugar',
+          detail: 'Below 70 mg/dL is hypoglycemic. A small snack with quick carbs can help.',
+          reading: `${sug} mg/dL${ctxLabel}`,
+          date: dateLabel(recentSugar.date),
+        });
+      } else if (
+        (ctx === 'fasting' && sug >= 126) ||
+        (ctx === 'post-meal' && sug >= 200) ||
+        (ctx === 'random' && sug >= 200) ||
+        (!ctx && sug >= 200)
+      ) {
+        alerts.push({
+          key: 'sugar-high',
+          severity: 'warn',
+          icon: '🍬',
+          title: 'High blood sugar',
+          detail: 'This reading is above the typical range. Consider discussing with your doctor.',
+          reading: `${sug} mg/dL${ctxLabel}`,
+          date: dateLabel(recentSugar.date),
+        });
+      }
+    }
+
+    // Most recent oxygen
+    const recentOx = sorted.find(l => l.oxygen !== undefined);
+    if (recentOx) {
+      const ox = recentOx.oxygen as number;
+      if (ox < 90) {
+        alerts.push({
+          key: 'ox-urgent',
+          severity: 'urgent',
+          icon: '🫁',
+          title: 'Very low oxygen',
+          detail: 'SpO2 below 90% is concerning. Please seek medical attention.',
+          reading: `${ox}%`,
+          date: dateLabel(recentOx.date),
+        });
+      } else if (ox < 95) {
+        alerts.push({
+          key: 'ox-low',
+          severity: 'warn',
+          icon: '🫁',
+          title: 'Low oxygen',
+          detail: 'SpO2 below 95% is below the normal range. Rest and re-check after a few minutes.',
+          reading: `${ox}%`,
+          date: dateLabel(recentOx.date),
+        });
+      }
+    }
+
+    // Most recent HR
+    const recentHR = sorted.find(l => l.heartRate !== undefined);
+    if (recentHR) {
+      const hr = recentHR.heartRate as number;
+      if (hr < 50 || hr > 100) {
+        alerts.push({
+          key: 'hr',
+          severity: 'warn',
+          icon: '❤️',
+          title: 'Abnormal heart rate',
+          detail: 'Resting heart rate outside 50-100 bpm may need attention. Consider re-measuring at rest.',
+          reading: `${hr} bpm`,
+          date: dateLabel(recentHR.date),
+        });
+      }
+    }
+
+    // BMI (needs latest weight + height)
+    if (hasHeight) {
+      const recentW = sorted.find(l => l.weight !== undefined);
+      if (recentW) {
+        const bmi = calcBMI(recentW.weight as number, bodyProfile.height);
+        if (bmi !== null) {
+          if (bmi >= 30) {
+            alerts.push({
+              key: 'bmi-obese',
+              severity: 'warn',
+              icon: '⚖️',
+              title: 'BMI in obese range',
+              detail: 'BMI above 30 is considered obese. Consider discussing a wellness plan with your doctor.',
+              reading: `BMI ${bmi.toFixed(1)}`,
+              date: dateLabel(recentW.date),
+            });
+          } else if (bmi < 18.5) {
+            alerts.push({
+              key: 'bmi-low',
+              severity: 'warn',
+              icon: '⚖️',
+              title: 'BMI in underweight range',
+              detail: 'BMI below 18.5 is considered underweight. A balanced, nourishing diet may help.',
+              reading: `BMI ${bmi.toFixed(1)}`,
+              date: dateLabel(recentW.date),
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      stats7: buildStats(7),
+      stats30: buildStats(30),
+      alerts,
+    };
+  }, [bodyLogs, bodyProfile.height, hasHeight]);
+
   // --- Handlers ---
   const goToSettings = useCallback(() => {
     navigation.navigate('Settings');
@@ -319,11 +584,12 @@ export default function BodyStatsScreen() {
           contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.topBar}>
+            <DrawerMenuButton />
+            <View style={styles.topBarSpacer} />
+          </View>
           <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-            <View style={styles.heroTopRow}>
-              <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
-              <DrawerMenuButton />
-            </View>
+            <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
             <Text style={[styles.heroTitle, { color: colors.deep }]}>Track your vitals</Text>
             <Text style={[styles.heroSub, { color: colors.sub }]}>
               Log weight, blood pressure, sugar, oxygen and more in one place.
@@ -360,11 +626,12 @@ export default function BodyStatsScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.topBar}>
+            <DrawerMenuButton />
+            <View style={styles.topBarSpacer} />
+          </View>
           <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-            <View style={styles.heroTopRow}>
-              <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
-              <DrawerMenuButton />
-            </View>
+            <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
             <Text style={[styles.heroTitle, { color: colors.deep }]}>Let's get started</Text>
             <Text style={[styles.heroSub, { color: colors.sub }]}>
               Tell us your height once — we'll use it to calculate BMI for every weigh-in.
@@ -447,11 +714,12 @@ export default function BodyStatsScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Hero Card */}
+        <View style={styles.topBar}>
+          <DrawerMenuButton />
+          <View style={styles.topBarSpacer} />
+        </View>
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <View style={styles.heroTopRow}>
-            <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
-            <DrawerMenuButton />
-          </View>
+          <Text style={[styles.heroLabel, { color: colors.red }]}>💪 Body Stats</Text>
           <Text style={[styles.heroNumber, { color: colors.red }]}>
             {latestLog?.weight !== undefined ? `${latestLog.weight} kg` : '—'}
           </Text>
@@ -482,6 +750,80 @@ export default function BodyStatsScreen() {
             </View>
           )}
         </Card>
+
+        {/* Health Alerts */}
+        {insights.alerts.length > 0 && (
+          <View style={styles.alertsWrap}>
+            {insights.alerts.map(a => {
+              const urgent = a.severity === 'urgent';
+              const bg = urgent ? colors.redBg : colors.goldBg;
+              const accent = urgent ? colors.red : colors.gold;
+              return (
+                <View
+                  key={a.key}
+                  style={[styles.alertCard, { backgroundColor: bg }]}
+                  accessibilityRole="alert"
+                  accessibilityLabel={`${urgent ? 'Urgent' : 'Warning'}: ${a.title}. ${a.detail}. Recent reading ${a.reading} on ${a.date}.`}
+                >
+                  <View style={styles.alertHeaderRow}>
+                    <Text style={styles.alertIcon}>{a.icon}</Text>
+                    <Text style={[styles.alertTitle, { color: accent }]}>{a.title}</Text>
+                  </View>
+                  <Text style={[styles.alertDetail, { color: colors.sub }]}>{a.detail}</Text>
+                  <Text style={[styles.alertReading, { color: colors.muted }]}>
+                    Most recent: {a.reading} · {a.date}
+                  </Text>
+                </View>
+              );
+            })}
+            <Text style={[styles.alertDisclaimer, { color: colors.muted }]}>
+              ⚠️ This is not medical advice. Always consult a qualified healthcare provider.
+            </Text>
+          </View>
+        )}
+
+        {/* Insights — 7 day + 30 day summary */}
+        {(insights.stats7.length > 0 || insights.stats30.length > 0) && (
+          <Card>
+            <Text style={[styles.sectionTitle, { color: colors.red }]}>📊 Insights</Text>
+
+            {insights.stats7.length > 0 && (
+              <View style={styles.insightsBlock}>
+                <Text style={[styles.insightsLabel, { color: colors.muted }]}>LAST 7 DAYS</Text>
+                <View style={styles.insightsGrid}>
+                  {insights.stats7.map(s => (
+                    <View
+                      key={s.key}
+                      style={[styles.insightTile, { backgroundColor: colors.bg3 }]}
+                    >
+                      <Text style={styles.insightIcon}>{s.icon}</Text>
+                      <Text style={[styles.insightVal, { color: colors.deep }]}>{s.value}</Text>
+                      <Text style={[styles.insightLabel, { color: colors.muted }]}>{s.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {insights.stats30.length > 0 && (
+              <View style={styles.insightsBlock}>
+                <Text style={[styles.insightsLabel, { color: colors.muted }]}>LAST 30 DAYS</Text>
+                <View style={styles.insightsGrid}>
+                  {insights.stats30.map(s => (
+                    <View
+                      key={s.key}
+                      style={[styles.insightTile, { backgroundColor: colors.bg3 }]}
+                    >
+                      <Text style={styles.insightIcon}>{s.icon}</Text>
+                      <Text style={[styles.insightVal, { color: colors.deep }]}>{s.value}</Text>
+                      <Text style={[styles.insightLabel, { color: colors.muted }]}>{s.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </Card>
+        )}
 
         {/* Quick Log Form */}
         <Card>
@@ -625,7 +967,8 @@ export default function BodyStatsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  topBarSpacer: { width: 44, height: 44 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',
@@ -786,4 +1129,80 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bottomPad: { height: 40 },
+  alertsWrap: {
+    marginTop: 12,
+  },
+  alertCard: {
+    padding: 16,
+    borderRadius: 18,
+    marginBottom: 10,
+  },
+  alertHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  alertIcon: {
+    fontSize: 22,
+  },
+  alertTitle: {
+    fontFamily: 'Outfit-Bold',
+    fontSize: 15,
+    flex: 1,
+  },
+  alertDetail: {
+    fontSize: 13,
+    fontFamily: 'Outfit-Regular',
+    lineHeight: 19,
+    marginBottom: 6,
+  },
+  alertReading: {
+    fontSize: 12,
+    fontFamily: 'Outfit-SemiBold',
+  },
+  alertDisclaimer: {
+    fontSize: 11,
+    fontFamily: 'Outfit-Regular',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+    lineHeight: 16,
+  },
+  insightsBlock: {
+    marginTop: 8,
+  },
+  insightsLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit-Bold',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  insightsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  insightTile: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    padding: 12,
+    borderRadius: 14,
+  },
+  insightIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  insightVal: {
+    fontFamily: 'Outfit-Bold',
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  insightLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit-Regular',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
 });

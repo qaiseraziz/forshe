@@ -4,10 +4,10 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.1.0** (tagged 2026-04-10) — see `CHANGELOG.md` for full history.
-- `app.json`: version `1.1.0`, `ios.buildNumber "4"`, `android.versionCode 4`
-- `package.json`: name `forshe`, version `1.1.0`
-- Git tags: `v1.0.0` on 14a2dfe (first APK 2026-03-21), `v1.0.1` on cdf35a0, `v1.0.2`, `v1.1.0` on master
+**v1.1.1** (tagged 2026-04-10) — see `CHANGELOG.md` for full history.
+- `app.json`: version `1.1.1`, `ios.buildNumber "5"`, `android.versionCode 5`
+- `package.json`: name `forshe`, version `1.1.1`
+- Git tags: `v1.0.0` on 14a2dfe (first APK 2026-03-21), `v1.0.1` on cdf35a0, `v1.0.2`, `v1.1.0`, `v1.1.1` on master
 - Orchestration: every task routes through `project-manager` (see Agents section)
 
 ## Tech Stack
