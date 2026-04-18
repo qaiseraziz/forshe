@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import { Alert, Share } from 'react-native';
 import CryptoJS from 'crypto-js';
-import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal } from '../types';
+import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal, Vendor } from '../types';
 
 // --- Encryption helpers ---
 
@@ -154,6 +154,21 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
     if (!Array.isArray(obj.savingsGoals)) return { valid: false, error: '"savingsGoals" must be an array.' };
   }
 
+  if (obj.vendors !== undefined) {
+    if (!Array.isArray(obj.vendors)) return { valid: false, error: '"vendors" must be an array.' };
+    for (let i = 0; i < obj.vendors.length; i++) {
+      const entry = obj.vendors[i];
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        return { valid: false, error: `vendors[${i}] is not a valid object.` };
+      }
+      const v = entry as Record<string, unknown>;
+      if (typeof v.id !== 'number') return { valid: false, error: `vendors[${i}].id must be a number.` };
+      if (typeof v.name !== 'string') return { valid: false, error: `vendors[${i}].name must be a string.` };
+      if (typeof v.category !== 'string') return { valid: false, error: `vendors[${i}].category must be a string.` };
+      if (typeof v.phone !== 'string') return { valid: false, error: `vendors[${i}].phone must be a string.` };
+    }
+  }
+
   if (obj.bodyStatsSettings !== undefined) {
     if (obj.bodyStatsSettings === null || typeof obj.bodyStatsSettings !== 'object' || Array.isArray(obj.bodyStatsSettings)) {
       return { valid: false, error: '"bodyStatsSettings" must be an object.' };
@@ -186,11 +201,13 @@ interface AllData {
   inventory?: InventoryItem[];
   recipes?: Recipe[];
   savingsGoals?: SavingsGoal[];
+  // v1.2.2-dev
+  vendors?: Vendor[];
 }
 
 function buildBackupJSON(data: AllData): string {
   const backup = {
-    version: '2.3',
+    version: '2.4',
     exported: new Date().toISOString(),
     history: data.history,
     cooking: data.cooking,
@@ -210,6 +227,8 @@ function buildBackupJSON(data: AllData): string {
     inventory: data.inventory,
     recipes: data.recipes,
     savingsGoals: data.savingsGoals,
+    // v1.2.2-dev
+    vendors: data.vendors,
   };
   return JSON.stringify(backup, null, 2);
 }

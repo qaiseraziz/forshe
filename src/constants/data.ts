@@ -64,6 +64,22 @@ export const UNIT_HINTS = ['kg', 'g', 'L', 'ml', 'pcs', 'packets', 'dozens', 'bo
 // v1.2 — Savings category name (used on ExpensesScreen history + MonthlyReport "Savings this month")
 export const SAVINGS_CAT = '💰 Savings';
 
+// v1.2.2-dev — Vendor & Services Directory categories
+export const VENDOR_CATS: { key: 'Plumber' | 'Electrician' | 'AC Repair' | 'Appliance Repair' | 'Doctor' | 'Pharmacy' | 'Tailor' | 'Carpenter' | 'Gardener' | 'Cleaner' | 'Mechanic' | 'Other'; label: string; icon: string }[] = [
+  { key: 'Plumber', label: 'Plumber', icon: '🔧' },
+  { key: 'Electrician', label: 'Electrician', icon: '⚡' },
+  { key: 'AC Repair', label: 'AC Repair', icon: '❄️' },
+  { key: 'Appliance Repair', label: 'Appliance Repair', icon: '🔌' },
+  { key: 'Doctor', label: 'Doctor', icon: '👨‍⚕️' },
+  { key: 'Pharmacy', label: 'Pharmacy', icon: '💊' },
+  { key: 'Tailor', label: 'Tailor', icon: '🧵' },
+  { key: 'Carpenter', label: 'Carpenter', icon: '🔨' },
+  { key: 'Gardener', label: 'Gardener', icon: '🌱' },
+  { key: 'Cleaner', label: 'Cleaner', icon: '🧹' },
+  { key: 'Mechanic', label: 'Mechanic', icon: '🚗' },
+  { key: 'Other', label: 'Other', icon: '📋' },
+];
+
 // 15 Pakistani household quick-add presets — ordered by frequency of use
 export const EXPENSE_PRESETS: { label: string; icon: string; cat: string; amount: number }[] = [
   { label: 'Vegetables', icon: '🥬', cat: '🍔 Food', amount: 0 },
@@ -106,4 +122,6 @@ export const STORAGE_KEYS = {
   inventory: 'hm_inventory',
   recipes: 'hm_recipes',
   savingsGoals: 'hm_savings_goals',
+  // v1.2.2-dev
+  vendors: 'hm_vendors',
 } as const;

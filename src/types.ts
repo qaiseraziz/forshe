@@ -161,6 +161,36 @@ export interface SavingsGoal {
   notes?: string;
 }
 
+// --- v1.2.2-dev — Vendor & Services Directory ---
+
+export type VendorCategory =
+  | 'Plumber'
+  | 'Electrician'
+  | 'AC Repair'
+  | 'Appliance Repair'
+  | 'Doctor'
+  | 'Pharmacy'
+  | 'Tailor'
+  | 'Carpenter'
+  | 'Gardener'
+  | 'Cleaner'
+  | 'Mechanic'
+  | 'Other';
+
+export interface Vendor {
+  id: number;
+  name: string;
+  category: VendorCategory;
+  phone: string;           // primary phone, required
+  altPhone?: string;       // optional second number
+  address?: string;
+  rating: number;          // 1-5, user's personal rating, defaults to 0 (no rating)
+  favorite: boolean;       // pin to top
+  lastUsed?: string;       // ISO date, updated when user taps call/WhatsApp
+  notes?: string;
+  createdAt: string;       // ISO
+}
+
 export interface BackupData {
   version?: string;
   exported?: string;
@@ -182,4 +212,6 @@ export interface BackupData {
   inventory?: InventoryItem[];
   recipes?: Recipe[];
   savingsGoals?: SavingsGoal[];
+  // v1.2.2-dev
+  vendors?: Vendor[];
 }

@@ -7,7 +7,7 @@ import {
   Transaction, CookingData, MaidData, Attendance, Reminder, PeriodLog,
   BackupData, RecurringExpense, ShoppingItem, ShoppingSession, MaidSalary,
   BodyProfile, BodyLog, BodyStatsSettings,
-  InventoryItem, Recipe, SavingsGoal,
+  InventoryItem, Recipe, SavingsGoal, Vendor,
 } from '../types';
 
 const DEFAULT_BODY_PROFILE: BodyProfile = { height: 0, heightUnit: 'cm' };
@@ -54,6 +54,9 @@ interface DataCtx {
   setRecipes: (v: Recipe[] | ((p: Recipe[]) => Recipe[])) => void;
   savingsGoals: SavingsGoal[];
   setSavingsGoals: (v: SavingsGoal[] | ((p: SavingsGoal[]) => SavingsGoal[])) => void;
+  // v1.2.2-dev
+  vendors: Vendor[];
+  setVendors: (v: Vendor[] | ((p: Vendor[]) => Vendor[])) => void;
   allLoaded: boolean;
   handleImport: (data: BackupData) => void;
 }
@@ -78,7 +81,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [inventory, setInventory, l15] = useStorage<InventoryItem[]>(STORAGE_KEYS.inventory, []);
   const [recipes, setRecipes, l16] = useStorage<Recipe[]>(STORAGE_KEYS.recipes, SEED_RECIPES);
   const [savingsGoals, setSavingsGoals, l17] = useStorage<SavingsGoal[]>(STORAGE_KEYS.savingsGoals, []);
-  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17;
+  const [vendors, setVendors, l18] = useStorage<Vendor[]>(STORAGE_KEYS.vendors, []);
+  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17 && l18;
 
   // Migrate old flat shopping list → session (one-time)
   const shoppingMigrated = useRef(false);
@@ -171,7 +175,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.inventory) setInventory(data.inventory);
     if (data.recipes) setRecipes(data.recipes);
     if (data.savingsGoals) setSavingsGoals(data.savingsGoals);
-  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals]);
+    if (data.vendors) setVendors(data.vendors);
+  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals, setVendors]);
 
   const value = useMemo(() => ({
     history, setHistory,
@@ -191,6 +196,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     inventory, setInventory,
     recipes, setRecipes,
     savingsGoals, setSavingsGoals,
+    vendors, setVendors,
     allLoaded,
     handleImport,
   }), [
@@ -201,6 +207,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     bodyProfile, setBodyProfile, bodyLogs, setBodyLogs,
     bodyStatsSettings, setBodyStatsSettings,
     inventory, setInventory, recipes, setRecipes, savingsGoals, setSavingsGoals,
+    vendors, setVendors,
     allLoaded, handleImport,
   ]);
 

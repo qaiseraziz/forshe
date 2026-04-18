@@ -2,7 +2,7 @@
   "expo": {
     "name": "ForSHE",
     "slug": "forshe",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -14,11 +14,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.forshe.app",
-      "buildNumber": "7"
+      "buildNumber": "8"
     },
     "android": {
       "package": "com.forshe.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#c8860a",
         "foregroundImage": "./assets/android-icon-foreground.png",

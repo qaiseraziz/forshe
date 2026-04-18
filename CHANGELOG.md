@@ -2,6 +2,68 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.1 — 2026-04-18 "Grouped Home + Vendor Directory"
+
+Patch release on top of v1.2.0 bundling two UX iterations (drawer grouping + TodayScreen redesign) and one new mini-module (Vendor & Services Directory). No framework upgrades, no new npm packages — all work uses existing primitives.
+
+### APK
+
+_To be stamped after EAS build completes._
+
+### Added
+
+- **Vendors screen** (`src/screens/VendorsScreen.tsx`) — new drawer screen inside the 🏠 Household group (3rd item, after Maid Tasks + Reminders). Tracks trusted service providers with: name, category (12 options: Plumber 🔧, Electrician ⚡, AC Repair ❄️, Appliance Repair 🔌, Doctor 👨‍⚕️, Pharmacy 💊, Tailor 🧵, Carpenter 🔨, Gardener 🌱, Cleaner 🧹, Mechanic 🚗, Other 📋), primary phone (required), optional alt phone, optional address, 0-5 star personal rating, favorite/pin flag, lastUsed ISO date, optional notes, and createdAt timestamp.
+- **FlatList + memoized listHeader** — follows the ExpensesScreen / InventoryScreen pattern with gold gradient hero ("💼 Vendors · N · Your trusted service providers").
+- **Search** by name or category substring, case-insensitive.
+- **Filter pills** — horizontal scrollable rail: "All", "★ Favorites" (only shown when any favorites exist), and one pill per non-empty category (empty categories hidden to keep the rail short).
+- **Tap-expand rows** — tapping a vendor row expands/collapses a 4-button action row: 📞 Call (gold tinted bg), 💬 WhatsApp (green tinted bg), ✏️ Edit (outline), 🗑 Delete (red). The favorite ☆/★ toggle sits on the right of every row and works without expanding.
+- **tel: / wa.me wiring via React Native `Linking`** — Call fires `Linking.openURL('tel:' + cleanedPhone)`; WhatsApp fires `Linking.openURL('https://wa.me/' + cleanedPhone)`. `cleanPhone` strips spaces, dashes, and parentheses. Both actions stamp `lastUsed` to today's ISO via a dedicated `stampUsed(id)` helper so the sort "recent first" always reflects real usage.
+- **Long-press Call for alt number** — when a vendor has `altPhone` set, long-pressing the Call button shows an Alert to choose Primary or Alt. Short-press always dials the primary.
+- **Add/Edit bottom-sheet modal** — Name (required), Category picker (12 options with emoji + label), Phone (required, phone-pad keyboard, ≥7 digits after stripping non-digits), Alt phone (optional), Address (optional multiline), 5 tappable stars for rating (tap same star again to clear), Pin-as-favorite switch, Notes (optional multiline). Validation messages via native `Alert`.
+- **Sort order** — favorites first → then `lastUsed` desc (recent first, entries without lastUsed sink below) → alphabetical fallback by name.
+- **Undo on delete** — follows the v1.1.3 rule. Deleting a vendor shows a Toast with an Undo CTA that re-adds the vendor to the top of the list.
+- **Empty state** — "No vendors yet. Tap + to add your first trusted service provider." when list is empty; "No vendors match this filter." when a filter hides everything.
+
+### Changed
+
+- **Drawer grouping** (`src/navigation/DrawerNav.tsx`) — the flat 12-item drawer is gone. Drawer is now "Today" (standalone row) + 5 collapsible groups:
+  - 💰 Money — Expenses, Savings Goals, Insights, Monthly Report
+  - 🍽️ Kitchen — Cooking, Recipe Book, Shopping List, Inventory
+  - 🏠 Household — Maid Tasks, Reminders, Vendors
+  - 💝 Personal — Cycle Tracker, Body Stats
+  - ⚙️ System — Backup, Settings
+  Each group header is tappable to expand/collapse (default expanded). Tap animation uses `LayoutAnimation.Presets.easeInEaseOut`. Group items are indented under their header and keep the existing gold active-indicator. Accessibility label on headers is "Expand/Collapse [group]"; item labels are unchanged. `DRAWER_GROUPS` array exported for tests/audits. For bottom-tab routes (Expenses, Cooking, Remind) the drawer navigates via `navigation.navigate('Home', { screen: tabName })`; drawer-level routes still use plain `navigate(name)`. The active indicator reads the nested tab state so Expenses/Cooking/Remind correctly highlight inside the Kitchen/Money/Household groups.
+- **TodayScreen as a home page** (`src/screens/TodayScreen.tsx`) — redesigned from a stats wall to a group-tile grid:
+  - Hero card kept: greeting + balance + today's spend. The old 4-box stat grid and 7-day bars were removed (those live on Expenses / Insights).
+  - 5 "Explore" tiles under the hero, one per drawer group, each a Card with icon + name + dynamic count badge + chevron. Tapping navigates to the group's most actionable screen (Money→Expenses, Kitchen→Cooking, Household→Remind, Personal→BodyStats, System→Settings).
+  - Dynamic badges (read from existing `DataContext`): "over budget" / "on track" for Money, "N low stock" / "stocked" for Kitchen, "N due today" / "all clear" for Household, "logged today" / "no log today" for Personal. System has no badge.
+  - "Today's Essentials" section below the tiles keeps the existing due-soon / meals / maid task lists. Empty state when all three are empty.
+  - The duplicated "Insights" block (MoM, top category, avg daily) was removed from this screen — that content is now exclusively on `InsightsScreen`.
+- `src/types.ts` — new `VendorCategory` union and `Vendor` interface; `BackupData` gains optional `vendors?: Vendor[]`.
+- `src/constants/data.ts` — new `STORAGE_KEYS.vendors = 'hm_vendors'`; new `VENDOR_CATS` array with 12 `{ key, label, icon }` entries.
+- `src/context/DataContext.tsx` — new `vendors` / `setVendors` slice via `useStorage<Vendor[]>`, default `[]`. `allLoaded` widened to include `l18`. `handleImport` now restores `data.vendors`. Context value memo dep array extended.
+- `src/utils/backup.ts` — `AllData` gains `vendors?: Vendor[]`; `buildBackupJSON` includes them and bumps schema to `2.4`; `validateBackupData` checks vendors as an array of objects with id/name/category/phone.
+- `src/screens/BackupScreen.tsx` — destructures `vendors` from `useData`, adds it to the `allData` memo + deps so export includes them.
+
+### Fixed
+
+- **TodayScreen duplicate Quick-Add FAB removed** — the inline Quick-Add card on the Today dashboard was redundant with the global `QuickAddFAB` introduced in v1.2.0 (mounted once at the app root). The Today screen now relies solely on the global FAB, eliminating the duplicate entry path and simplifying the home layout.
+
+### Chore
+
+- `app.json` version `1.2.0` → `1.2.1`; `ios.buildNumber` `"7"` → `"8"`; `android.versionCode` `7` → `8`.
+- `package.json` version `1.2.0` → `1.2.1`.
+- `SettingsScreen` About updated from `Version 1.2.0` → `Version 1.2.1`.
+- `DrawerNav` footer updated from `ForSHE v1.2.0` → `ForSHE v1.2.1`.
+- `HomeManagerApp/CLAUDE.md` — Current Version bumped to `v1.2.1`.
+
+### Notes
+
+- `npx tsc --noEmit` clean. `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` clean.
+- No new npm packages. `Linking` is built into React Native.
+- No seed data for vendors — user-populated.
+- `TodayScreen` Household tile badge logic stays at reminders-due-today count; vendors are not time-sensitive, so they do not contribute to the badge.
+
 ## v1.2.0 — 2026-04-18 "Connected Home + Product Completeness"
 
 Minor release bundling two dev streams into a single public cut. Thirteen new user-facing features — the v1.1.3-dev **product completeness** wave (multi-currency, dark-mode match-system, global Quick-Add FAB, biometric lock, undo-everywhere, session-based shopping, encrypted backup, Gmail/Drive file sharing) plus the v1.2-dev **Connected Home** integration wave (Inventory Tracker, Recipe Book + Auto Grocery, Bill Reminders, Medication Reminders, Savings Goals, Expense Insights dashboard). The modules now talk to each other: recipes deduct inventory, inventory drives shopping lists, cooking plans generate weekly groceries, bills auto-advance, medication shows up on Body Stats today.

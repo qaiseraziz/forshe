@@ -4,11 +4,11 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.2.0** (tagged 2026-04-18) — see `CHANGELOG.md` for full history.
-- Release theme: "Connected Home + Product Completeness" — bundles v1.1.3-dev (multi-currency, dark-mode match-system, global Quick-Add FAB, biometric lock, undo-everywhere, session-based shopping, encrypted backup, Gmail/Drive file sharing) with v1.2-dev (Inventory, Recipe Book + 6 Pakistani seed recipes, Auto Grocery Generation, Bill Reminders, Medication Reminders, Savings Goals, Expense Insights dashboard).
-- `app.json`: version `1.2.0`, `ios.buildNumber "7"`, `android.versionCode 7`.
-- `package.json`: name `forshe`, version `1.2.0`. Adds `react-native-gifted-charts`, re-adds `expo-local-authentication`, uses `crypto-js` for encrypted backup.
-- Previous released tag: `v1.1.2` on master (APK `9ce82345`, 2026-04-11).
+**v1.2.1** (tagged 2026-04-18) — see `CHANGELOG.md` for full history.
+- Release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
+- `app.json`: version `1.2.1`, `ios.buildNumber "8"`, `android.versionCode 8`.
+- `package.json`: name `forshe`, version `1.2.1`.
+- Previous released tag: `v1.2.0` on master (APK `2181a3b8`, 2026-04-18).
 - Orchestration: every task routes through `project-manager` (see Agents section).
 
 ## Tech Stack
@@ -40,7 +40,7 @@ src/
     QuickAddFAB.tsx      # v1.1.3-dev — global floating add button (bottom-right, gold gradient, bottom-sheet modal)
   constants/
     colors.ts      # Theme colors + gradients (light/dark hero variants)
-    data.ts        # DAYS, MONTHS, EXPENSE_PRESETS, SHOPPING_CATS, CAT_KEYS, STORAGE_KEYS, REMINDER_CATS, BILL_CATS, MEDICATION_CAT, RECURRING_FREQS, INVENTORY_CATS, UNIT_HINTS, SAVINGS_CAT
+    data.ts        # DAYS, MONTHS, EXPENSE_PRESETS, SHOPPING_CATS, CAT_KEYS, STORAGE_KEYS, REMINDER_CATS, BILL_CATS, MEDICATION_CAT, RECURRING_FREQS, INVENTORY_CATS, UNIT_HINTS, SAVINGS_CAT, VENDOR_CATS
     currencies.ts  # v1.1.3-dev — CURRENCIES array (PKR/USD/EUR/GBP/INR/SAR/AED), findCurrency()
     seedData.ts    # Default seed data from user's real data
     seedRecipes.ts # v1.2-dev — 6 Pakistani starter recipes (Biryani, Daal, Karahi, Pulao, Kheer, Aloo Paratha)
@@ -69,6 +69,7 @@ src/
     RecipeBookScreen.tsx     # v1.2-dev — recipes (Recipe[], list/detail/edit modes, ingredient in-stock/missing badges, "Cook this" + deduct inventory, "Pick for Meal" from CookingScreen, auto-shopping)
     SavingsGoalsScreen.tsx   # v1.2-dev — savings goals (SavingsGoal[], progress bar, days-remaining, contribution modal logs Savings expense, 100% celebration)
     InsightsScreen.tsx       # v1.2-dev — visual expense dashboard (react-native-gifted-charts: 6-month bar chart, pie breakdown, top 5, MoM comparison, daily avg)
+    VendorsScreen.tsx        # v1.2.2-dev — vendor & services directory (12 categories, tel:/wa.me Linking, 5-star rating, favorites, lastUsed tracking, undo on delete)
     BackupScreen.tsx         # Import/export data (schema validation, CSV escaping, handlers useCallback, summaryItems useMemo, v2.3 backup includes inventory/recipes/savingsGoals)
     SettingsScreen.tsx       # Dark mode, PIN lock, recurring expenses, about
   hooks/
@@ -81,7 +82,7 @@ src/
     currency.ts                # PKR formatter (pkrF)
     dates.ts                   # Date formatting utilities (locale-independent DD/MM/YYYY)
     share.ts                   # Share functionality
-  types.ts       # TypeScript type definitions (Transaction, RecurringExpense, Reminder with notifIds + v1.2 amount/recurring/dosage/withFood, PeriodLog, ShoppingItem, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, InventoryCategory, Recipe, RecipeIngredient, SavingsGoal, ReminderRecurring)
+  types.ts       # TypeScript type definitions (Transaction, RecurringExpense, Reminder with notifIds + v1.2 amount/recurring/dosage/withFood, PeriodLog, ShoppingItem, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, InventoryCategory, Recipe, RecipeIngredient, SavingsGoal, ReminderRecurring, Vendor, VendorCategory)
 assets/
   logo.png       # App logo (512x512, 393KB)
   splash.png     # Full-screen branded splash image (1024w, 3.2MB)
@@ -91,8 +92,15 @@ assets/
 ```
 
 ## Navigation Architecture
-- **Drawer** (top level, 12 entries): Home, Shopping List, Inventory, Maid Tasks, Recipe Book, Savings Goals, Insights, Cycle Tracker, Body Stats, Monthly Report, Backup, Settings
-- **Bottom Tabs** (inside Home): Today, Expenses, Cooking, Reminders
+- **Drawer** (v1.2.1-dev): "Today" standalone at the top + 5 collapsible groups — `DRAWER_GROUPS` in `src/navigation/DrawerNav.tsx`:
+  - 💰 **Money** — Expenses, Savings Goals, Insights, Monthly Report
+  - 🍽️ **Kitchen** — Cooking, Recipe Book, Shopping List, Inventory
+  - 🏠 **Household** — Maid Tasks, Reminders, Vendors
+  - 💝 **Personal** — Cycle Tracker, Body Stats (will grow in v1.3: Routine Builder, Habits, Mood, Journal, Me Time, Weekly Summary, Hidden Notes)
+  - ⚙️ **System** — Backup, Settings
+- Group headers are tappable (`accessibilityRole="button"`, label "Expand/Collapse [group]") — collapse/expand uses `LayoutAnimation.Presets.easeInEaseOut`, state is in-component (no persistence), default expanded.
+- Active indicator (gold bar) still works correctly when the active route is nested inside a group. For drawer items that point to the bottom-tab routes (Expenses/Cooking/Remind), the drawer detects the nested tab state and navigates via `navigation.navigate('Home', { screen: tabName })`.
+- **Bottom Tabs** (inside Home): Today, Expenses, Cooking, Remind (Reminders)
 - **Hamburger button**: DrawerMenuButton (React.memo) on every screen opens the drawer
 - **App flow**: Splash → Onboarding (first time) → PIN Lock (if set) → Main App
 
@@ -164,6 +172,8 @@ assets/
 39. **Savings Goals** (v1.2-dev): New drawer screen `SavingsGoalsScreen.tsx`. `SavingsGoal { id, name, targetAmount, savedAmount, deadline?, createdAt, completed, notes? }` stored under `hm_savings_goals`. List view sorted active-first with progress bar, percentage, `pkrF(remaining)` remaining copy, days-until-deadline (red when overdue). Add/edit bottom-sheet modal. "+ Contribute" modal bumps `savedAmount` and optionally logs a Transaction under `💰 Savings` category (toggle defaults ON). Reaching 100% flips `completed: true` and shows `🎉 Achieved` toast + `Haptics.notificationAsync(Success)`. `MonthlyReportScreen` overview grid gains a 5th "Savings" box showing the sum of `💰 Savings` transactions for the selected month. Undo toast on delete.
 
 40. **Expense Insights / Visual Dashboard** (v1.2-dev): New drawer screen `InsightsScreen.tsx`. Uses `react-native-gifted-charts` (pure-JS, SDK 55 compatible, no native deps — chosen over `victory-native` which requires Skia native module). Six widgets: 6-month animated `BarChart` of spending, `PieChart` category breakdown for current month (inner label shows total), legend rows with `pkrF(val)` + percentage, Top 5 expenses card, MoM comparison widget with arrow (↑/↓/→), coloured delta badge (`colors.red` when higher, `colors.green` when lower), and a daily-average footer row. All charts read theme colors (dark mode safe). All currency via `useCurrency()`. EmptyState when no expenses exist.
+
+41. **Vendor & Services Directory** (v1.2.2-dev): New drawer screen `VendorsScreen.tsx` inside the Household group (3rd item, after Maid Tasks + Reminders). Personal Rolodex of trusted local service providers — plumber, electrician, AC repair, appliance repair, doctor, pharmacy, tailor, carpenter, gardener, cleaner, mechanic, other. `Vendor { id, name, category, phone, altPhone?, address?, rating (0-5), favorite, lastUsed?, notes?, createdAt }` stored under `hm_vendors` (no seed data). `VENDOR_CATS` in `src/constants/data.ts` holds 12 categories with emoji icons. `FlatList` + memoized `listHeader` pattern. Gold hero with count + subtitle "Your trusted service providers". Search input filters by name/category. Filter pill rail: "All" + "Favorites" (shown when any favorites exist) + one pill per non-empty category. Vendor rows: category-emoji circle (gold-tinted bg), name/category/phone/star rating, favorite toggle on the right. Tap row to expand a 4-button action row (Call gold, WhatsApp green, Edit outline, Delete icon). Call fires `Linking.openURL('tel:' + cleanedPhone)`; long-press Call when `altPhone` exists shows an Alert to pick primary or alt. WhatsApp fires `Linking.openURL('https://wa.me/' + cleanedPhone)` (strip spaces/dashes/parentheses). Both actions stamp `lastUsed` to today's ISO. Delete shows Toast undo (v1.1.3 rule). Sort: favorites first, then `lastUsed` desc (recent first), then alphabetical. Add/Edit bottom-sheet modal: Name (required), Category picker, Phone (required, phone-pad, ≥7 digits after sanitize), Alt phone (optional), Address (optional multiline), 5 tappable stars for rating, Pin-as-favorite switch, Notes (optional multiline). Validation: name + phone required, `countDigits(phone) >= 7`. Backup schema bumped to v2.4 with `vendors: Vendor[]`. Currency NOT used on this screen (contacts, not money).
 
 ## Performance Optimizations
 - **DataContext**: `useMemo` wraps context value to prevent cascade re-renders
@@ -322,3 +332,13 @@ The global Claude Code agent types available are `ui-designer`, `qa-expert`, `pe
 - **Savings goal contribution (v1.2-dev)**: The "+ Contribute" modal takes an amount + a "Log as expense" toggle (default ON). Logging creates a Transaction with `type: 'expense'`, `cat: SAVINGS_CAT` (`'💰 Savings'`), `label: 'Savings: ' + goal.name`, `date: todayStr()`. The goal's `savedAmount` increments regardless of the toggle. If the new saved amount crosses `targetAmount`, set `completed: true` AND fire `Haptics.notificationAsync(Success)` + a celebratory toast. `MonthlyReportScreen` reads `history.filter(h => h.cat === SAVINGS_CAT && sameMonth)` for its "Savings" overview box.
 - **Insights chart library (v1.2-dev)**: Use `react-native-gifted-charts` exclusively. Do NOT install `victory-native` (requires `@shopify/react-native-skia`, a native module that needs a prebuild). `gifted-charts` is pure JS and ships with SDK 55. Default to `BarChart` for trends, `PieChart` for category breakdowns. Use `frontColor: colors.gold` etc. — NEVER hardcode hex. For chart width: `Dimensions.get('window').width - 80` accounts for the screen padding + card padding.
 - **BodyStatsScreen medication card (v1.2-dev)**: The today-meds card MUST be conditional on `todayMeds.length > 0` — do not render an empty card. `todayMeds` is computed in a `useMemo` keyed on `[reminders]`, filtered by `r.cat === '💊 Medication' && r.date === todayISO()`, and sorted by `r.time`. Tapping a row calls `setReminders(r => r.map(x => x.id === id ? { ...x, isDone: !x.isDone } : x))`. Do NOT cancel notifications on this toggle (unlike the full RemindersScreen flow) — medication reminders are intentionally simpler and users often toggle multiple times per day.
+- **Drawer grouping pattern (v1.2.1-dev)**: The drawer is structured as `DRAWER_GROUPS: { title, icon, items: DrawerItemDef[] }[]` — EXACTLY 5 groups (Money, Kitchen, Household, Personal, System). "Today" sits ABOVE the groups as a standalone row, not inside any group. Group headers render as a tappable row (44×44 minimum) with the group emoji, uppercase small title in `colors.sub`, and a chevron (`▸` collapsed / `▾` expanded) in `colors.muted`. Tapping toggles the group via `LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` + `setCollapsed(prev => ({ ...prev, [title]: !prev[title] }))`. State is local to `CustomDrawerContent` — never persisted. Default: all groups expanded. `accessibilityRole="button"` + `accessibilityLabel` = "Expand/Collapse [group name]" on each header. Group items are indented (marginLeft: 8, slightly tighter paddingVertical) but otherwise keep the same icon + label + active-indicator styling as before. For items that resolve to bottom-tab routes (`Expenses`, `Cooking`, `Remind`), navigation goes through `navigation.navigate('Home', { screen: routeName })`; for drawer-level routes, plain `navigation.navigate(routeName)`. The active indicator (gold bar) reads the nested tab state via `state.routes[state.index].state` when the drawer is on "Home" so highlighting follows the actual leaf route.
+- **Vendors screen tel/WhatsApp wiring (v1.2.2-dev)**: `VendorsScreen` uses React Native's built-in `Linking` API (NOT `expo-linking`). Phone numbers are sanitized via `cleanPhone(phone)` which strips spaces, dashes, and parentheses — but keeps the leading `+` if present. Call action fires `Linking.openURL('tel:' + clean)`; WhatsApp action fires `Linking.openURL('https://wa.me/' + clean)`. Both actions MUST update `vendor.lastUsed` to today's ISO (via `stampUsed(id)`) on tap. Phone validation: `countDigits(phone) >= 7` before saving. Long-press on the Call button when `altPhone` exists shows an Alert to choose primary/alt. No new npm packages — do NOT add `expo-linking` or `react-native-communications`.
+- **Household group item count (v1.2.2-dev)**: the drawer's 🏠 Household group now has EXACTLY 3 items in this order — `MaidTasks`, `Remind`, `Vendors`. Adding a 4th item to Household requires explicit user approval. The qa-expert rule for "Household = 2" from v1.2.1 is now "Household = 3".
+- **Home-tile grid pattern (v1.2.1-dev)**: `TodayScreen` is a home page, not a stats wall. The hero card keeps greeting + balance + spent today (NO more 4-box stat grid, NO weekly bars, NO insights block). Below the hero, render 5 "Explore" tiles — one per drawer group — in a vertical stack (each tile is a `Card` with icon, name, dynamic count badge, and a subtle chevron). Tapping a tile navigates to that group's most actionable screen: Money → Expenses, Kitchen → Cooking, Household → Remind, Personal → BodyStats, System → Settings. Dynamic badges are computed from existing `DataContext` state:
+  - 💰 Money: "over budget" if `budget > 0 && monthSpent > budget`, else "on track" if `budget > 0`, else no badge
+  - 🍽️ Kitchen: `"${n} low stock"` when `inventory.filter(i => i.qty <= i.lowStockThreshold).length > 0`, else "stocked"
+  - 🏠 Household: `"${n} due today"` when any `reminder.date === todayISO() && !isDone`, else "all clear"
+  - 💝 Personal: "logged today" if any `bodyLog.date === todayISO()`, else "no log today"
+  - ⚙️ System: no badge
+  Badge tones: red (warning), gold (actionable), green (positive), muted (neutral). Badge colors use `colors.redBg/red`, `colors.goldBg/gold`, `colors.greenBg/green`, `colors.bg3/muted` — never hardcoded hex. Below the tiles, the "Today's Essentials" section renders due-soon reminders, today's meals, and maid tasks (existing logic preserved). Empty state rendered when all three are empty. The v1.1-era bottom "Insights" block (month-over-month, top category, avg daily) has been removed from this screen — that content now lives on `InsightsScreen`. `<Toast />` still mounted.

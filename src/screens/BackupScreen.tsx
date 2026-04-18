@@ -34,6 +34,7 @@ export default function BackupScreen() {
     inventory,
     recipes,
     savingsGoals,
+    vendors,
     handleImport,
   } = useData();
   const { pkr } = useCurrency();
@@ -46,8 +47,8 @@ export default function BackupScreen() {
 
   const allData = useMemo(() => ({
     history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, shoppingSessions, maidSalary, bodyProfile, bodyLogs, bodyStatsSettings,
-    inventory, recipes, savingsGoals,
-  }), [history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, shoppingSessions, maidSalary, bodyProfile, bodyLogs, bodyStatsSettings, inventory, recipes, savingsGoals]);
+    inventory, recipes, savingsGoals, vendors,
+  }), [history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, shoppingSessions, maidSalary, bodyProfile, bodyLogs, bodyStatsSettings, inventory, recipes, savingsGoals, vendors]);
 
   const mealCount = useMemo(() => Object.values(cooking).filter(Boolean).length, [cooking]);
   const taskCount = useMemo(() => DAYS.reduce((s, d) => s + (maidData[d]?.length || 0), 0), [maidData]);

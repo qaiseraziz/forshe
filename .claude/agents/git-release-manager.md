@@ -5,24 +5,15 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
-## v1.1.3-dev status (as of 2026-04-18)
-- **Code landed, NOT tagged/built.** The user explicitly asked to NOT tag `v1.1.3`, NOT bump `app.json` / `package.json`, and NOT queue an EAS build until they say so.
-- Files changed by v1.1.3-dev: `App.tsx`, `CHANGELOG.md`, `CLAUDE.md`, `package.json` + `package-lock.json` (for `expo-local-authentication`), `src/context/CurrencyContext.tsx` (new), `src/constants/currencies.ts` (new), `src/utils/currency.ts`, `src/utils/share.ts`, `src/components/QuickAddFAB.tsx` (new), `src/screens/BiometricLockScreen.tsx` (new), `src/screens/SettingsScreen.tsx`, `src/screens/TodayScreen.tsx`, `src/screens/ExpensesScreen.tsx`, `src/screens/MonthlyReportScreen.tsx`, `src/screens/MaidScreen.tsx`, `src/screens/BackupScreen.tsx`, `src/screens/CycleScreen.tsx`, `src/screens/RemindersScreen.tsx`, `src/screens/BodyStatsScreen.tsx`, plus 6 `.claude/agents/*.md` playbooks.
-- When the user says "release v1.1.3": bump `app.json` version + `ios.buildNumber "7"` + `android.versionCode 7`, bump `package.json` version, bump `SettingsScreen` About version string from `1.1.3 (dev)` → `1.1.3`, bump `DrawerNav` footer from `v1.1.2` → `v1.1.3`, then commit + tag `v1.1.3` + hand off to eas-release-expert for the build.
+## v1.2.0 status (shipped 2026-04-18)
+- **Tagged locally** on commit `2ceda86` as `v1.2.0`. Docs-stamp follow-up is `09e309d`. Remote `origin` is `github.com/qaiseraziz/forshe.git` — NOT pushed yet (user pushes manually).
+- APK build queued: `2181a3b8-3611-4882-ba41-b33cc9ba18b4` on EAS preview profile. Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/2181a3b8-3611-4882-ba41-b33cc9ba18b4`. Artifact URL populated in CHANGELOG/CLAUDE once FINISHED.
+- `app.json` = 1.2.0 / `ios.buildNumber "7"` / `android.versionCode 7`; `package.json` = 1.2.0; SettingsScreen About = "1.2.0"; DrawerNav footer = "ForSHE v1.2.0".
+- Contents shipped = bundle of v1.1.3-dev (multi-currency, FAB, biometric, undo-everywhere, encrypted backup, sharing to Gmail/Drive, session-based shopping, dark-mode match-system) **+** v1.2-dev (Inventory, Recipe Book with 6 Pakistani recipes, Auto Grocery Generation, Bill Reminders, Medication Reminders, Savings Goals, Insights dashboard).
 
-## v1.2-dev "Connected Home" status (as of 2026-04-18)
-- **Code landed on top of v1.1.3-dev, NOT tagged/built.** The user explicitly asked to NOT tag `v1.2.0`, NOT bump `app.json` / `package.json`, and NOT queue an EAS build.
-- Files changed by v1.2-dev (on top of v1.1.3-dev changes):
-  - **NEW**: `src/screens/InventoryScreen.tsx`, `src/screens/RecipeBookScreen.tsx`, `src/screens/SavingsGoalsScreen.tsx`, `src/screens/InsightsScreen.tsx`, `src/constants/seedRecipes.ts`
-  - **MODIFIED**: `src/types.ts` (3 new types + Reminder extensions), `src/constants/data.ts` (6 new exports + 3 new storage keys), `src/context/DataContext.tsx` (3 new slices), `src/utils/backup.ts` (3 new collections + validator + buildBackupJSON bump to 2.3), `src/screens/BackupScreen.tsx` (allData memo), `src/navigation/DrawerNav.tsx` (4 new screens, 12-item drawer), `src/screens/CookingScreen.tsx` ("Pick from Recipe" + "Shopping from This Week"), `src/screens/RemindersScreen.tsx` (filter pills, bill + med fields, recurring auto-advance), `src/screens/BodyStatsScreen.tsx` (today's medication card), `src/screens/MonthlyReportScreen.tsx` (Savings box), `package.json` + `package-lock.json` (react-native-gifted-charts)
-  - **DOCS**: `CHANGELOG.md`, `CLAUDE.md`, 6 `.claude/agents/*.md` playbooks.
-- When the user says "release v1.2.0":
-  1. Bump `app.json` `version` → `"1.2.0"`, `ios.buildNumber` → `"7"` (or next integer after current), `android.versionCode` → matching integer
-  2. Bump `package.json` `version` → `"1.2.0"`
-  3. Bump `SettingsScreen` About version string from `1.1.3 (dev)` → `1.2.0`
-  4. Bump `DrawerNav` footer from `ForSHE v1.1.2` → `ForSHE v1.2.0`
-  5. Commit as `release: v1.2.0 Connected Home` → tag `v1.2.0` → hand off to eas-release-expert.
-- **v1.2 release notes** (for CHANGELOG / store listing): 7 integration features — household inventory, recipe book with 6 Pakistani recipes, auto-generate shopping from recipes + weekly meal plan, bill reminders with amounts + recurring, medication reminders with dosage + duration, savings goals with contribution tracking, expense insights dashboard with charts.
+## Next version (v1.2.1 patch or v1.3.0 feature)
+- If user reports a bug → `v1.2.1`, bump `ios.buildNumber "8"` + `android.versionCode 8`.
+- If Life Operating System work resumes (Family Mode + Cloud Sync + AI Insights) → `v1.3.0`. Currently **paused** — user said complexity was too high without Supabase setup.
 
 ## FIRST — Discover Repo State (every task)
 
@@ -137,6 +128,7 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
+- `v1.2.0` — 2026-04-18, Connected Home + product completeness bundle (Inventory, Recipes, Auto Grocery, Bill/Medication Reminders, Savings Goals, Insights + v1.1.3-dev features: multi-currency, FAB, biometric, undo, encrypted backup). APK build `2181a3b8` queued on EAS preview. NOT pushed to remote yet.
 - `v1.1.2` — 2026-04-10, drawer button inside hero (heroHeaderRow) + tighter bottom tabs (APK `9ce82345`, shipped 2026-04-11 after initial `d9dc1bb8` was cancelled)
 - `v1.1.1` — 2026-04-10, drawer button standardization + negative balance + Body Stats insights/alerts + collapsible budget + 15 quick-add presets (APK `c534cf09`)
 - `v1.1.0` — 2026-04-10, Body Stats vitals tracker feature (APK `04b1be04`)
