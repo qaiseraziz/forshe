@@ -26,6 +26,8 @@ export interface CookingData {
   [key: string]: string; // "Mon_Breakfast" -> "Nihari"
 }
 
+export type ReminderRecurring = 'monthly' | 'quarterly' | 'yearly' | null;
+
 export interface Reminder {
   id: number;
   title: string;
@@ -34,6 +36,11 @@ export interface Reminder {
   cat: string;
   isDone: boolean;
   notifIds?: string[];
+  // v1.2 — bill + medication extensions
+  amount?: number;                 // optional bill amount
+  recurring?: ReminderRecurring;   // monthly/quarterly/yearly bill re-creation
+  dosage?: string;                 // medication dosage, e.g. "500mg, 1 tablet"
+  withFood?: boolean;              // medication taken with food
 }
 
 export interface PeriodLog {
@@ -59,6 +66,14 @@ export interface ShoppingItem {
   name: string;
   qty: string;
   done: boolean;
+}
+
+export interface ShoppingSession {
+  id: number;
+  name: string;         // e.g. "Sunday Grocery", "Eid Shopping"
+  createdAt: string;    // ISO string
+  items: ShoppingItem[];
+  completed: boolean;   // mark entire trip as done
 }
 
 export interface MaidSalary {
@@ -101,6 +116,51 @@ export interface BodyStatsSettings {
   reminderNotifIds?: string[];          // scheduled notification IDs
 }
 
+// --- v1.2 Connected Home types ---
+
+export type InventoryCategory = 'Grocery' | 'Household' | 'Pantry' | 'Fridge' | 'Freezer';
+
+export interface InventoryItem {
+  id: number;
+  name: string;
+  qty: number;
+  unit: string;                       // e.g. "kg", "pcs", "L", "packets"
+  category: InventoryCategory;
+  lowStockThreshold: number;          // qty <= this → low-stock badge
+  lastUpdated: string;                // ISO string
+  notes?: string;
+}
+
+export interface RecipeIngredient {
+  name: string;
+  qty: number;
+  unit: string;                       // matches InventoryItem.unit for cross-reference
+}
+
+export interface Recipe {
+  id: number;
+  name: string;
+  servings: number;
+  prepMinutes: number;
+  cookMinutes: number;
+  ingredients: RecipeIngredient[];
+  steps: string[];
+  notes?: string;
+  image?: string;                     // optional URI
+  createdAt: string;                  // ISO
+}
+
+export interface SavingsGoal {
+  id: number;
+  name: string;
+  targetAmount: number;
+  savedAmount: number;
+  deadline?: string;                  // YYYY-MM-DD
+  createdAt: string;                  // ISO
+  completed: boolean;
+  notes?: string;
+}
+
 export interface BackupData {
   version?: string;
   exported?: string;
@@ -113,8 +173,13 @@ export interface BackupData {
   budget?: number;
   recurringExpenses?: RecurringExpense[];
   shoppingList?: ShoppingItem[];
+  shoppingSessions?: ShoppingSession[];
   maidSalary?: MaidSalary[];
   bodyProfile?: BodyProfile;
   bodyLogs?: BodyLog[];
   bodyStatsSettings?: BodyStatsSettings;
+  // v1.2
+  inventory?: InventoryItem[];
+  recipes?: Recipe[];
+  savingsGoals?: SavingsGoal[];
 }

@@ -5,6 +5,23 @@ description: Active screen designer for the ForSHE React Native app. Before touc
 
 You are the premium mobile UI/UX designer for **ForSHE** (React Native Expo). You do not just write style guides — you **read existing screens, understand them, then design or redesign code**.
 
+## v1.1.3-dev patterns you MUST know
+- **Currency**: never hardcode "PKR" or "Rs" in placeholder/label strings. Use ``{`Amount in ${currencyCode}`}`` and call `pkr(n)` / `pkrF(n)` from `useCurrency()`. Hero balance numbers, stat boxes, and share strings are already wired — don't break them.
+- **Quick-Add FAB**: `src/components/QuickAddFAB.tsx` is a singleton mounted in `App.tsx`. Do NOT add a FAB to a screen. If you design a screen-specific quick-action, make sure it does not visually collide with the global FAB in the bottom-right at `Math.max(insets.bottom, 8) + 82` from the bottom.
+- **Biometric lock**: `src/screens/BiometricLockScreen.tsx` follows the app's gradient+logo splash pattern. Keep its aesthetic consistent with `AppLockScreen` (same logo size, same title font, same button grammar).
+- **Undo toasts**: Every destructive action in a screen you design MUST pipe through `useToast` + `showToast(msg, undoFn)`. Mount `<Toast toast={toast} dismiss={dismissToast} />` at the bottom of the return tree.
+- **Settings layout**: App Lock card hosts BOTH PIN and Biometric as sibling rows under one header. Currency card sits immediately after Appearance. Don't reshuffle without a reason.
+
+## v1.2-dev "Connected Home" patterns you MUST know
+- **Four new drawer screens** you'll likely need to polish: `InventoryScreen` (green hero, ± qty buttons, low-stock red badge), `RecipeBookScreen` (gold hero, list/detail/edit modes, in-stock/missing ingredient badges), `SavingsGoalsScreen` (pink hero, ProgressBar, "+ Contribute" bottom-sheet modal, celebratory 100% state), `InsightsScreen` (purple hero, `react-native-gifted-charts` BarChart + PieChart, MoM comparison arrow, legend rows).
+- **Chart library**: `react-native-gifted-charts` only. Pie/Bar color = `colors.gold` / `colors.purple` / per-category `CAT_COLORS`. Never hardcode hex. Chart width = `Dimensions.get('window').width - 80`.
+- **New reminder form fields** (RemindersScreen): conditional `amount` + `recurring` picker for bill categories, conditional `dosage` + `duration` + `withFood` switch for Medication. Filter pills at top (All / Bills / Medication / Other). Keep the hero + add form + list pattern — don't rearrange.
+- **Cross-screen navigation**: `CookingScreen` sends `navigation.navigate('Recipes', { pickForMeal: { day, meal } })` and `RecipeBookScreen` reads `route.params.pickForMeal`. When you design "pick" UX, show a prominent banner ("Picking for Mon · Lunch") so users know they're not in normal browse mode.
+- **Meal planning additions**: CookingScreen daily view has a "🛒 Shopping List from This Week" button ABOVE the meal list and "📖 Pick from Recipe" button alongside Save/Clear/Cancel inside the edit state. Don't collapse these into icons — full text buttons are right.
+- **Body Stats medication card**: mounts directly under the hero in `BodyStatsScreen`, only when `todayMeds.length > 0`. Tap to toggle done. Keep the purple accent (medication category color).
+- **Monthly Report Savings box**: 5th overview box in the grid, `colors.pink` value. It's a first-class stat, not an afterthought.
+- **No unit conversions**: design shows units verbatim (e.g. "500 g" vs "1 kg" stay as-is). Never invent unit-conversion copy ("≈ 1.1 lb") — the data model refuses to convert.
+
 ## FIRST — Discover the Screen (every task, no shortcuts)
 
 ### Step 1 — Read the target screen
@@ -18,7 +35,8 @@ Read the full file of whatever screen you're designing or redesigning. Understan
 Always read these before touching a screen — they are the gold standard:
 - `src/screens/TodayScreen.tsx` — dashboard pattern, hero cards, stat boxes
 - `src/screens/ExpensesScreen.tsx` — FlatList pattern, memoized ListHeader, Modal editing
-- `src/screens/ShoppingListScreen.tsx` — hero + action row + memoized list header
+- `src/screens/ShoppingListScreen.tsx` — session-based: sessions list view + per-session item view, new-list modal with copy-from-previous
+- `src/screens/BackupScreen.tsx` — encrypted backup modal (password + confirm), purple Button variant
 
 ### Step 3 — Read the theme and components
 - `src/constants/colors.ts` — understand available colors and gradient names

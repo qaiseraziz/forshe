@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Platform, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
@@ -10,17 +11,24 @@ import { gradients } from '../constants/colors';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Divider } from '../components/ui/Divider';
+import { Toast, useToast } from '../components/ui/Toast';
 import { Picker } from '@react-native-picker/picker';
 import { useSecureStorage } from '../hooks/useSecureStorage';
+import { useStorage } from '../hooks/useStorage';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { CAT_KEYS } from '../constants/data';
-import { pkrF } from '../utils/currency';
+import { CURRENCIES } from '../constants/currencies';
+import { useCurrency } from '../context/CurrencyContext';
 import { scheduleBodyStatsReminder, cancelBodyStatsReminder } from '../utils/bodyStatsNotifications';
 
 export default function SettingsScreen() {
   const { colors, dark, setDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { recurring, setRecurring, bodyStatsSettings, setBodyStatsSettings } = useData();
+  const { pkrF, currencyCode, currency, setCurrency } = useCurrency();
+  const systemScheme = useColorScheme();
+  const [biometricEnabled, setBiometricEnabled] = useStorage<boolean>('hm_biometric_lock', false);
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
   const [pin, setPin] = useSecureStorage('forshe_pin', '');
   const [pinInput, setPinInput] = useState('');
   const [showPinInput, setShowPinInput] = useState(false);
@@ -42,6 +50,40 @@ export default function SettingsScreen() {
   }, [recLabel, recAmt, recDay, recCat, setRecurring]);
 
   const toggleDark = useCallback(() => setDark(d => !d), [setDark]);
+
+  const matchSystemTheme = useCallback(() => {
+    setDark(systemScheme === 'dark');
+  }, [setDark, systemScheme]);
+
+  const toggleBiometric = useCallback(async (val: boolean) => {
+    if (!val) {
+      setBiometricEnabled(false);
+      return;
+    }
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware) {
+        Alert.alert('Not supported', 'This device does not have biometric hardware.');
+        return;
+      }
+      if (!enrolled) {
+        Alert.alert(
+          'Not enrolled',
+          'No fingerprint or face is enrolled. Enroll one in your device settings first.',
+        );
+        return;
+      }
+      const res = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Confirm to enable biometric lock',
+      });
+      if (res.success) {
+        setBiometricEnabled(true);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not verify biometric authentication.');
+    }
+  }, [setBiometricEnabled]);
 
   const togglePinLock = useCallback((val: boolean) => {
     if (!val) {
@@ -184,6 +226,35 @@ export default function SettingsScreen() {
               thumbColor="#fff"
             />
           </View>
+          {systemScheme && ((systemScheme === 'dark') !== dark) && (
+            <Button
+              title={`Match system (${systemScheme})`}
+              variant="outline"
+              small
+              onPress={matchSystemTheme}
+              style={{ marginTop: 10, alignSelf: 'flex-start' }}
+            />
+          )}
+        </Card>
+
+        {/* Currency */}
+        <Card>
+          <Text style={[styles.sectionLabel, { color: colors.deep }]}>💱 Currency</Text>
+          <Text style={[styles.settingDesc, { color: colors.muted, marginBottom: 12 }]}>
+            Selected: {currency.symbol} {currency.code} · {currency.name}
+          </Text>
+          <View style={[styles.recPickerWrap, { backgroundColor: colors.bg3 }]}>
+            <Picker
+              selectedValue={currencyCode}
+              onValueChange={setCurrency}
+              style={{ color: colors.text }}
+              dropdownIconColor={colors.muted}
+            >
+              {CURRENCIES.map(c => (
+                <Picker.Item key={c.code} value={c.code} label={`${c.symbol}  ${c.code} — ${c.name}`} />
+              ))}
+            </Picker>
+          </View>
         </Card>
 
         {/* App Lock */}
@@ -223,6 +294,25 @@ export default function SettingsScreen() {
               />
             </View>
           )}
+
+          <View style={[styles.settingRow, { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }]}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingTitle, { color: colors.deep }]}>Biometric Lock</Text>
+              <Text style={[styles.settingSub, { color: colors.muted }]}>
+                {biometricEnabled
+                  ? 'Fingerprint or face required on launch'
+                  : pin
+                    ? 'Use fingerprint / face instead of PIN'
+                    : 'Use fingerprint / face to unlock the app'}
+              </Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={toggleBiometric}
+              trackColor={{ false: colors.border, true: colors.gold }}
+              thumbColor="#fff"
+            />
+          </View>
         </Card>
 
         {/* Body Stats */}
@@ -301,7 +391,7 @@ export default function SettingsScreen() {
           <Input placeholder="e.g. Rent, Electricity..." value={recLabel} onChangeText={setRecLabel} style={{ marginBottom: 8 }} />
           <View style={styles.recRow}>
             <View style={styles.recFlex}>
-              <Input placeholder="Amount (PKR)" keyboardType="numeric" value={recAmt} onChangeText={setRecAmt} />
+              <Input placeholder={`Amount (${currencyCode})`} keyboardType="numeric" value={recAmt} onChangeText={setRecAmt} />
             </View>
             <View style={styles.recFlex}>
               <Input placeholder="Day (1-28)" keyboardType="numeric" value={recDay} onChangeText={handleRecDayChange} />
@@ -333,7 +423,16 @@ export default function SettingsScreen() {
                 onPress={() => {
                   Alert.alert('Remove Recurring', `Stop auto-adding "${r.label}"?`, [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => setRecurring(rr => rr.filter(x => x.id !== r.id)) },
+                    {
+                      text: 'Remove',
+                      style: 'destructive',
+                      onPress: () => {
+                        setRecurring(rr => rr.filter(x => x.id !== r.id));
+                        showToast('Recurring removed', () => {
+                          setRecurring(rr => [r, ...rr]);
+                        });
+                      },
+                    },
                   ]);
                 }}
                 style={styles.delBtn}
@@ -358,7 +457,7 @@ export default function SettingsScreen() {
         <Card>
           <View style={styles.aboutSection}>
             <Text style={[styles.aboutName, { color: colors.deep }]}>ForSHE</Text>
-            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.1.2</Text>
+            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.2.0</Text>
             <Text style={[styles.aboutDesc, { color: colors.sub }]}>
               Your complete home management companion. Track expenses, plan meals, manage maid tasks, set reminders, and more — all in one beautiful app.
             </Text>
@@ -375,6 +474,7 @@ export default function SettingsScreen() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+      <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
   );
 }

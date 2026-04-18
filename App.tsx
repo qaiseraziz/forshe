@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, ActivityIndicator, StyleSheet, StatusBar, AppState, AppStateStatus } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -18,14 +18,20 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { DataProvider, useData } from './src/context/DataContext';
+import { CurrencyProvider } from './src/context/CurrencyContext';
 import { DrawerNav } from './src/navigation/DrawerNav';
 import SplashScreen from './src/screens/SplashScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AppLockScreen from './src/screens/AppLockScreen';
+import BiometricLockScreen from './src/screens/BiometricLockScreen';
+import { QuickAddFAB } from './src/components/QuickAddFAB';
 import { useStorage } from './src/hooks/useStorage';
 import { useSecureStorage } from './src/hooks/useSecureStorage';
 
 SplashScreenExpo.preventAutoHideAsync();
+
+// Re-require biometric auth after this many ms of being backgrounded.
+const RELOCK_AFTER_BACKGROUND_MS = 5000;
 
 function AppContent() {
   const { colors, dark } = useTheme();
@@ -34,7 +40,36 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [hasOnboarded, setHasOnboarded] = useStorage<boolean>('forshe_onboarded', false);
   const [pin] = useSecureStorage('forshe_pin', '');
+  const [biometricEnabled] = useStorage<boolean>('hm_biometric_lock', false);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [usePinFallback, setUsePinFallback] = useState(false);
+
+  // Re-lock on background → foreground when biometric is enabled.
+  const backgroundedAt = useRef<number | null>(null);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        backgroundedAt.current = Date.now();
+      } else if (next === 'active') {
+        const wasAway = backgroundedAt.current
+          ? Date.now() - backgroundedAt.current > RELOCK_AFTER_BACKGROUND_MS
+          : false;
+        if (wasAway && (biometricEnabled || pin)) {
+          setIsUnlocked(false);
+          setUsePinFallback(false);
+        }
+        backgroundedAt.current = null;
+      }
+    });
+    return () => sub.remove();
+  }, [biometricEnabled, pin]);
+
+  const handleUnlock = useCallback(() => {
+    setIsUnlocked(true);
+    setUsePinFallback(false);
+  }, []);
+
+  const switchToPin = useCallback(() => setUsePinFallback(true), []);
 
   if (!allLoaded) {
     return (
@@ -58,9 +93,20 @@ function AppContent() {
     );
   }
 
-  // Show app lock if PIN is set and not yet unlocked
-  if (pin && !isUnlocked) {
-    return <AppLockScreen onUnlock={() => setIsUnlocked(true)} storedPin={pin} />;
+  // Unlock gate: biometric first (if enabled), PIN as fallback OR alternative
+  if (!isUnlocked) {
+    if (biometricEnabled && !usePinFallback) {
+      return (
+        <BiometricLockScreen
+          onUnlock={handleUnlock}
+          onFallbackToPin={pin ? switchToPin : undefined}
+          hasPinFallback={!!pin}
+        />
+      );
+    }
+    if (pin) {
+      return <AppLockScreen onUnlock={handleUnlock} storedPin={pin} />;
+    }
   }
 
   return (
@@ -69,6 +115,7 @@ function AppContent() {
       <NavigationContainer>
         <DrawerNav />
       </NavigationContainer>
+      <QuickAddFAB />
     </View>
   );
 }
@@ -99,9 +146,11 @@ export default function App() {
     <GestureHandlerRootView style={styles.container} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <DataProvider>
-            <AppContent />
-          </DataProvider>
+          <CurrencyProvider>
+            <DataProvider>
+              <AppContent />
+            </DataProvider>
+          </CurrencyProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

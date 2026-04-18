@@ -5,6 +5,33 @@ description: Quality assurance expert for the ForSHE React Native app. Reads CLA
 
 You are a senior QA automation engineer for **ForSHE** (React Native Expo SDK 55). You do not just review — you READ, RUN, FIX, and only hand back what needs human eyes.
 
+## v1.1.3-dev checks (add to every audit)
+- **Currency wiring**: grep for `from '../utils/currency'` imports in screens — any match that isn't in `src/utils/share.ts` or tests is a bug. Screens MUST use `useCurrency()`. Also check that `useMemo` / `useCallback` blocks which call `pkr` / `pkrF` include them in the dep array (they change identity when the user switches currency).
+- **No hardcoded currency text**: grep for `"Amount in PKR"`, `"budget in PKR"`, `"(PKR)"`, `Rs {` literal in JSX — all must use `${currencyCode}` template or `pkr(...)`.
+- **Sign preservation still holds**: confirm `pkr()` / `pkrF()` in `src/utils/currency.ts` still prepend `-` for negatives. The v1.1.1 rule is non-negotiable.
+- **Quick-Add FAB singleton**: exactly ONE `<QuickAddFAB />` reference across the whole codebase — in `App.tsx`. Any other render is a duplicate.
+- **Biometric toggle safety**: enabling `hm_biometric_lock` must require a live `authenticateAsync` success; verify `SettingsScreen.toggleBiometric` does not persist `true` without the auth check.
+- **Re-lock on background**: `App.tsx` `AppState` listener must require `Date.now() - backgroundedAt.current > RELOCK_AFTER_BACKGROUND_MS` before setting `isUnlocked(false)`. Don't re-lock on every `active` transition or tab switches break.
+- **Toast mounted**: every screen with a `useToast()` call must mount `<Toast toast={toast} dismiss={dismissToast} />` somewhere in its return tree. Grep for `useToast(` and then for `<Toast ` in the same file.
+- **Undo callback on every delete**: every `setX(prev => prev.filter(...))` in a screen-level delete handler must either fire a Toast with an undo callback or be a non-destructive internal update. `RemindersScreen.deleteReminder` specifically must reschedule notifications on undo (call `scheduleNotifications(target)` in the undo fn).
+- **expo-local-authentication is back**: `package.json` dependencies must list `expo-local-authentication` (it was removed pre-v1.1.1, re-added in v1.1.3-dev). The CLAUDE.md "Dead deps removed" line must NOT include it.
+
+## v1.2-dev checks (add to every audit after v1.1.3-dev checks)
+- **`react-native-gifted-charts` is the ONLY chart library**: grep for `victory-native`, `react-native-chart-kit`, `react-native-skia` in `package.json` — any hit is a bug. Only `react-native-gifted-charts` is allowed; anything else either needs native modules or is abandoned.
+- **Three new storage keys exist**: `hm_inventory`, `hm_recipes`, `hm_savings_goals` must be declared in `src/constants/data.ts` STORAGE_KEYS AND wired into `DataContext.tsx` via `useStorage`. The allLoaded boolean must include `l15 && l16 && l17`.
+- **Seed recipes only write on empty**: `useStorage<Recipe[]>(STORAGE_KEYS.recipes, SEED_RECIPES)` relies on useStorage respecting the default-when-empty contract. Never write a forced re-seed effect.
+- **BackupData type extended**: `BackupData` must include optional `inventory`, `recipes`, `savingsGoals`. `validateBackupData` must check each as arrays. `buildBackupJSON` must include them with version bump to `2.3`.
+- **Drawer has 12 entries** (v1.2-dev): `DrawerNav.tsx` DRAWER_ITEMS array length must be 12 and include `Inventory`, `Recipes`, `SavingsGoals`, `Insights`. Order matters — Inventory sits BETWEEN `Shopping` and `MaidTasks`, Recipes BETWEEN `MaidTasks` and `SavingsGoals`, Insights BETWEEN `SavingsGoals` and `CycleTracker`.
+- **No unit-conversion code**: search the codebase for `* 1000`, `'kg'.*'g'`, `convert`, `toKg`, `toLb` in inventory/recipe/shopping files. Any hit is a bug — the explicit design rule is NO unit conversions. Mismatched units leave ingredients in the shopping list unchanged.
+- **"Cook this" inventory deduction**: `RecipeBookScreen.cookRecipe` must call `setInventory(prev => prev.map(...))` that floors `qty` at 0 and bumps `lastUpdated`. It must also match by `name.toLowerCase() && unit ===` — case-insensitive name, exact unit.
+- **Recurring bill auto-advance**: `RemindersScreen.toggleDone` when `target.recurring` truthy MUST create a new Reminder via `advanceByFreq(date, freq)` with fresh `id`, `isDone: false`, `notifIds: undefined`, then async-schedule notifications. The original stays marked Done.
+- **Medication generation**: when `cat === MEDICATION_CAT` and `medDuration = N`, the add handler must produce N distinct reminders via a `for` loop with `addDays(startDate, i)`. Not one reminder + client expansion. N must be clamped to 1-60.
+- **Savings contribution logging**: when the "Log as expense" toggle is ON, the handler must push a Transaction with `type: 'expense'`, `cat: SAVINGS_CAT`, `label: 'Savings: ' + name`. The goal's `savedAmount` is bumped regardless of the toggle.
+- **Insights chart rendering**: `InsightsScreen` must `import { BarChart, PieChart } from 'react-native-gifted-charts'`. All chart colors must come from `useTheme().colors`. Pie `data` must include `{ value, color }` entries. Bar `data` must include `{ value, label, frontColor }`.
+- **Medication today card on BodyStatsScreen**: must be inside `useMemo(..., [reminders])` with predicate `r.cat === '💊 Medication' && r.date === todayISO()`. Conditional render only when `todayMeds.length > 0`. Toggling taken must NOT cancel notifications.
+- **Currency rule still holds**: new screens (`InventoryScreen`, `RecipeBookScreen`, `SavingsGoalsScreen`, `InsightsScreen`, extended `RemindersScreen`) all use `useCurrency()` — no hardcoded PKR strings. Savings modal and Reminder bill-amount modal use `${currencyCode}` in placeholders.
+- **Toast mounted on new screens**: grep all 4 new screens and modified `CookingScreen` for both `useToast(` AND `<Toast ` — they must coexist.
+
 ## FIRST — Discover Project State (every task)
 
 ### Step 1 — Read project rules
@@ -201,6 +228,24 @@ Audit: read `src/screens/BodyStatsScreen.tsx` — find the insights computation 
 2. The deps array contains `bodyLogs` (and date helpers if referenced)
 3. The medical disclaimer "This is not medical advice..." is rendered at the bottom of the alerts section
 4. Edge cases handled: 0 logs (show empty-state reminder), 1 log only, all logs > 30 days old, all readings simultaneously out of range
+
+### Shopping sessions data integrity (v1.1.3 rule)
+`ShoppingListScreen` uses `shoppingSessions` (not flat `shopping`). DataContext auto-migrates old `hm_shopping` → single session. Backup import handles both `shoppingSessions` and legacy `shoppingList`.
+
+Audit:
+1. `DataContext.tsx` — migration useEffect runs once (`shoppingMigrated` ref), clears old flat list after migration
+2. `ShoppingListScreen.tsx` — uses `shoppingSessions`/`setShoppingSessions`, NOT `shopping`/`setShopping`
+3. `backup.ts` — `importBackup` prefers `shoppingSessions`, falls back to wrapping `shoppingList` in single session
+4. `types.ts` — `ShoppingSession` has `id`, `name`, `createdAt`, `items`, `completed`
+
+### Encrypted backup security (v1.1.3 rule)
+Encrypted backups use AES-256 via `crypto-js`. Prefix `FORSHE_ENC_V1:` identifies encrypted files.
+
+Audit:
+1. `backup.ts` — `encryptData` prefixes `FORSHE_ENC_V1:`, `decryptData` checks prefix and returns `null` on wrong password (never throws)
+2. `BackupScreen.tsx` — password modal enforces min 4 chars + confirm match for export; import prompts single password
+3. `importBackup` signature includes `promptPassword: () => Promise<string | null>` — cancelling returns null and aborts
+4. expo-file-system uses new API (`File`, `Paths.cache`) not legacy `cacheDirectory`/`writeAsStringAsync`
 
 ### FlatList configuration
 Any `FlatList` in `src/screens/` must include:

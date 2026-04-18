@@ -12,7 +12,7 @@ import { useToast, Toast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { MEALS, MEAL_ICONS, CAT_KEYS, FULL_DAYS, MONTHS } from '../constants/data';
-import { pkr } from '../utils/currency';
+import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, todayDay, fmtISO } from '../utils/dates';
 import { gradients } from '../constants/colors';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
@@ -22,6 +22,7 @@ export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { history, cooking, maidData, reminders, attendance, setHistory } = useData();
+  const { pkr, currencyCode } = useCurrency();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [qaItem, setQaItem] = useState('');
   const [qaAmt, setQaAmt] = useState('');
@@ -206,7 +207,7 @@ export default function TodayScreen() {
       c: colors.purple,
       tab: 'Reminders',
     },
-  ], [bal, todaySpent, maidDone, maidTasks.length, att, upcomingRems.length, colors]);
+  ], [bal, todaySpent, maidDone, maidTasks.length, att, upcomingRems.length, colors, pkr]);
 
   return (
     <LinearGradient
@@ -391,7 +392,7 @@ export default function TodayScreen() {
               style={{ marginBottom: 12 }}
             />
             <Input
-              placeholder="Amount in PKR"
+              placeholder={`Amount in ${currencyCode}`}
               keyboardType="numeric"
               value={qaAmt}
               onChangeText={setQaAmt}

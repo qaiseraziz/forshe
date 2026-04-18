@@ -82,6 +82,7 @@ export const gradients = {
   blueBtn: ['#3498db', '#1d6fa4'] as [string, string],
   redBtn: ['#e74c3c', '#c0392b'] as [string, string],
   pinkBtn: ['#e74c7a', '#c0395a'] as [string, string],
+  purpleBtn: ['#7c4dba', '#5a2d8a'] as [string, string],
   goldHeroDark: ['#2a1f00', '#1a1400'] as [string, string],
   greenHeroDark: ['#001a0e', '#001208'] as [string, string],
   purpleHeroDark: ['#160d2a', '#0f0a1a'] as [string, string],

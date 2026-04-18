@@ -4,6 +4,9 @@ import { Transaction } from '../types';
 import { MONTHS } from '../constants/data';
 import { pkrF } from './currency';
 import { todayStr, parseDMY } from './dates';
+import { CurrencyDef, CURRENCIES } from '../constants/currencies';
+
+const DEFAULT_CUR: CurrencyDef = CURRENCIES[0];
 
 export function buildShareText(
   history: Transaction[],
@@ -11,6 +14,7 @@ export function buildShareText(
   selMonth: number,
   selYear: number,
   budget: number = 0,
+  currency: CurrencyDef = DEFAULT_CUR,
 ): string {
   const td = todayStr();
   let filtered = history;
@@ -39,10 +43,12 @@ export function buildShareText(
   exps.forEach(h => { catMap[h.cat] = (catMap[h.cat] || 0) + h.amount; });
   const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
 
+  const fmt = (n: number) => pkrF(n, currency);
+
   const line = '━'.repeat(30);
   let txt = `💜 ForSHE Expense Report\n📅 ${label}  |  📆 ${td}\n${line}\n\n`;
-  txt += `💵 Total Received:\n   ${pkrF(totalRec)}\n\n🛒 Total Spent:\n   ${pkrF(totalSpent)}\n\n`;
-  txt += `${remaining >= 0 ? '✅' : '⚠️'} Remaining Balance:\n   ${pkrF(Math.abs(remaining))}${remaining < 0 ? ' (OVERSPENT)' : ''}\n`;
+  txt += `💵 Total Received:\n   ${fmt(totalRec)}\n\n🛒 Total Spent:\n   ${fmt(totalSpent)}\n\n`;
+  txt += `${remaining >= 0 ? '✅' : '⚠️'} Remaining Balance:\n   ${fmt(Math.abs(remaining))}${remaining < 0 ? ' (OVERSPENT)' : ''}\n`;
 
   if (budget > 0) {
     const now = new Date();
@@ -50,21 +56,21 @@ export function buildShareText(
       const p = parseDMY(h.date);
       return p && p.m === now.getMonth() && p.y === now.getFullYear();
     })()).reduce((s, h) => s + h.amount, 0);
-    txt += `\n🎯 Monthly Budget: ${pkrF(budget)}  |  Used: ${pkrF(ms)}\n`;
+    txt += `\n🎯 Monthly Budget: ${fmt(budget)}  |  Used: ${fmt(ms)}\n`;
   }
 
   if (filter !== 'all' && (periodRec > 0 || periodExp > 0)) {
-    txt += `\n${line}\n📊 ${label} Breakdown:\n   Received : ${pkrF(periodRec)}\n   Spent    : ${pkrF(periodExp)}\n   ${periodRec - periodExp >= 0 ? 'Saved    ' : 'Deficit  '}: ${pkrF(Math.abs(periodRec - periodExp))}\n`;
+    txt += `\n${line}\n📊 ${label} Breakdown:\n   Received : ${fmt(periodRec)}\n   Spent    : ${fmt(periodExp)}\n   ${periodRec - periodExp >= 0 ? 'Saved    ' : 'Deficit  '}: ${fmt(Math.abs(periodRec - periodExp))}\n`;
   }
 
   if (cats.length) {
     txt += `\n${line}\n📂 By Category:\n`;
-    cats.forEach(c => { txt += `   ${c[0]}  →  ${pkrF(c[1])}\n`; });
+    cats.forEach(c => { txt += `   ${c[0]}  →  ${fmt(c[1])}\n`; });
   }
 
   if (exps.length) {
     txt += `\n${line}\n🧾 Recent Expenses:\n`;
-    exps.slice(0, 8).forEach(e => { txt += `   • ${e.label}  —  ${pkrF(e.amount)}  (${e.date})\n`; });
+    exps.slice(0, 8).forEach(e => { txt += `   • ${e.label}  —  ${fmt(e.amount)}  (${e.date})\n`; });
     if (exps.length > 8) txt += `   ...and ${exps.length - 8} more\n`;
   }
 

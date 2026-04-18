@@ -2,6 +2,87 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.0 — 2026-04-18 "Connected Home + Product Completeness"
+
+Minor release bundling two dev streams into a single public cut. Thirteen new user-facing features — the v1.1.3-dev **product completeness** wave (multi-currency, dark-mode match-system, global Quick-Add FAB, biometric lock, undo-everywhere, session-based shopping, encrypted backup, Gmail/Drive file sharing) plus the v1.2-dev **Connected Home** integration wave (Inventory Tracker, Recipe Book + Auto Grocery, Bill Reminders, Medication Reminders, Savings Goals, Expense Insights dashboard). The modules now talk to each other: recipes deduct inventory, inventory drives shopping lists, cooking plans generate weekly groceries, bills auto-advance, medication shows up on Body Stats today.
+
+### Added
+
+**Product completeness (from v1.1.3-dev)**
+
+- **Multi-currency support** (`src/constants/currencies.ts`, `src/context/CurrencyContext.tsx`, `src/utils/currency.ts`) — picker in Settings with 7 options (PKR ₨, USD $, EUR €, GBP £, INR ₹, SAR ﷼, AED د.إ). Default PKR. Selection persisted under AsyncStorage key `hm_currency`. Every `pkr()` / `pkrF()` call site (TodayScreen, ExpensesScreen, MonthlyReportScreen, MaidScreen, SettingsScreen, BackupScreen, QuickAddFAB, SavingsGoalsScreen, InsightsScreen, RemindersScreen, share.ts) reads from the `useCurrency()` hook. Sign-preservation rule (v1.1.1) preserved — negative values still render as `-$ 1,200` / `-Rs 1.2K`. Lakh shorthand (`1.2L`) is kept for PKR and INR only; USD/EUR/GBP/SAR/AED switch to `1.2M` at a million. Locale-aware thousand separators via `toLocaleString(cur.locale)` with a raw-number fallback.
+- **Dark-mode "Match system" button** (`SettingsScreen.tsx`) — under the Dark Mode switch, shows a one-tap button to sync the app theme with the device's current `useColorScheme()` value whenever they differ. Switch still lets the user override manually.
+- **Global Quick-Add FAB** (`src/components/QuickAddFAB.tsx`) — circular gold-gradient floating action button in the bottom-right on every authenticated screen. Opens a bottom-sheet modal with a two-way toggle (Received / Expense), label + amount input, category picker (expense only), and saves into `history` via `DataContext`. Fires budget alerts when `budget > 0`. Undo callback in the Toast if you save by mistake. Positioned with `bottom = max(insets.bottom, 8) + 82` so it clears the floating tab pill on Android gestures + iOS home indicator. Mounted once at the app root (inside the authenticated tree in `App.tsx`) — screens do not render their own copies.
+- **Biometric app lock** (`src/screens/BiometricLockScreen.tsx`, `App.tsx`) — `expo-local-authentication` re-added (SDK 55 compatible). New Settings toggle "Biometric Lock" under App Lock; flipping it ON prompts the user to authenticate once before saving. Stored under `hm_biometric_lock` via `useStorage`. When enabled, app launch (and resume after ≥5s in background) routes through `BiometricLockScreen` which auto-prompts `authenticateAsync`. If the device has no hardware/enrollment, a friendly banner is shown; if a PIN is also set, a "Use PIN instead" link flips to the existing `AppLockScreen` as fallback. No hardware/enrollment and no PIN → the app unlocks normally (toggle simply refuses to turn on).
+- **App Lock card in Settings** now hosts BOTH the PIN toggle and the new Biometric toggle as sibling rows under a shared section header.
+- **Currency card in Settings** placed right after Appearance.
+- **Undo everywhere** — every destructive user action now shows a Toast with an Undo button that re-adds the deleted item:
+  - `ExpensesScreen.deleteEntry` (already present, verified)
+  - `ShoppingListScreen.deleteItem` + `clearDone` (already present, verified)
+  - `RemindersScreen.deleteReminder` — restores the reminder and reschedules its notifications via `scheduleNotifications`
+  - `CycleScreen.deleteLog` — restores the period log into the sorted list
+  - `BodyStatsScreen.deleteLog` — restores the body stats entry
+  - `SettingsScreen` recurring-expense remove — restores the recurring row
+  - `QuickAddFAB.save` — one-tap undo for accidental quick-adds
+  - `InventoryScreen`, `RecipeBookScreen`, `SavingsGoalsScreen` delete handlers — undo restores the item.
+- **Session-based Shopping Lists** (`ShoppingListScreen`, new type `ShoppingSession`, storage key `hm_shopping_sessions`) — shopping is now trip-based. List of sessions (active first, completed at bottom). "New Shopping List" modal offers: name the list, copy items from a previous list, or start empty. Each session can be completed / reopened / deleted / copied. Old flat `ShoppingItem[]` auto-migrates to a single session on first load. Locale-independent `DD MMM` / `DD MMM YYYY` formatting via local helpers (no `toLocaleDateString`).
+- **Encrypted backup** (`src/utils/backup.ts`, `BackupScreen`) — AES-256 via `crypto-js`. Export writes a `.forshe` file (prefixed `FORSHE_ENC_V1:` + ciphertext). Password modal with min 4 chars + confirm. Import auto-detects encrypted files and prompts for a password. Cancelling the prompt aborts cleanly; wrong password returns `null` (never throws).
+- **File-based sharing** (Gmail / Drive / WhatsApp) — `expo-file-system` new API (`File` / `Paths.cache`) writes the backup to cache then `Share.share({ url })` opens the native share sheet. Purple `Button` variant added (`gradients.purpleBtn`).
+
+**Connected Home (from v1.2-dev)**
+
+- **Inventory Tracker** (`src/screens/InventoryScreen.tsx`, new type `InventoryItem`, storage key `hm_inventory`) — new drawer screen between Shopping List and Maid Tasks. Tracks name, qty, unit, category (Grocery / Household / Pantry / Fridge / Freezer), low-stock threshold, notes. Per-item ± quantity buttons. Low-stock badge when `qty <= lowStockThreshold`. Search + category filter pills. Add/edit modal. Undo toast on delete. Sort: alphabetical.
+- **Recipe Book** (`src/screens/RecipeBookScreen.tsx`, new types `Recipe` + `RecipeIngredient`, storage key `hm_recipes`, seed file `src/constants/seedRecipes.ts`) — new drawer screen between Maid Tasks and Savings. Three modes: list, detail, edit. Ingredients cross-reference inventory (matched by `name` + `unit` with no unit conversion). Ships with 6 Pakistani starter recipes: Chicken Biryani, Daal Chawal, Chicken Karahi, Chicken Pulao, Kheer, Aloo Paratha. Detail view shows in-stock vs missing badges per ingredient. "Cook this" button logs the meal into today's cooking slot (time-of-day heuristic → Breakfast/Lunch/Dinner) and deducts matching units from inventory. Undo toast on delete. Accepts `route.params.pickForMeal` for one-shot recipe assignment from CookingScreen.
+- **Auto Grocery Generation** (`RecipeBookScreen` detail view + `CookingScreen` weekly planner) — two integration points, no new screen:
+  - Recipe detail → "Add N missing to shopping" button opens a modal listing active shopping sessions; user picks one to append to, or creates a new list named after the recipe.
+  - Cooking screen → "🛒 Shopping List from This Week" button at the top of the daily view. Walks DAYS × MEALS, matches assigned meal names against recipes (case-insensitive), aggregates ingredients across all matches, subtracts inventory (same name + unit), deduplicates by name, creates a new session `"Week of DD/MM"`.
+  - No unit conversions — mismatched units skip deduction but the ingredient is still added to shopping.
+- **Bill Reminder System** (`src/screens/RemindersScreen.tsx`, extended `Reminder` type) — 5 new bill preset categories (💡 Utility, 🏠 Rent, 📚 School Fees, 📺 Subscription, 🧾 Other Bills), new optional `amount` field rendered next to the title, new optional `recurring` field (`monthly`/`quarterly`/`yearly`/null). Marking a recurring bill Done creates the next occurrence automatically at the advanced date + reschedules its notifications. Bill amount + recurring picker shown conditionally in the add form when the category is a bill category.
+- **Medication Reminders** (`RemindersScreen`, extended `Reminder` type + `BodyStatsScreen`) — new Medication category with optional `dosage` string and `withFood` flag. Duration picker: "for N days" auto-generates N daily reminders starting on the picked date (N clamped 1-60). Medication reminders get a filter pill on RemindersScreen. BodyStatsScreen shows a "💊 Today's Medication" card under the hero when any medication reminder falls on today — tap to toggle taken/not taken (does NOT cancel notifications on toggle).
+- **Savings Goals** (`src/screens/SavingsGoalsScreen.tsx`, new type `SavingsGoal`, storage key `hm_savings_goals`) — new drawer screen. Create goals with target, saved amount, optional deadline, notes. Progress bar + percentage + days-remaining (with overdue red state). "+ Contribute" modal bumps savedAmount and optionally logs a Transaction under the `💰 Savings` category. Celebrates reaching 100% with a success toast + haptic. MonthlyReport gains a "Savings" overview box showing the Savings category spend for the month. Undo toast on delete.
+- **Expense Insights / Visual Dashboard** (`src/screens/InsightsScreen.tsx`) — new drawer screen. Uses `react-native-gifted-charts` (pure-JS, SDK 55 compatible, no native deps). Shows:
+  - 6-month spending trend (animated bar chart)
+  - Category breakdown pie chart + percentages legend (current month)
+  - Top 5 expenses this month
+  - Month-over-month comparison widget with arrow, percentage delta, saved/over copy
+  - Daily average spend
+  - All charts theme-aware and respect dark mode. All currency via `useCurrency()`.
+- **Reminder filter pills** (`RemindersScreen`) — All / Bills / Medication / Other with live counts. Replaces the previous un-filtered flat list.
+
+### Changed
+- `src/types.ts` — new types `InventoryItem`, `InventoryCategory`, `Recipe`, `RecipeIngredient`, `SavingsGoal`, `ReminderRecurring`, `ShoppingSession`. `Reminder` gains optional `amount`, `recurring`, `dosage`, `withFood` fields. `BackupData` gains `inventory`, `recipes`, `savingsGoals`, `shoppingSessions`.
+- `src/constants/data.ts` — new storage keys `hm_inventory`, `hm_recipes`, `hm_savings_goals`, `hm_shopping_sessions`. New category constants `BILL_CATS`, `MEDICATION_CAT`, `RECURRING_FREQS`, `INVENTORY_CATS`, `UNIT_HINTS`, `SAVINGS_CAT`. `REMINDER_CATS` extended with 6 new categories (Utility, Rent, School Fees, Subscription, Other Bills, Medication).
+- `src/context/DataContext.tsx` — four new state slices + their setters (`inventory`, `recipes`, `savingsGoals`, `shoppingSessions`). `recipes` seeds from `SEED_RECIPES` on first launch. `allLoaded` widened to `l1…l17`. One-time migration of old flat `hm_shopping` → single session. `handleImport` round-trips everything.
+- `src/utils/backup.ts` — `buildBackupJSON` bumped to version `2.3` and writes the new collections. Validator now checks `inventory`/`recipes`/`savingsGoals`/`shoppingSessions` as arrays. Encrypted path via `encryptData` / `decryptData` (prefix check, null on wrong password).
+- `src/utils/currency.ts` — `pkr()` / `pkrF()` accept an optional `CurrencyDef` argument and default to PKR for legacy callers. Shorthand still `1.2K` / `1.2L` but `L` is gated to South-Asian currencies (PKR, INR); others get `M` at a million.
+- `src/utils/share.ts` — `buildShareText` takes a `currency: CurrencyDef` argument so the shared report uses the user's selected currency symbol.
+- `src/screens/BackupScreen.tsx` — `allData` memo now includes the new collections. Export flow offers plain JSON, encrypted `.forshe`, and CSV.
+- `src/navigation/DrawerNav.tsx` — 4 new drawer entries (Inventory, Recipes, Savings Goals, Insights) and 4 new `Drawer.Screen` registrations. Order: Home, Shopping, Inventory, Maid, Recipes, Savings, Insights, Cycle, Body Stats, Monthly Report, Backup, Settings (12 total). Footer bumped to `ForSHE v1.2.0`.
+- `src/screens/CookingScreen.tsx` — new "🛒 Shopping List from This Week" button at the top of the daily view; new "📖 Pick from Recipe" button per meal in the edit state that navigates to `Recipes` with `{ pickForMeal: { day, meal } }`. Mounts `<Toast />`.
+- `src/screens/RemindersScreen.tsx` — filter pills, conditional form fields (amount + recurring for bills, dosage + duration + with-food for medication), per-card amount/recurring/with-food badges, auto-reschedule of recurring bills on Done.
+- `src/screens/BodyStatsScreen.tsx` — new "Today's Medication" card under the hero (conditional on any medication reminder dated today).
+- `src/screens/MonthlyReportScreen.tsx` — new "Savings" box in the overview grid showing the total of `💰 Savings` category transactions for the selected month.
+- `src/screens/ShoppingListScreen.tsx` — session-based rewrite. Locale-independent date helpers (`fmtShort`, `fmtShortYear`) replace `toLocaleDateString`.
+- `App.tsx` — new `CurrencyProvider` wraps `DataProvider` (inside `ThemeProvider`). New `AppState` listener re-locks the app on background→foreground transitions older than 5 seconds when either PIN or biometric is enabled. `QuickAddFAB` mounted as a sibling to `NavigationContainer`. Background→foreground re-lock only fires if the user actually has a lock configured.
+- `SettingsScreen` — added Currency card, "Match system" dark-mode button, Biometric Lock toggle alongside PIN. Recurring-expense row delete shows Undo toast. About version → `1.2.0`.
+
+### Fixed
+- `ShoppingListScreen` — two `toLocaleDateString('en-GB', …)` calls replaced with locale-independent `fmtShort` / `fmtShortYear` helpers, restoring the project rule that forbids locale-dependent date formatting.
+
+### Chore
+- `package.json` — added `react-native-gifted-charts` dependency. Re-added `expo-local-authentication` (`~55.0.13`) for biometric lock. `crypto-js` + `@types/crypto-js` for encrypted backup. `expo-file-system` kept at new-API version.
+- `app.json` → version `1.2.0`, `ios.buildNumber` `"7"`, `android.versionCode` `7`.
+- `package.json` → version `1.2.0`.
+- `SettingsScreen` About card → `Version 1.2.0`.
+- `DrawerNav` footer → `ForSHE v1.2.0`.
+- `CHANGELOG.md` + `CLAUDE.md` updated; agent playbooks (`qa-expert.md`, `ui-designer.md`, `rn-performance-expert.md`, `eas-release-expert.md`, `git-release-manager.md`, `project-manager.md`) updated for all v1.1.3-dev + v1.2-dev patterns.
+- qa-expert TypeScript pass — both `tsc --noEmit` and `tsc --noEmit --noUnusedLocals --noUnusedParameters` exit 0.
+
+### APK
+- Build ID: `<pending — will be stamped after eas build kicks off>`
+- Build page: `<pending>`
+- Artifact URL: (visible after build FINISHES)
+
 ## v1.1.2 — 2026-04-10
 
 Patch release — two UI tightening fixes on top of v1.1.1.
@@ -24,6 +105,10 @@ Patch release — two UI tightening fixes on top of v1.1.1.
 - `CLAUDE.md` workflow rules updated: the v1.1.1 `topBar` rule is replaced with the new v1.1.2 in-hero `heroHeaderRow` rule.
 - `.claude/agents/ui-designer.md` + `.claude/agents/qa-expert.md` updated to match the new pattern.
 - `CHANGELOG.md` updated with this entry.
+
+### APK
+- Build ID: `9ce82345-5d1d-42d2-934a-d8971387af2f` (FINISHED 2026-04-11 09:25 UTC — https://expo.dev/artifacts/eas/knMfhN6yNhTxnzybRzzKdk.apk)
+- Previous attempt `d9dc1bb8-3514-4e4c-9f3c-ed0940449cfe` was CANCELED 2026-04-10 and never produced an artifact.
 
 ## v1.1.1 — 2026-04-10
 

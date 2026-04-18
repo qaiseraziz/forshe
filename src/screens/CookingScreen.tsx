@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { MonthBar } from '../components/MonthBar';
@@ -10,15 +12,19 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Toast, useToast } from '../components/ui/Toast';
 import { gradients } from '../constants/colors';
 import { DAYS, FULL_DAYS, MEALS, MEAL_ICONS, MEAL_COLORS, MONTHS } from '../constants/data';
 import { todayDay } from '../utils/dates';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import { RecipeIngredient, ShoppingSession, ShoppingItem } from '../types';
 
 export default function CookingScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { cooking, setCooking } = useData();
+  const navigation = useNavigation<any>();
+  const { cooking, setCooking, recipes, inventory, setShoppingSessions } = useData();
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const [filter, setFilter] = useState('all');
   const [selMonth, setSelMonth] = useState(new Date().getMonth());
@@ -54,6 +60,100 @@ export default function CookingScreen() {
   const handleCancelEdit = useCallback(() => {
     setEditKey(null);
   }, []);
+
+  // v1.2 — Navigate to Recipe Book in "pick" mode
+  const openRecipePicker = useCallback((d: string, m: string) => {
+    Haptics.selectionAsync();
+    setEditKey(null);
+    navigation.navigate('Recipes', { pickForMeal: { day: d, meal: m } });
+  }, [navigation]);
+
+  // v1.2 — Generate a shopping list from this week's assigned recipes
+  const generateShoppingList = useCallback(() => {
+    // Collect assigned recipe names from this week
+    const assignedNames: string[] = [];
+    DAYS.forEach(d => MEALS.forEach(m => {
+      const name = cooking[`${d}_${m}`];
+      if (name) assignedNames.push(name);
+    }));
+    if (assignedNames.length === 0) {
+      Alert.alert('No meals planned', 'Assign some meals to this week before generating a shopping list.');
+      return;
+    }
+
+    // Match against recipes (case-insensitive)
+    const matched = assignedNames
+      .map(name => recipes.find(r => r.name.toLowerCase() === name.toLowerCase()))
+      .filter((r): r is NonNullable<typeof r> => Boolean(r));
+
+    if (matched.length === 0) {
+      Alert.alert(
+        'No matching recipes',
+        'None of this week\'s meals match a recipe in your Recipe Book. Add the meal name to a recipe first.',
+      );
+      return;
+    }
+
+    // Aggregate ingredients by name+unit
+    const agg: Record<string, RecipeIngredient> = {};
+    matched.forEach(r => {
+      r.ingredients.forEach(ing => {
+        const key = `${ing.name.toLowerCase()}__${ing.unit}`;
+        if (agg[key]) {
+          agg[key] = { ...agg[key], qty: agg[key].qty + ing.qty };
+        } else {
+          agg[key] = { ...ing };
+        }
+      });
+    });
+
+    // Subtract inventory (same name + unit)
+    const missing = Object.values(agg)
+      .map(ing => {
+        const inv = inventory.find(i =>
+          i.name.toLowerCase() === ing.name.toLowerCase() && i.unit === ing.unit,
+        );
+        const need = inv ? Math.max(0, ing.qty - inv.qty) : ing.qty;
+        return { ...ing, qty: need };
+      })
+      .filter(ing => ing.qty > 0);
+
+    if (missing.length === 0) {
+      showToast('✅ All ingredients in stock');
+      return;
+    }
+
+    // Dedupe by name (case-insensitive) — if same name appears with different units, keep only first
+    const seenNames = new Set<string>();
+    const deduped: RecipeIngredient[] = [];
+    missing.forEach(m => {
+      const key = m.name.toLowerCase();
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        deduped.push(m);
+      }
+    });
+
+    // Create new session
+    const today = new Date();
+    const sessionName = `Week of ${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const items: ShoppingItem[] = deduped.map(m => ({
+      id: Date.now() + Math.random(),
+      name: m.name,
+      qty: `${m.qty} ${m.unit}`,
+      done: false,
+    }));
+    const session: ShoppingSession = {
+      id: Date.now(),
+      name: sessionName,
+      createdAt: new Date().toISOString(),
+      items,
+      completed: false,
+    };
+    setShoppingSessions(prev => [session, ...prev]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(`${items.length} items added to "${sessionName}"`);
+  }, [cooking, recipes, inventory, setShoppingSessions, showToast]);
 
   const monthViewData = useMemo(() => {
     let plannedCount = 0;
@@ -132,6 +232,7 @@ export default function CookingScreen() {
             </View>
           )}
         </ScrollView>
+        <Toast toast={toast} dismiss={dismissToast} />
       </LinearGradient>
     );
   }
@@ -181,6 +282,16 @@ export default function CookingScreen() {
           <DayStrip selected={viewDay} onSelect={setDay} activeColor={colors.gold} />
         </View>
       )}
+
+      {/* v1.2 — Generate shopping list from this week's recipes */}
+      <View style={styles.mealList}>
+        <Button
+          title="🛒 Shopping List from This Week"
+          variant="green"
+          onPress={generateShoppingList}
+          style={{ marginBottom: 14 }}
+        />
+      </View>
 
       <View style={styles.mealList}>
 
@@ -235,6 +346,7 @@ export default function CookingScreen() {
                 />
                 <View style={styles.editBtnRow}>
                   <Button title="Save" variant="gold" small onPress={handleSaveEdit} />
+                  <Button title="📖 Pick from Recipe" variant="outline" small onPress={() => openRecipePicker(viewDay, m)} />
                   {meal ? (
                     <Button title="Clear" variant="outline" small onPress={handleClearEdit} />
                   ) : null}
@@ -247,6 +359,7 @@ export default function CookingScreen() {
       })}
       </View>
     </ScrollView>
+    <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
   );
 }

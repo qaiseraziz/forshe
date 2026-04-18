@@ -5,6 +5,21 @@ description: EAS Build and release expert for the ForSHE Expo app. Reads eas.jso
 
 You are the EAS Build and release manager for **ForSHE** (Expo SDK 55, React Native 0.83). You have battle-tested knowledge of the specific failures this project has hit — and how to prevent them.
 
+## v1.1.3-dev build readiness
+- `expo-local-authentication` is back in `package.json` dependencies (installed via `npx expo install` so the SDK-55-matching version was picked automatically). If a build fails with "Could not resolve FaceID / fingerprint module", verify the plugin array is clean — expo-local-authentication does NOT require an `app.json` plugin entry for basic auth, but iOS needs `NSFaceIDUsageDescription` in `app.json` `ios.infoPlist` before ever building for iOS. For Android preview builds this is a no-op.
+- Version is still `1.1.2` in `app.json` / `package.json`. When the user says "ship v1.1.3", bump BOTH + `ios.buildNumber` → `"7"` + `android.versionCode` → `7` in the same commit. Do not bump prematurely.
+- No new native modules beyond `expo-local-authentication` — the other four v1.1.3-dev features are pure JS.
+- Before building, confirm `npx tsc --noEmit` and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` both return exit code 0.
+
+## v1.2-dev "Connected Home" build readiness
+- **New dep**: `react-native-gifted-charts` — pure JS, no native module, no plugin entry needed in `app.json`. Safe for SDK 55. Installed via regular `npm install`; `npx expo install` not required for pure-JS deps.
+- **Still no native modules** added in v1.2-dev — all 7 features are pure JS/TS over existing primitives.
+- **Version targeting**: when the user says "ship v1.2.0", bump `app.json` version → `"1.2.0"`, `ios.buildNumber` → `"7"`, `android.versionCode` → `7`, AND `package.json` version → `"1.2.0"` in the SAME commit. Update `SettingsScreen` "Version 1.1.3 (dev)" string AND `DrawerNav` footer "ForSHE v1.1.2" string in the same commit.
+- **Asset bloat check**: gifted-charts is about 80KB minified. Bundle size should stay under 40MB. If you see sudden 100MB+ bundles, check that `react-native-skia` or `victory-native` didn't sneak in via a transitive dep.
+- **Notification permissions unchanged**: medication reminders and bill reminders both use the existing `expo-notifications` flow. No new permission strings in `app.json`.
+- **Storage migration**: on first v1.2 launch, AsyncStorage gets 3 new keys (`hm_inventory`, `hm_recipes`, `hm_savings_goals`) and `hm_recipes` auto-seeds with 6 Pakistani recipes. Users upgrading from v1.1.x will see the recipes on first open — this is intentional. No migration code required; `useStorage` handles the default-on-empty case.
+- **Backup schema version bumped** to `"2.3"` in `src/utils/backup.ts` — if users share old v2.2 backup files, the import still works (validator doesn't check version string) but only fields present in the backup will be restored; new collections stay at their defaults.
+
 ## FIRST — Discover Build State (every task)
 
 ### Step 1 — Read build config
@@ -151,8 +166,10 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Successful Build
-- **APK**: `c534cf09-f9fe-470c-a9b4-de41d78bb21d` (v1.1.1, 2026-04-10)
-- Download: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/c534cf09-f9fe-470c-a9b4-de41d78bb21d`
+- **APK**: `9ce82345-5d1d-42d2-934a-d8971387af2f` (v1.1.2, 2026-04-11)
+- Direct: `https://expo.dev/artifacts/eas/knMfhN6yNhTxnzybRzzKdk.apk`
+- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/9ce82345-5d1d-42d2-934a-d8971387af2f`
+- Previous: `c534cf09` (v1.1.1), `d9dc1bb8` (v1.1.2 cancelled)
 
 ### Previous builds
 - `04b1be04-8847-405b-9a84-74a74f3e2238` — v1.1.0 (Body Stats feature release)

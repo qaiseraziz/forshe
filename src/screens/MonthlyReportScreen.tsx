@@ -10,8 +10,8 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
-import { MONTHS, CAT_KEYS, CAT_COLORS } from '../constants/data';
-import { pkr, pkrF } from '../utils/currency';
+import { MONTHS, CAT_KEYS, CAT_COLORS, SAVINGS_CAT } from '../constants/data';
+import { useCurrency } from '../context/CurrencyContext';
 import { parseDMY } from '../utils/dates';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
@@ -19,6 +19,7 @@ export default function MonthlyReportScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { history, budget } = useData();
+  const { pkr, pkrF } = useCurrency();
 
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
@@ -61,7 +62,12 @@ export default function MonthlyReportScreen() {
 
     const avgDaily = monthExpenses.length > 0 ? totalExp / Math.max(Object.keys(dailyMap).length, 1) : 0;
 
-    return { totalExp, totalRec, net, cats, maxCat, dailyEntries, maxDaily, topExpenses, avgDaily, expCount: monthExpenses.length };
+    // v1.2 — Savings this month (transactions in Savings category)
+    const savingsThisMonth = monthExpenses
+      .filter(h => h.cat === SAVINGS_CAT)
+      .reduce((s, h) => s + h.amount, 0);
+
+    return { totalExp, totalRec, net, cats, maxCat, dailyEntries, maxDaily, topExpenses, avgDaily, expCount: monthExpenses.length, savingsThisMonth };
   }, [history, month, year]);
 
   const budgetPct = budget > 0 ? Math.min(Math.round((data.totalExp / budget) * 100), 100) : 0;
@@ -122,6 +128,10 @@ export default function MonthlyReportScreen() {
             <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
               <Text style={[styles.overviewVal, { color: colors.gold }]}>{pkrF(data.avgDaily)}</Text>
               <Text style={[styles.overviewLbl, { color: colors.muted }]}>Avg/Day</Text>
+            </View>
+            <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
+              <Text style={[styles.overviewVal, { color: colors.pink }]}>{pkrF(data.savingsThisMonth)}</Text>
+              <Text style={[styles.overviewLbl, { color: colors.muted }]}>Savings</Text>
             </View>
           </View>
 

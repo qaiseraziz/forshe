@@ -20,7 +20,49 @@ export const PRESET_TASKS = [
 export const SYMPTOM_OPTIONS = ['😣 Cramps', '😴 Fatigue', '🤢 Nausea', '😤 Mood swings', '🤕 Headache', '🎈 Bloating', '🔙 Back pain'];
 export const FLOW_OPTIONS = ['Spotting', 'Light', 'Medium', 'Heavy'];
 
-export const REMINDER_CATS = ['📋 General', '💡 Bills', '🏥 Health', '🛒 Shopping', '👨‍👩‍👧 Family', '🎂 Birthday', '📚 School', '🎁 Other'];
+export const REMINDER_CATS = [
+  '📋 General',
+  '💡 Bills',
+  '💡 Utility',
+  '🏠 Rent',
+  '📚 School Fees',
+  '📺 Subscription',
+  '🧾 Other Bills',
+  '💊 Medication',
+  '🏥 Health',
+  '🛒 Shopping',
+  '👨‍👩‍👧 Family',
+  '🎂 Birthday',
+  '📚 School',
+  '🎁 Other',
+];
+
+// v1.2 — Categories that count as "Bills" on the Bills filter pill
+export const BILL_CATS = ['💡 Bills', '💡 Utility', '🏠 Rent', '📚 School Fees', '📺 Subscription', '🧾 Other Bills'];
+export const MEDICATION_CAT = '💊 Medication';
+
+// v1.2 — Recurring frequencies
+export const RECURRING_FREQS = [
+  { key: null as null | 'monthly' | 'quarterly' | 'yearly', label: 'Not recurring' },
+  { key: 'monthly' as const, label: 'Monthly' },
+  { key: 'quarterly' as const, label: 'Quarterly' },
+  { key: 'yearly' as const, label: 'Yearly' },
+];
+
+// v1.2 — Inventory categories
+export const INVENTORY_CATS: { key: 'Grocery' | 'Household' | 'Pantry' | 'Fridge' | 'Freezer'; label: string; icon: string }[] = [
+  { key: 'Grocery', label: 'Grocery', icon: '🛒' },
+  { key: 'Household', label: 'Household', icon: '🧴' },
+  { key: 'Pantry', label: 'Pantry', icon: '🥫' },
+  { key: 'Fridge', label: 'Fridge', icon: '❄️' },
+  { key: 'Freezer', label: 'Freezer', icon: '🧊' },
+];
+
+// v1.2 — Common unit hints (informational only — we don't do conversions)
+export const UNIT_HINTS = ['kg', 'g', 'L', 'ml', 'pcs', 'packets', 'dozens', 'bottles', 'cans'];
+
+// v1.2 — Savings category name (used on ExpensesScreen history + MonthlyReport "Savings this month")
+export const SAVINGS_CAT = '💰 Savings';
 
 // 15 Pakistani household quick-add presets — ordered by frequency of use
 export const EXPENSE_PRESETS: { label: string; icon: string; cat: string; amount: number }[] = [
@@ -54,9 +96,14 @@ export const STORAGE_KEYS = {
   dark: 'hm_dark',
   recurring: 'hm_recurring',
   shopping: 'hm_shopping',
+  shoppingSessions: 'hm_shopping_sessions',
   maidSalary: 'hm_maid_salary',
   recurringLast: 'forshe_recurring_last',
   bodyProfile: 'hm_body_profile',
   bodyLogs: 'hm_body_logs',
   bodyStatsSettings: 'hm_body_settings',
+  // v1.2 Connected Home
+  inventory: 'hm_inventory',
+  recipes: 'hm_recipes',
+  savingsGoals: 'hm_savings_goals',
 } as const;

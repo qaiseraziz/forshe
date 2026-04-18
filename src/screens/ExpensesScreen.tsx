@@ -31,7 +31,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { MonthBar } from '../components/MonthBar';
 import { CAT_KEYS, CAT_COLORS, MONTHS, EXPENSE_PRESETS } from '../constants/data';
-import { pkr, pkrF } from '../utils/currency';
+import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, parseDMY, dateToDMY } from '../utils/dates';
 import { buildShareText, doShare } from '../utils/share';
 import { Transaction } from '../types';
@@ -48,6 +48,7 @@ export default function ExpensesScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { history, setHistory, budget, setBudget } = useData();
+  const { pkr, pkrF, currencyCode, currency } = useCurrency();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   // Filter state
@@ -280,9 +281,9 @@ export default function ExpensesScreen() {
   );
 
   const handleShare = useCallback(async () => {
-    const text = buildShareText(history, filter, selMonth, selYear, budget);
+    const text = buildShareText(history, filter, selMonth, selYear, budget, currency);
     await doShare(text, 'share');
-  }, [history, filter, selMonth, selYear, budget]);
+  }, [history, filter, selMonth, selYear, budget, currency]);
 
   const handleExpDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
@@ -398,7 +399,7 @@ export default function ExpensesScreen() {
         </View>
       </Card>
     );
-  }, [colors, startEdit, deleteEntry]);
+  }, [colors, startEdit, deleteEntry, pkrF]);
 
   // Find the transaction being edited (for the modal)
   const editingTransaction = editId !== null ? history.find(h => h.id === editId) : null;
@@ -501,7 +502,7 @@ export default function ExpensesScreen() {
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Input
-                placeholder="Set budget in PKR"
+                placeholder={`Set budget in ${currencyCode}`}
                 keyboardType="numeric"
                 value={budgetInput}
                 onChangeText={setBudgetInput}
@@ -600,14 +601,14 @@ export default function ExpensesScreen() {
               activeOpacity={0.7}
               onPress={() => applyPreset(p)}
               accessibilityRole="button"
-              accessibilityLabel={`Quick add ${p.label}${p.amount > 0 ? `, default amount Rs ${p.amount}` : ''}`}
+              accessibilityLabel={`Quick add ${p.label}${p.amount > 0 ? `, default amount ${pkr(p.amount)}` : ''}`}
             >
               <Text style={styles.presetIcon}>{p.icon}</Text>
               <Text style={[styles.presetText, { color: colors.sub }]} numberOfLines={1}>
                 {p.label}
               </Text>
               {p.amount > 0 && (
-                <Text style={[styles.presetAmt, { color: colors.muted }]}>Rs {p.amount}</Text>
+                <Text style={[styles.presetAmt, { color: colors.muted }]}>{pkr(p.amount)}</Text>
               )}
             </TouchableOpacity>
           ))}
@@ -652,7 +653,7 @@ export default function ExpensesScreen() {
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Input
-                  placeholder="Amount in PKR"
+                  placeholder={`Amount in ${currencyCode}`}
                   keyboardType="numeric"
                   value={topupAmt}
                   onChangeText={setTopupAmt}
@@ -672,7 +673,7 @@ export default function ExpensesScreen() {
             <View style={[styles.row, styles.formInput]}>
               <View style={{ flex: 1 }}>
                 <Input
-                  placeholder="Amount in PKR"
+                  placeholder={`Amount in ${currencyCode}`}
                   keyboardType="numeric"
                   value={expAmt}
                   onChangeText={setExpAmt}
@@ -751,6 +752,7 @@ export default function ExpensesScreen() {
     expItem, expAmt, expDate, showDatePicker, handleExpDateChange,
     expCat, addExpense, receiptUri, pickReceipt,
     sectionTitle, filtered, search,
+    pkr, pkrF, currencyCode,
   ]);
 
   return (
@@ -814,7 +816,7 @@ export default function ExpensesScreen() {
                   label="Amount"
                   value={editAmt}
                   onChangeText={setEditAmt}
-                  placeholder="Amount in PKR"
+                  placeholder={`Amount in ${currencyCode}`}
                   keyboardType="numeric"
                   style={[styles.editInput, { flex: 1 }]}
                 />

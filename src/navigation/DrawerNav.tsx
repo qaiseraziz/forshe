@@ -11,13 +11,21 @@ import MonthlyReportScreen from '../screens/MonthlyReportScreen';
 import BackupScreen from '../screens/BackupScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ShoppingListScreen from '../screens/ShoppingListScreen';
+import InventoryScreen from '../screens/InventoryScreen';
+import RecipeBookScreen from '../screens/RecipeBookScreen';
+import SavingsGoalsScreen from '../screens/SavingsGoalsScreen';
+import InsightsScreen from '../screens/InsightsScreen';
 
 const Drawer = createDrawerNavigator();
 
 const DRAWER_ITEMS = [
   { name: 'Home', icon: '🏠', label: 'Home' },
   { name: 'Shopping', icon: '🛒', label: 'Shopping List' },
+  { name: 'Inventory', icon: '📦', label: 'Inventory' },
   { name: 'MaidTasks', icon: '🧹', label: 'Maid Tasks' },
+  { name: 'Recipes', icon: '📖', label: 'Recipe Book' },
+  { name: 'SavingsGoals', icon: '💰', label: 'Savings Goals' },
+  { name: 'Insights', icon: '📈', label: 'Insights' },
   { name: 'CycleTracker', icon: '🌸', label: 'Cycle Tracker' },
   { name: 'BodyStats', icon: '💪', label: 'Body Stats' },
   { name: 'MonthlyReport', icon: '📊', label: 'Monthly Report' },
@@ -70,7 +78,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.1.2</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.0</Text>
       </View>
     </View>
   );
@@ -96,7 +104,11 @@ export function DrawerNav() {
     >
       <Drawer.Screen name="Home" component={BottomTabs} />
       <Drawer.Screen name="Shopping" component={ShoppingListScreen} />
+      <Drawer.Screen name="Inventory" component={InventoryScreen} />
       <Drawer.Screen name="MaidTasks" component={MaidScreen} />
+      <Drawer.Screen name="Recipes" component={RecipeBookScreen} />
+      <Drawer.Screen name="SavingsGoals" component={SavingsGoalsScreen} />
+      <Drawer.Screen name="Insights" component={InsightsScreen} />
       <Drawer.Screen name="CycleTracker" component={CycleScreen} />
       <Drawer.Screen name="BodyStats" component={BodyStatsScreen} />
       <Drawer.Screen name="MonthlyReport" component={MonthlyReportScreen} />

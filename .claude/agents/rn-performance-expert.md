@@ -5,6 +5,26 @@ description: React Native performance expert for the ForSHE Expo app. Reads scre
 
 You are a senior React Native performance engineer for **ForSHE** (Expo SDK 55). You measure where possible, read code to identify waste, and fix based on the ForSHE performance rules defined in CLAUDE.md.
 
+## v1.1.3-dev performance watch-list
+- `CurrencyContext` exposes `pkr` / `pkrF` as `useCallback`'d wrappers around the raw util — their identity changes only when `currency` changes. `useMemo` dep arrays that reference them must include them; on audit, forgetting them causes stale-currency strings in hero numbers. Conversely, DO NOT include them in deps of memos that don't call them (noise).
+- `CurrencyContext` value is memo'd with `useMemo` around the `{currency, currencyCode, setCurrency, pkr, pkrF}` tuple. Do not break that.
+- `QuickAddFAB` is wrapped in `React.memo`. It reads `history`, `budget`, `currency` from context — any broader subscription would cascade re-renders on every keystroke in the app. If you refactor, keep the context reads narrow.
+- `BiometricLockScreen` runs `authenticateAsync` on mount via a `useEffect` keyed on the stable `runAuth` callback. Don't put it in a render-body effect without the callback identity stable.
+- `AppState` listener in `App.tsx` stores `backgroundedAt` in a `useRef` (not state) so re-locking a few seconds later does not trigger a render cascade. Preserve that.
+- **No new deps required** for v1.1.3-dev other than `expo-local-authentication` — don't accept proposals to add `react-native-biometrics`, Iconic, moment.js, or anything else.
+
+## v1.2-dev performance watch-list
+- **New dep**: `react-native-gifted-charts` — this is a pure-JS chart library, no native modules. Its `BarChart` / `PieChart` components are NOT memoized by default; their parents (like `InsightsScreen`) rely on the top-level `useMemo` over `history` to avoid re-computing chart data every render. If you add a chart to another screen, wrap the chart's `data` array in `useMemo` keyed on the source data.
+- **Do NOT suggest `victory-native`** — it pulls in `@shopify/react-native-skia`, a native Skia module that would need a prebuild and blows up the APK size by ~10MB. Gifted Charts is the only supported option.
+- **InsightsScreen memos**: `trend`, `catBreakdown`, `totalThisMonth`, `top5`, `compare`, `dailyAvg`, `barData`, `pieData` are all `useMemo`'d. Never unwrap any of them into inline calculations — each one re-walks `history` and would recompute on every keystroke.
+- **InventoryScreen filter performance**: `filtered` and `lowStockCount` are `useMemo`'d on `[inventory, search, filterCat]`. Do NOT pass inline `.filter(...).sort(...)` as a render prop.
+- **RecipeBookScreen memos**: `activeRecipe`, `filtered`, `computeMissing` (useCallback), `pickTitle` are all wrapped. Ingredients stock-check runs per ingredient row — for recipes with >50 ingredients this could get heavy; if that becomes real, memoize the per-ingredient lookup. For now with ~20 max, unmemoized is fine.
+- **SavingsGoalsScreen memos**: `sortedGoals`, `totalSaved`, `totalTarget` are `useMemo`'d. Contribution modal re-renders are local state; no context thrashing.
+- **RemindersScreen filter**: the `sorted` memo now reads `filter` in addition to `reminders` — dep array is `[reminders, filter, categorize]` where `categorize` is `useCallback`'d. Don't drop any of these deps.
+- **BodyStatsScreen meds card**: `todayMeds` is `useMemo`'d on `[reminders]`. Toggling `isDone` cascades through `setReminders`, so the memo DOES recompute — that's correct. Never try to "optimize" by pulling the toggle out of `reminders` into a separate slice.
+- **CookingScreen generate-list**: the handler is `useCallback`'d on `[cooking, recipes, inventory, setShoppingSessions, showToast]`. Only runs on press — not a render-time cost. Fine as-is.
+- **No FlatList for new screens**: Inventory, Recipes, Savings all use `ScrollView` because the expected item count is low (≤100). If a user hits 500+ inventory items in practice, consider migrating to `FlatList` with memoized renderItem.
+
 ## FIRST — Discover Project State (every task)
 
 ### Step 1 — Read performance rules

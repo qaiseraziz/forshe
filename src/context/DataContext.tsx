@@ -2,10 +2,12 @@ import React, { createContext, useContext, useCallback, useMemo, useEffect, useR
 import { useStorage } from '../hooks/useStorage';
 import { STORAGE_KEYS } from '../constants/data';
 import { SEED_HISTORY, SEED_COOKING, SEED_MAID } from '../constants/seedData';
+import { SEED_RECIPES } from '../constants/seedRecipes';
 import {
   Transaction, CookingData, MaidData, Attendance, Reminder, PeriodLog,
-  BackupData, RecurringExpense, ShoppingItem, MaidSalary,
+  BackupData, RecurringExpense, ShoppingItem, ShoppingSession, MaidSalary,
   BodyProfile, BodyLog, BodyStatsSettings,
+  InventoryItem, Recipe, SavingsGoal,
 } from '../types';
 
 const DEFAULT_BODY_PROFILE: BodyProfile = { height: 0, heightUnit: 'cm' };
@@ -35,6 +37,8 @@ interface DataCtx {
   setRecurring: (v: RecurringExpense[] | ((p: RecurringExpense[]) => RecurringExpense[])) => void;
   shopping: ShoppingItem[];
   setShopping: (v: ShoppingItem[] | ((p: ShoppingItem[]) => ShoppingItem[])) => void;
+  shoppingSessions: ShoppingSession[];
+  setShoppingSessions: (v: ShoppingSession[] | ((p: ShoppingSession[]) => ShoppingSession[])) => void;
   maidSalary: MaidSalary[];
   setMaidSalary: (v: MaidSalary[] | ((p: MaidSalary[]) => MaidSalary[])) => void;
   bodyProfile: BodyProfile;
@@ -43,6 +47,13 @@ interface DataCtx {
   setBodyLogs: (v: BodyLog[] | ((p: BodyLog[]) => BodyLog[])) => void;
   bodyStatsSettings: BodyStatsSettings;
   setBodyStatsSettings: (v: BodyStatsSettings | ((p: BodyStatsSettings) => BodyStatsSettings)) => void;
+  // v1.2
+  inventory: InventoryItem[];
+  setInventory: (v: InventoryItem[] | ((p: InventoryItem[]) => InventoryItem[])) => void;
+  recipes: Recipe[];
+  setRecipes: (v: Recipe[] | ((p: Recipe[]) => Recipe[])) => void;
+  savingsGoals: SavingsGoal[];
+  setSavingsGoals: (v: SavingsGoal[] | ((p: SavingsGoal[]) => SavingsGoal[])) => void;
   allLoaded: boolean;
   handleImport: (data: BackupData) => void;
 }
@@ -59,11 +70,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [budget, setBudget, l7] = useStorage<number>(STORAGE_KEYS.budget, 0);
   const [recurring, setRecurring, l8] = useStorage<RecurringExpense[]>(STORAGE_KEYS.recurring, []);
   const [shopping, setShopping, l9] = useStorage<ShoppingItem[]>(STORAGE_KEYS.shopping, []);
+  const [shoppingSessions, setShoppingSessions, l14] = useStorage<ShoppingSession[]>(STORAGE_KEYS.shoppingSessions, []);
   const [maidSalary, setMaidSalary, l10] = useStorage<MaidSalary[]>(STORAGE_KEYS.maidSalary, []);
   const [bodyProfile, setBodyProfile, l11] = useStorage<BodyProfile>(STORAGE_KEYS.bodyProfile, DEFAULT_BODY_PROFILE);
   const [bodyLogs, setBodyLogs, l12] = useStorage<BodyLog[]>(STORAGE_KEYS.bodyLogs, []);
   const [bodyStatsSettings, setBodyStatsSettings, l13] = useStorage<BodyStatsSettings>(STORAGE_KEYS.bodyStatsSettings, DEFAULT_BODY_SETTINGS);
-  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13;
+  const [inventory, setInventory, l15] = useStorage<InventoryItem[]>(STORAGE_KEYS.inventory, []);
+  const [recipes, setRecipes, l16] = useStorage<Recipe[]>(STORAGE_KEYS.recipes, SEED_RECIPES);
+  const [savingsGoals, setSavingsGoals, l17] = useStorage<SavingsGoal[]>(STORAGE_KEYS.savingsGoals, []);
+  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17;
+
+  // Migrate old flat shopping list → session (one-time)
+  const shoppingMigrated = useRef(false);
+  useEffect(() => {
+    if (!allLoaded || shoppingMigrated.current) return;
+    shoppingMigrated.current = true;
+    if (shopping.length > 0 && shoppingSessions.length === 0) {
+      const migrated: ShoppingSession = {
+        id: Date.now(),
+        name: 'My Shopping List',
+        createdAt: new Date().toISOString(),
+        items: shopping,
+        completed: false,
+      };
+      setShoppingSessions([migrated]);
+      setShopping([]); // clear old flat list
+    }
+  }, [allLoaded, shopping, shoppingSessions, setShoppingSessions, setShopping]);
 
   // Auto-trigger recurring expenses on app open
   const recurringProcessed = useRef(false);
@@ -118,12 +151,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.periodLogs) setPeriods(data.periodLogs);
     if (typeof data.budget === 'number') setBudget(data.budget);
     if (data.recurringExpenses) setRecurring(data.recurringExpenses);
-    if (data.shoppingList) setShopping(data.shoppingList);
+    if (data.shoppingSessions) {
+      setShoppingSessions(data.shoppingSessions);
+    } else if (data.shoppingList) {
+      // Legacy: convert flat list to a single session
+      const legacySession: ShoppingSession = {
+        id: Date.now(),
+        name: 'Imported List',
+        createdAt: new Date().toISOString(),
+        items: data.shoppingList,
+        completed: false,
+      };
+      setShoppingSessions([legacySession]);
+    }
     if (data.maidSalary) setMaidSalary(data.maidSalary);
     if (data.bodyProfile) setBodyProfile(data.bodyProfile);
     if (data.bodyLogs) setBodyLogs(data.bodyLogs);
     if (data.bodyStatsSettings) setBodyStatsSettings(data.bodyStatsSettings);
-  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings]);
+    if (data.inventory) setInventory(data.inventory);
+    if (data.recipes) setRecipes(data.recipes);
+    if (data.savingsGoals) setSavingsGoals(data.savingsGoals);
+  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals]);
 
   const value = useMemo(() => ({
     history, setHistory,
@@ -135,19 +183,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     budget, setBudget,
     recurring, setRecurring,
     shopping, setShopping,
+    shoppingSessions, setShoppingSessions,
     maidSalary, setMaidSalary,
     bodyProfile, setBodyProfile,
     bodyLogs, setBodyLogs,
     bodyStatsSettings, setBodyStatsSettings,
+    inventory, setInventory,
+    recipes, setRecipes,
+    savingsGoals, setSavingsGoals,
     allLoaded,
     handleImport,
   }), [
     history, setHistory, cooking, setCooking, maidData, setMaidData,
     attendance, setAttendance, reminders, setReminders, periods, setPeriods,
     budget, setBudget, recurring, setRecurring, shopping, setShopping,
-    maidSalary, setMaidSalary,
+    shoppingSessions, setShoppingSessions, maidSalary, setMaidSalary,
     bodyProfile, setBodyProfile, bodyLogs, setBodyLogs,
     bodyStatsSettings, setBodyStatsSettings,
+    inventory, setInventory, recipes, setRecipes, savingsGoals, setSavingsGoals,
     allLoaded, handleImport,
   ]);
 

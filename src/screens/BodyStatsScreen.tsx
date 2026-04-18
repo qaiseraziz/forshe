@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { todayISO, fmtISO } from '../utils/dates';
 import { BodyLog, BloodSugarContext } from '../types';
@@ -127,7 +128,8 @@ export default function BodyStatsScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { bodyProfile, setBodyProfile, bodyLogs, setBodyLogs, bodyStatsSettings } = useData();
+  const { bodyProfile, setBodyProfile, bodyLogs, setBodyLogs, bodyStatsSettings, reminders, setReminders } = useData();
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   // Height setup form (only shown when height not yet set)
   const [heightInput, setHeightInput] = useState('');
@@ -146,6 +148,18 @@ export default function BodyStatsScreen() {
 
   const hasHeight = bodyProfile.height > 0;
   const enabled = bodyStatsSettings.enabled;
+
+  // v1.2 — today's medication reminders
+  const todayMeds = useMemo(() => {
+    const today = todayISO();
+    return reminders
+      .filter(r => r.cat === '💊 Medication' && r.date === today)
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  }, [reminders]);
+
+  const toggleMedDone = useCallback((id: number) => {
+    setReminders(r => r.map(x => (x.id === id ? { ...x, isDone: !x.isDone } : x)));
+  }, [setReminders]);
 
   // --- Derived values ---
   const latestLog = useMemo(
@@ -559,11 +573,19 @@ export default function BodyStatsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => setBodyLogs(l => l.filter(x => x.id !== id)),
+          onPress: () => {
+            const entry = bodyLogs.find(x => x.id === id);
+            setBodyLogs(l => l.filter(x => x.id !== id));
+            if (entry) {
+              showToast('Entry deleted', () => {
+                setBodyLogs(l => [entry, ...l].sort((a, b) => b.id - a.id));
+              });
+            }
+          },
         },
       ]);
     },
-    [setBodyLogs],
+    [bodyLogs, setBodyLogs, showToast],
   );
 
   const pickFasting = useCallback(() => setSugarCtx('fasting'), []);
@@ -753,6 +775,52 @@ export default function BodyStatsScreen() {
             </View>
           )}
         </Card>
+
+        {/* v1.2 — Today's Medication */}
+        {todayMeds.length > 0 && (
+          <Card>
+            <Text style={[styles.medHeader, { color: colors.purple }]}>💊 Today's Medication</Text>
+            {todayMeds.map(m => (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.medRow, { borderBottomColor: colors.border }]}
+                onPress={() => toggleMedDone(m.id)}
+                activeOpacity={0.7}
+                accessibilityLabel={m.isDone ? `Mark ${m.title} as not taken` : `Mark ${m.title} as taken`}
+                accessibilityRole="button"
+              >
+                <View
+                  style={[
+                    styles.medCheck,
+                    {
+                      backgroundColor: m.isDone ? colors.green : 'transparent',
+                      borderColor: m.isDone ? colors.green : colors.muted,
+                    },
+                  ]}
+                >
+                  {m.isDone && <Text style={styles.medCheckMark}>✓</Text>}
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    style={[
+                      styles.medTitle,
+                      { color: colors.deep },
+                      m.isDone && { textDecorationLine: 'line-through', color: colors.muted },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {m.title}
+                  </Text>
+                  <Text style={[styles.medMeta, { color: colors.muted }]}>
+                    {m.time ? `⏰ ${m.time}` : 'Today'}
+                    {m.dosage ? ` · ${m.dosage}` : ''}
+                    {m.withFood ? ' · with food' : ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </Card>
+        )}
 
         {/* Health Alerts */}
         {insights.alerts.length > 0 && (
@@ -963,6 +1031,7 @@ export default function BodyStatsScreen() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+      <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
   );
 }
@@ -972,6 +1041,13 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 120 },
   heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
   heroHeaderText: { flex: 1 },
+  // v1.2 — today's medication card
+  medHeader: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12 },
+  medRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 },
+  medCheck: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  medCheckMark: { color: '#fff', fontSize: 16, fontFamily: 'Outfit-Bold' },
+  medTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
+  medMeta: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
   heroLabel: {
     fontSize: 12,
     fontFamily: 'Outfit-Bold',

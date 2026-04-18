@@ -20,6 +20,7 @@ import { Input } from '../components/ui/Input';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Toast, useToast } from '../components/ui/Toast';
 import { SYMPTOM_OPTIONS, FLOW_OPTIONS } from '../constants/data';
 import { fmtISO, daysBetween, addDays, dateToISO } from '../utils/dates';
 import { PeriodLog } from '../types';
@@ -29,6 +30,7 @@ export default function CycleScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { periods, setPeriods } = useData();
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -123,11 +125,19 @@ export default function CycleScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => setPeriods(l => l.filter(x => x.id !== id)),
+          onPress: () => {
+            const entry = periods.find(x => x.id === id);
+            setPeriods(l => l.filter(x => x.id !== id));
+            if (entry) {
+              showToast('Period log deleted', () => {
+                setPeriods(l => [entry, ...l].sort((a, b) => b.start.localeCompare(a.start)));
+              });
+            }
+          },
         },
       ]);
     },
-    [setPeriods],
+    [periods, setPeriods, showToast],
   );
 
   const onStartChange = useCallback((_: DateTimePickerEvent, selected?: Date) => {
@@ -462,6 +472,7 @@ export default function CycleScreen() {
 
       <View style={styles.bottomPad} />
     </ScrollView>
+    <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
   );
 }

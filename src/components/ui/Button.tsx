@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../context/ThemeContext';
 import { gradients } from '../../constants/colors';
 
-type Variant = 'gold' | 'green' | 'blue' | 'red' | 'pink' | 'outline';
+type Variant = 'gold' | 'green' | 'blue' | 'red' | 'pink' | 'purple' | 'outline';
 
 const VARIANT_GRADIENTS: Record<string, [string, string]> = {
   gold: gradients.goldBtn,
@@ -13,6 +13,7 @@ const VARIANT_GRADIENTS: Record<string, [string, string]> = {
   blue: gradients.blueBtn,
   red: gradients.redBtn,
   pink: gradients.pinkBtn,
+  purple: gradients.purpleBtn,
 };
 
 const VARIANT_SHADOW_COLORS: Record<string, string> = {
@@ -21,6 +22,7 @@ const VARIANT_SHADOW_COLORS: Record<string, string> = {
   blue: '#1d6fa4',
   red: '#c0392b',
   pink: '#c0395a',
+  purple: '#5a2d8a',
 };
 
 interface Props {

@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   StyleSheet,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { gradients } from '../constants/colors';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -22,9 +24,15 @@ import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
-import { REMINDER_CATS } from '../constants/data';
-import { fmtISO, dateToISO } from '../utils/dates';
-import { Reminder } from '../types';
+import { Toast, useToast } from '../components/ui/Toast';
+import {
+  REMINDER_CATS,
+  BILL_CATS,
+  MEDICATION_CAT,
+  RECURRING_FREQS,
+} from '../constants/data';
+import { fmtISO, dateToISO, addDays } from '../utils/dates';
+import { Reminder, ReminderRecurring } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 async function scheduleNotifications(rem: Reminder): Promise<string[]> {
@@ -36,7 +44,6 @@ async function scheduleNotifications(rem: Reminder): Promise<string[]> {
     const target = new Date(rem.date + (rem.time ? 'T' + rem.time : 'T23:59'));
     const now = Date.now();
 
-    // 24h before
     const t24h = target.getTime() - 24 * 3600 * 1000;
     if (t24h > now) {
       const id = await Notifications.scheduleNotificationAsync({
@@ -49,7 +56,6 @@ async function scheduleNotifications(rem: Reminder): Promise<string[]> {
       ids.push(id);
     }
 
-    // 12h before
     const t12h = target.getTime() - 12 * 3600 * 1000;
     if (t12h > now) {
       const id = await Notifications.scheduleNotificationAsync({
@@ -88,17 +94,46 @@ function daysUntil(d: string, t: string): string | null {
   return days > 0 ? `${days}d ${hrs}h away` : `${hrs}h away`;
 }
 
+function advanceByFreq(iso: string, freq: ReminderRecurring): string {
+  if (!freq) return iso;
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  if (freq === 'monthly') date.setMonth(date.getMonth() + 1);
+  else if (freq === 'quarterly') date.setMonth(date.getMonth() + 3);
+  else if (freq === 'yearly') date.setFullYear(date.getFullYear() + 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+type FilterKey = 'all' | 'bills' | 'medication' | 'other';
+
 export default function RemindersScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { reminders, setReminders } = useData();
+  const { pkrF } = useCurrency();
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState<Date | null>(null);
   const [cat, setCat] = useState(REMINDER_CATS[0]);
+  const [amount, setAmount] = useState('');
+  const [recurring, setRecurring] = useState<ReminderRecurring>(null);
+  const [dosage, setDosage] = useState('');
+  const [withFood, setWithFood] = useState(false);
+  const [medDuration, setMedDuration] = useState('1');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>('all');
+
+  const isBillCat = BILL_CATS.includes(cat);
+  const isMedCat = cat === MEDICATION_CAT;
+
+  const categorize = useCallback((r: Reminder): FilterKey => {
+    if (BILL_CATS.includes(r.cat)) return 'bills';
+    if (r.cat === MEDICATION_CAT) return 'medication';
+    return 'other';
+  }, []);
 
   const upcoming = useMemo(
     () =>
@@ -116,16 +151,26 @@ export default function RemindersScreen() {
 
   const sorted = useMemo(() => {
     const now = new Date();
-    return [...reminders].sort((a, b) => {
-      if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
-      const ta = new Date(a.date + (a.time ? 'T' + a.time : 'T23:59'));
-      const tb = new Date(b.date + (b.time ? 'T' + b.time : 'T23:59'));
-      const af = ta >= now;
-      const bf = tb >= now;
-      if (af && !bf) return -1;
-      if (!af && bf) return 1;
-      return ta.getTime() - tb.getTime();
-    });
+    return [...reminders]
+      .filter(r => filter === 'all' || categorize(r) === filter)
+      .sort((a, b) => {
+        if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
+        const ta = new Date(a.date + (a.time ? 'T' + a.time : 'T23:59'));
+        const tb = new Date(b.date + (b.time ? 'T' + b.time : 'T23:59'));
+        const af = ta >= now;
+        const bf = tb >= now;
+        if (af && !bf) return -1;
+        if (!af && bf) return 1;
+        return ta.getTime() - tb.getTime();
+      });
+  }, [reminders, filter, categorize]);
+
+  // Counts for filter pills
+  const counts = useMemo(() => {
+    const bills = reminders.filter(r => BILL_CATS.includes(r.cat)).length;
+    const meds = reminders.filter(r => r.cat === MEDICATION_CAT).length;
+    const other = reminders.filter(r => !BILL_CATS.includes(r.cat) && r.cat !== MEDICATION_CAT).length;
+    return { all: reminders.length, bills, meds, other };
   }, [reminders]);
 
   const addReminder = useCallback(async () => {
@@ -137,22 +182,69 @@ export default function RemindersScreen() {
     const timeStr = time
       ? `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`
       : '';
-    const rem: Reminder = {
-      id: Date.now(),
-      title: title.trim(),
-      date: dateStr,
-      time: timeStr,
-      cat,
-      isDone: false,
-    };
-    setReminders(r => [rem, ...r]);
-    const notifIds = await scheduleNotifications(rem);
-    if (notifIds.length > 0) {
-      setReminders(r => r.map(x => (x.id === rem.id ? { ...x, notifIds } : x)));
+
+    // Parse amount for bill reminders
+    let amtVal: number | undefined;
+    if (isBillCat && amount.trim()) {
+      const n = parseFloat(amount);
+      if (isNaN(n) || n <= 0) {
+        Alert.alert('Invalid amount', 'Amount must be a positive number.');
+        return;
+      }
+      amtVal = n;
     }
+
+    // Medication: generate N days of daily reminders
+    if (isMedCat) {
+      const duration = Math.max(1, Math.min(60, parseInt(medDuration, 10) || 1));
+      const createdIds: number[] = [];
+      for (let i = 0; i < duration; i++) {
+        const d = addDays(dateStr, i);
+        const rem: Reminder = {
+          id: Date.now() + i,
+          title: title.trim(),
+          date: d,
+          time: timeStr,
+          cat,
+          isDone: false,
+          dosage: dosage.trim() || undefined,
+          withFood,
+        };
+        createdIds.push(rem.id);
+        setReminders(r => [rem, ...r]);
+        const notifIds = await scheduleNotifications(rem);
+        if (notifIds.length > 0) {
+          setReminders(r => r.map(x => (x.id === rem.id ? { ...x, notifIds } : x)));
+        }
+      }
+      showToast(`${duration} ${duration === 1 ? 'dose' : 'doses'} scheduled`);
+    } else {
+      const rem: Reminder = {
+        id: Date.now(),
+        title: title.trim(),
+        date: dateStr,
+        time: timeStr,
+        cat,
+        isDone: false,
+        amount: amtVal,
+        recurring: recurring ?? null,
+      };
+      setReminders(r => [rem, ...r]);
+      const notifIds = await scheduleNotifications(rem);
+      if (notifIds.length > 0) {
+        setReminders(r => r.map(x => (x.id === rem.id ? { ...x, notifIds } : x)));
+      }
+      showToast('Reminder added');
+    }
+
     setTitle('');
     setTime(null);
-  }, [title, date, time, cat, setReminders]);
+    setAmount('');
+    setRecurring(null);
+    setDosage('');
+    setWithFood(false);
+    setMedDuration('1');
+  }, [title, date, time, cat, setReminders, isBillCat, isMedCat, amount, recurring, dosage, withFood, medDuration, showToast]);
 
   const cancelNotifications = useCallback(async (notifIds?: string[]) => {
     if (!notifIds) return;
@@ -176,11 +268,20 @@ export default function RemindersScreen() {
             const target = reminders.find(x => x.id === id);
             cancelNotifications(target?.notifIds);
             setReminders(r => r.filter(x => x.id !== id));
+            if (target) {
+              showToast('Reminder deleted', async () => {
+                const notifIds = await scheduleNotifications(target);
+                setReminders(r => [
+                  { ...target, notifIds: notifIds.length ? notifIds : target.notifIds },
+                  ...r,
+                ]);
+              });
+            }
           },
         },
       ]);
     },
-    [setReminders, reminders, cancelNotifications],
+    [setReminders, reminders, cancelNotifications, showToast],
   );
 
   const toggleDone = useCallback(
@@ -189,10 +290,30 @@ export default function RemindersScreen() {
       if (target && !target.isDone) {
         // Marking as done — cancel scheduled notifications
         cancelNotifications(target.notifIds);
+
+        // If it's a recurring bill, create the next occurrence
+        if (target.recurring) {
+          const nextDate = advanceByFreq(target.date, target.recurring);
+          const nextRem: Reminder = {
+            ...target,
+            id: Date.now() + Math.random(),
+            date: nextDate,
+            isDone: false,
+            notifIds: undefined,
+          };
+          setReminders(r => [nextRem, ...r.map(x => (x.id === id ? { ...x, isDone: true } : x))]);
+          scheduleNotifications(nextRem).then(ids => {
+            if (ids.length > 0) {
+              setReminders(rr => rr.map(x => (x.id === nextRem.id ? { ...x, notifIds: ids } : x)));
+            }
+          });
+          showToast(`Rescheduled for ${fmtISO(nextDate)}`);
+          return;
+        }
       }
       setReminders(r => r.map(x => (x.id === id ? { ...x, isDone: !x.isDone } : x)));
     },
-    [setReminders, reminders, cancelNotifications],
+    [setReminders, reminders, cancelNotifications, showToast],
   );
 
   const onDateChange = useCallback((_: DateTimePickerEvent, selected?: Date) => {
@@ -210,7 +331,7 @@ export default function RemindersScreen() {
     setShowTimePicker(true);
   }, []);
 
-  const badgeProps = (cls: string) => {
+  const badgeProps = useCallback((cls: string) => {
     switch (cls) {
       case 'past':
         return { bg: colors.bg3, color: colors.muted };
@@ -223,7 +344,23 @@ export default function RemindersScreen() {
       default:
         return { bg: colors.bg3, color: colors.muted };
     }
-  };
+  }, [colors]);
+
+  const FilterPill = useCallback(({ k, label, count }: { k: FilterKey; label: string; count: number }) => {
+    const active = filter === k;
+    return (
+      <TouchableOpacity
+        onPress={() => setFilter(k)}
+        style={[styles.filterPill, { backgroundColor: active ? colors.purpleBg : colors.bg3 }]}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.filterPillText, { color: active ? colors.purple : colors.sub }]}>
+          {label} {count > 0 ? `· ${count}` : ''}
+        </Text>
+      </TouchableOpacity>
+    );
+  }, [filter, colors]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -246,13 +383,21 @@ export default function RemindersScreen() {
         </View>
       </Card>
 
+      {/* Filters */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+        <FilterPill k="all" label="All" count={counts.all} />
+        <FilterPill k="bills" label="💡 Bills" count={counts.bills} />
+        <FilterPill k="medication" label="💊 Medication" count={counts.meds} />
+        <FilterPill k="other" label="Other" count={counts.other} />
+      </ScrollView>
+
       {/* Add Reminder Form */}
       <Card>
         <Text style={[styles.formLabel, { color: colors.purple }]}>📝 New Reminder</Text>
 
         <Input
           label="Reminder Title"
-          placeholder="e.g. Pay electricity bill..."
+          placeholder={isMedCat ? 'e.g. Amoxicillin' : isBillCat ? 'e.g. Pay electricity bill' : 'e.g. Call plumber...'}
           value={title}
           onChangeText={setTitle}
           style={{ marginBottom: 10 }}
@@ -333,8 +478,68 @@ export default function RemindersScreen() {
           </Picker>
         </View>
 
+        {/* Bill-specific fields */}
+        {isBillCat && (
+          <>
+            <Input
+              label="Amount (optional)"
+              placeholder="e.g. 2500"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              style={{ marginTop: 10 }}
+            />
+            <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 10 }]}>RECURRING</Text>
+            <View style={[styles.pickerWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
+              <Picker
+                selectedValue={recurring ?? 'none'}
+                onValueChange={(v) => setRecurring(v === 'none' ? null : (v as 'monthly' | 'quarterly' | 'yearly'))}
+                style={{ color: colors.text }}
+                dropdownIconColor={colors.muted}
+              >
+                {RECURRING_FREQS.map(f => (
+                  <Picker.Item key={f.key ?? 'none'} value={f.key ?? 'none'} label={f.label} />
+                ))}
+              </Picker>
+            </View>
+          </>
+        )}
+
+        {/* Medication-specific fields */}
+        {isMedCat && (
+          <>
+            <Input
+              label="Dosage (optional)"
+              placeholder="e.g. 500mg, 1 tablet"
+              value={dosage}
+              onChangeText={setDosage}
+              style={{ marginTop: 10 }}
+            />
+            <Input
+              label="Duration (days)"
+              placeholder="7"
+              value={medDuration}
+              onChangeText={(t) => setMedDuration(t.replace(/[^0-9]/g, '').slice(0, 2))}
+              keyboardType="numeric"
+              style={{ marginTop: 10 }}
+            />
+            <View style={[styles.switchRow, { marginTop: 12 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.switchTitle, { color: colors.deep }]}>Take with food</Text>
+                <Text style={[styles.switchSub, { color: colors.muted }]}>Flag this dose</Text>
+              </View>
+              <Switch
+                value={withFood}
+                onValueChange={setWithFood}
+                trackColor={{ false: colors.border, true: colors.purple }}
+                thumbColor="#fff"
+              />
+            </View>
+          </>
+        )}
+
         <Button
-          title="+ Add Reminder"
+          title={isMedCat ? `+ Schedule ${medDuration || 1} Doses` : '+ Add Reminder'}
           variant="gold"
           full
           onPress={addReminder}
@@ -343,10 +548,10 @@ export default function RemindersScreen() {
       </Card>
 
       {/* Reminders List */}
-      <Divider label={`All Reminders · ${reminders.length} items`} />
+      <Divider label={`${filter === 'all' ? 'All Reminders' : filter === 'bills' ? 'Bills' : filter === 'medication' ? 'Medication' : 'Other'} · ${sorted.length} ${sorted.length === 1 ? 'item' : 'items'}`} />
 
-      {!reminders.length && (
-        <EmptyState icon="🔔" text="No reminders yet. Add one above to get started!" />
+      {!sorted.length && (
+        <EmptyState icon="🔔" text={filter === 'all' ? 'No reminders yet. Add one above to get started!' : 'No reminders in this category.'} />
       )}
 
       {sorted.map(r => {
@@ -354,6 +559,8 @@ export default function RemindersScreen() {
         const until = daysUntil(r.date, r.time);
         const isPast = !until;
         const bp = badgeProps(st.cls);
+        const isBill = BILL_CATS.includes(r.cat);
+        const isMed = r.cat === MEDICATION_CAT;
 
         return (
           <Card
@@ -374,21 +581,34 @@ export default function RemindersScreen() {
               </View>
 
               <View style={styles.remContent}>
-                <Text
-                  style={[
-                    styles.remTitle,
-                    { color: colors.deep },
-                    r.isDone && styles.doneTitle,
-                  ]}
-                >
-                  {r.title}
-                </Text>
+                <View style={styles.titleRow}>
+                  <Text
+                    style={[
+                      styles.remTitle,
+                      { color: colors.deep },
+                      r.isDone && styles.doneTitle,
+                    ]}
+                  >
+                    {r.title}
+                  </Text>
+                  {isBill && r.amount !== undefined && (
+                    <Text style={[styles.remAmount, { color: colors.gold }]}>
+                      {pkrF(r.amount)}
+                    </Text>
+                  )}
+                </View>
 
                 <View style={styles.badgeRow}>
                   {r.isDone ? (
                     <Badge text="✅ Done" bg={colors.greenBg} color={colors.green} />
                   ) : (
                     <Badge text={st.label} bg={bp.bg} color={bp.color} />
+                  )}
+                  {r.recurring && (
+                    <Badge text={`🔁 ${r.recurring}`} bg={colors.blueBg} color={colors.blue} />
+                  )}
+                  {isMed && r.withFood && (
+                    <Badge text="🍽 with food" bg={colors.goldBg} color={colors.gold} />
                   )}
                 </View>
 
@@ -398,6 +618,9 @@ export default function RemindersScreen() {
                   {until && !r.isDone ? ' · ' + until : ''}
                 </Text>
                 <Text style={[styles.remCat, { color: colors.muted }]}>{r.cat}</Text>
+                {isMed && r.dosage ? (
+                  <Text style={[styles.remDosage, { color: colors.purple }]}>💊 {r.dosage}</Text>
+                ) : null}
               </View>
 
               <TouchableOpacity
@@ -441,6 +664,7 @@ export default function RemindersScreen() {
 
       <View style={styles.bottomPad} />
     </ScrollView>
+    <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
   );
 }
@@ -472,6 +696,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Outfit-Regular',
   },
+  filterRow: { flexGrow: 0, marginBottom: 12 },
+  filterPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginRight: 8, minHeight: 44, justifyContent: 'center' },
+  filterPillText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
   formLabel: {
     fontFamily: 'PlayfairDisplay-Bold',
     fontSize: 18,
@@ -514,6 +741,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 6,
   },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  switchTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
+  switchSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
   remCard: {
     marginBottom: 10,
   },
@@ -534,17 +764,22 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   remTitle: {
+    flex: 1,
     fontFamily: 'Outfit-SemiBold',
     fontSize: 16,
     marginBottom: 4,
   },
+  remAmount: { fontFamily: 'Outfit-Bold', fontSize: 15, marginBottom: 4 },
   doneTitle: {
     textDecorationLine: 'line-through',
   },
   badgeRow: {
     flexDirection: 'row',
     marginBottom: 4,
+    gap: 6,
+    flexWrap: 'wrap',
   },
   remMeta: {
     fontSize: 13,
@@ -556,6 +791,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-Regular',
     marginTop: 2,
   },
+  remDosage: { fontSize: 13, fontFamily: 'Outfit-SemiBold', marginTop: 4 },
   actionBtn: {
     minWidth: 44,
     minHeight: 44,

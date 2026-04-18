@@ -17,7 +17,7 @@ import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { DAYS, FULL_DAYS, MONTHS, PRESET_TASKS } from '../constants/data';
 import { todayDay, todayStr } from '../utils/dates';
-import { pkrF } from '../utils/currency';
+import { useCurrency } from '../context/CurrencyContext';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 
 // Module-level constant for attendance options (stable reference)
@@ -32,6 +32,7 @@ export default function MaidScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const { maidData, setMaidData, attendance, setAttendance, maidSalary, setMaidSalary } = useData();
+  const { pkrF, currencyCode } = useCurrency();
 
   const [filter, setFilter] = useState('all');
   const [selMonth, setSelMonth] = useState(new Date().getMonth());
@@ -473,7 +474,7 @@ export default function MaidScreen() {
         {/* Set/Update salary */}
         <View style={styles.salaryInputRow}>
           <View style={styles.flex1}>
-            <Input placeholder="Monthly salary (PKR)" keyboardType="numeric" value={salaryAmt} onChangeText={setSalaryAmt} />
+            <Input placeholder={`Monthly salary (${currencyCode})`} keyboardType="numeric" value={salaryAmt} onChangeText={setSalaryAmt} />
           </View>
           <View style={styles.flex1}>
             <Input placeholder="Advance given" keyboardType="numeric" value={advanceAmt} onChangeText={setAdvanceAmt} />

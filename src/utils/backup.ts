@@ -1,6 +1,34 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { File, Paths } from 'expo-file-system';
 import { Alert, Share } from 'react-native';
-import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, BodyProfile, BodyLog, BodyStatsSettings } from '../types';
+import CryptoJS from 'crypto-js';
+import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal } from '../types';
+
+// --- Encryption helpers ---
+
+const ENCRYPTED_PREFIX = 'FORSHE_ENC_V1:';
+
+function encryptData(json: string, password: string): string {
+  const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+  return ENCRYPTED_PREFIX + encrypted;
+}
+
+function decryptData(payload: string, password: string): string | null {
+  if (!payload.startsWith(ENCRYPTED_PREFIX)) return null;
+  const ciphertext = payload.slice(ENCRYPTED_PREFIX.length);
+  try {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    if (!decrypted) return null; // wrong password
+    return decrypted;
+  } catch {
+    return null;
+  }
+}
+
+function isEncrypted(content: string): boolean {
+  return content.trimStart().startsWith(ENCRYPTED_PREFIX);
+}
 
 // --- Schema validation for backup imports ---
 
@@ -11,7 +39,6 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
 
   const obj = data as Record<string, unknown>;
 
-  // Type checks for top-level keys
   if (obj.history !== undefined) {
     if (!Array.isArray(obj.history)) return { valid: false, error: '"history" must be an array.' };
     for (let i = 0; i < obj.history.length; i++) {
@@ -79,6 +106,10 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
     if (!Array.isArray(obj.shoppingList)) return { valid: false, error: '"shoppingList" must be an array.' };
   }
 
+  if (obj.shoppingSessions !== undefined) {
+    if (!Array.isArray(obj.shoppingSessions)) return { valid: false, error: '"shoppingSessions" must be an array.' };
+  }
+
   if (obj.maidSalary !== undefined) {
     if (!Array.isArray(obj.maidSalary)) return { valid: false, error: '"maidSalary" must be an array.' };
   }
@@ -111,6 +142,18 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
     }
   }
 
+  if (obj.inventory !== undefined) {
+    if (!Array.isArray(obj.inventory)) return { valid: false, error: '"inventory" must be an array.' };
+  }
+
+  if (obj.recipes !== undefined) {
+    if (!Array.isArray(obj.recipes)) return { valid: false, error: '"recipes" must be an array.' };
+  }
+
+  if (obj.savingsGoals !== undefined) {
+    if (!Array.isArray(obj.savingsGoals)) return { valid: false, error: '"savingsGoals" must be an array.' };
+  }
+
   if (obj.bodyStatsSettings !== undefined) {
     if (obj.bodyStatsSettings === null || typeof obj.bodyStatsSettings !== 'object' || Array.isArray(obj.bodyStatsSettings)) {
       return { valid: false, error: '"bodyStatsSettings" must be an object.' };
@@ -134,15 +177,20 @@ interface AllData {
   budget: number;
   recurring?: any[];
   shopping?: any[];
+  shoppingSessions?: ShoppingSession[];
   maidSalary?: any[];
   bodyProfile?: BodyProfile;
   bodyLogs?: BodyLog[];
   bodyStatsSettings?: BodyStatsSettings;
+  // v1.2
+  inventory?: InventoryItem[];
+  recipes?: Recipe[];
+  savingsGoals?: SavingsGoal[];
 }
 
-export async function exportBackup(data: AllData) {
+function buildBackupJSON(data: AllData): string {
   const backup = {
-    version: '2.1',
+    version: '2.3',
     exported: new Date().toISOString(),
     history: data.history,
     cooking: data.cooking,
@@ -153,16 +201,48 @@ export async function exportBackup(data: AllData) {
     budget: data.budget,
     recurringExpenses: data.recurring,
     shoppingList: data.shopping,
+    shoppingSessions: data.shoppingSessions,
     maidSalary: data.maidSalary,
     bodyProfile: data.bodyProfile,
     bodyLogs: data.bodyLogs,
     bodyStatsSettings: data.bodyStatsSettings,
+    // v1.2 Connected Home
+    inventory: data.inventory,
+    recipes: data.recipes,
+    savingsGoals: data.savingsGoals,
   };
-  const json = JSON.stringify(backup, null, 2);
+  return JSON.stringify(backup, null, 2);
+}
+
+/** Write content to a cache file and return its URI */
+function writeCacheFile(filename: string, content: string): string {
+  const file = new File(Paths.cache, filename);
+  file.write(content);
+  return file.uri;
+}
+
+/** Export plain (unencrypted) backup via share sheet */
+export async function exportBackup(data: AllData) {
+  const json = buildBackupJSON(data);
+  const filename = `forshe-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const fileUri = writeCacheFile(filename, json);
   try {
+    await Share.share({ url: fileUri, title: 'ForSHE Backup' });
+  } catch {
     await Share.share({ message: json, title: 'ForSHE Backup' });
-  } catch (e: any) {
-    Alert.alert('Error', e.message || 'Failed to export');
+  }
+}
+
+/** Export encrypted backup — prompts for password, then shares via share sheet (Gmail, Drive, etc.) */
+export async function exportEncryptedBackup(data: AllData, password: string) {
+  const json = buildBackupJSON(data);
+  const encrypted = encryptData(json, password);
+  const filename = `forshe-backup-${new Date().toISOString().slice(0, 10)}.forshe`;
+  const fileUri = writeCacheFile(filename, encrypted);
+  try {
+    await Share.share({ url: fileUri, title: 'ForSHE Encrypted Backup' });
+  } catch {
+    await Share.share({ message: encrypted, title: 'ForSHE Encrypted Backup' });
   }
 }
 
@@ -186,16 +266,29 @@ export async function exportCSV(history: Transaction[]) {
   }
 }
 
-export async function importBackup(onImport: (data: BackupData) => void) {
+export async function importBackup(onImport: (data: BackupData) => void, promptPassword: () => Promise<string | null>) {
   try {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true });
+    const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
     if (result.canceled) return;
 
     const pickedFile = result.assets[0];
     const response = await fetch(pickedFile.uri);
-    const content = await response.text();
+    let content = await response.text();
+
+    // Handle encrypted backup
+    if (isEncrypted(content)) {
+      const password = await promptPassword();
+      if (!password) return; // user cancelled
+      const decrypted = decryptData(content, password);
+      if (!decrypted) {
+        Alert.alert('Wrong Password', 'Could not decrypt the backup. Please check your password and try again.');
+        return;
+      }
+      content = decrypted;
+    }
+
     let data: any;
-    try { data = JSON.parse(content); } catch { Alert.alert('Error', 'Invalid JSON file'); return; }
+    try { data = JSON.parse(content); } catch { Alert.alert('Error', 'Invalid backup file. Could not parse JSON.'); return; }
 
     // Handle legacy format (raw localStorage keys)
     if (data.hm_history || data.hm_cooking) {

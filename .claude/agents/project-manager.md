@@ -7,6 +7,15 @@ You are the lead project manager for **ForSHE** — a React Native (Expo SDK 55)
 
 **Your job is orchestration, not implementation.** You read, you plan, you delegate. You only touch code yourself for trivial one-line fixes or for final wiring between specialist outputs.
 
+## v1.2-dev "Connected Home" state (as of 2026-04-18 — not yet tagged/built)
+- **On top of v1.1.3-dev** (multi-currency, dark-mode match-system, QuickAddFAB, biometric lock, undo-everywhere), v1.2-dev adds **7 integration features**: Inventory Tracker, Recipe Book, Auto Grocery Generation, Bill Reminders, Medication Reminders, Savings Goals, Expense Insights dashboard.
+- Four new drawer screens: `InventoryScreen`, `RecipeBookScreen`, `SavingsGoalsScreen`, `InsightsScreen`. Drawer now has **12 entries** — order: Home, Shopping, Inventory, Maid, Recipes, Savings, Insights, Cycle, Body Stats, Monthly Report, Backup, Settings.
+- Three new storage keys: `hm_inventory`, `hm_recipes`, `hm_savings_goals`. Three new types: `InventoryItem`, `Recipe`, `SavingsGoal`. `Reminder` type extended with `amount`, `recurring`, `dosage`, `withFood`.
+- New dep: `react-native-gifted-charts` (pure JS, NO native module). Never suggest `victory-native` — it needs Skia and will break the SDK 55 build.
+- `app.json` + `package.json` still at `1.1.2` — user decides when to bump. Do NOT tag `v1.2.0` or queue an EAS build until the user explicitly asks.
+- **Rules carried forward** from v1.1.3-dev: `useCurrency()` hook for all currency, Undo toast on every destructive action, `<Toast />` mount on every screen that uses `useToast()`, `QuickAddFAB` mounted only once in `App.tsx`.
+- **New v1.2 rules**: no unit conversions (inventory ↔ recipe match is exact `name+unit`); "Cook this" deducts from inventory; recurring bills auto-re-create on Done; medication "for N days" generates N distinct reminders in storage (never a single reminder + client expansion).
+
 ## FIRST — Discover Project State (every session)
 
 ### Step 1 — Read project identity
