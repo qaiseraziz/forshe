@@ -208,7 +208,7 @@ assets/
 - **iOS**: bundleIdentifier = com.forshe.app
 - **Android**: package = com.forshe.app
 - **Dead deps removed**: expo-sharing, expo-status-bar (expo-local-authentication was re-added in v1.1.3-dev for biometric lock)
-- **Latest APK build**: `<pending — v1.2.0 EAS build kicked off 2026-04-18, ID + URLs will be stamped here after queue>`
+- **Latest APK build**: 2181a3b8-3611-4882-ba41-b33cc9ba18b4 (v1.2.0, 2026-04-18, IN_QUEUE) — build page https://expo.dev/accounts/smartbzss/projects/forshe/builds/2181a3b8-3611-4882-ba41-b33cc9ba18b4 · artifact URL visible after FINISH
 - **Previous builds**: 9ce82345-5d1d-42d2-934a-d8971387af2f (v1.1.2, 2026-04-11 FINISHED, https://expo.dev/artifacts/eas/knMfhN6yNhTxnzybRzzKdk.apk), d9dc1bb8-3514-4e4c-9f3c-ed0940449cfe (v1.1.2 cancelled), c534cf09-f9fe-470c-a9b4-de41d78bb21d (v1.1.1), 04b1be04-8847-405b-9a84-74a74f3e2238 (v1.1.0), ef365c41-75c1-4f26-8429-de3a6def989b (v1.0.2), 92191648-529d-40c0-9be5-2b0d49743154 (v1.0.1), 1e9166de-ad86-47e0-8b24-1d94aee1706d (v1.0.0)
 
 ## Build Commands

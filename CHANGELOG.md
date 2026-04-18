@@ -79,9 +79,9 @@ Minor release bundling two dev streams into a single public cut. Thirteen new us
 - qa-expert TypeScript pass — both `tsc --noEmit` and `tsc --noEmit --noUnusedLocals --noUnusedParameters` exit 0.
 
 ### APK
-- Build ID: `<pending — will be stamped after eas build kicks off>`
-- Build page: `<pending>`
-- Artifact URL: (visible after build FINISHES)
+- Build ID: `2181a3b8-3611-4882-ba41-b33cc9ba18b4` (queued 2026-04-18 via `eas build --profile preview --platform android --non-interactive --no-wait`)
+- Build page: https://expo.dev/accounts/smartbzss/projects/forshe/builds/2181a3b8-3611-4882-ba41-b33cc9ba18b4
+- Artifact URL: (visible after build FINISHES — `https://expo.dev/artifacts/eas/<hash>.apk` format)
 
 ## v1.1.2 — 2026-04-10
 
