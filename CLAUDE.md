@@ -8,6 +8,7 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 - Release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
 - `app.json`: version `1.2.1`, `ios.buildNumber "8"`, `android.versionCode 8`.
 - `package.json`: name `forshe`, version `1.2.1`.
+- Latest APK build: `507b9347-1bb5-49bc-b26e-6e4af1000009` (queued 2026-04-18, https://expo.dev/accounts/smartbzss/projects/forshe/builds/507b9347-1bb5-49bc-b26e-6e4af1000009).
 - Previous released tag: `v1.2.0` on master (APK `2181a3b8`, 2026-04-18).
 - Orchestration: every task routes through `project-manager` (see Agents section).
 

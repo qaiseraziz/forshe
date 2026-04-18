@@ -8,7 +8,9 @@ Patch release on top of v1.2.0 bundling two UX iterations (drawer grouping + Tod
 
 ### APK
 
-_To be stamped after EAS build completes._
+- Build ID: `507b9347-1bb5-49bc-b26e-6e4af1000009`
+- Build page: https://expo.dev/accounts/smartbzss/projects/forshe/builds/507b9347-1bb5-49bc-b26e-6e4af1000009
+- Profile: `preview` (Android APK). Queued 2026-04-18 via `eas build --profile preview --platform android --non-interactive --no-wait`.
 
 ### Added
 
