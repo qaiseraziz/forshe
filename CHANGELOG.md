@@ -8,8 +8,8 @@ Patch release on top of v1.2.2. Two connected UX fixes addressing user feedback 
 
 ### APK
 
-- Build ID: _(stamped in follow-up commit)_
-- Build page: _(stamped in follow-up commit)_
+- Build ID: `2218683b-51d8-4db2-9f49-9a3d559a8068` (queued 2026-04-19, preview profile, Android)
+- Build page: https://expo.dev/accounts/smartbzss/projects/forshe/builds/2218683b-51d8-4db2-9f49-9a3d559a8068
 
 ### Added
 
