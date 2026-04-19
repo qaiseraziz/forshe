@@ -8,8 +8,8 @@ Patch release on top of v1.2.1. Two connected UX additions: TodayScreen's stacke
 
 ### APK
 
-- Build ID: _pending EAS build_ (queued 2026-04-19)
-- Build page: _pending_
+- Build ID: `8e74a970-8e4d-4bbb-a0c5-402dee135cc4` (queued 2026-04-19, preview profile, Android)
+- Build page: https://expo.dev/accounts/smartbzss/projects/forshe/builds/8e74a970-8e4d-4bbb-a0c5-402dee135cc4
 
 ### Added
 
