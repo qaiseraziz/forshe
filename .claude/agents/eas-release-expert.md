@@ -73,6 +73,16 @@ Should show exactly ONE entry, under `dependencies`.
 **Symptom**: iOS build fails with identifier error
 **Fix**: `ios.bundleIdentifier = "com.forshe.app"` must be in `app.json`
 
+### Failure 6 — Native module init crash on launch (v1.2.4 → v1.2.5 hotfix lesson)
+**Symptom**: APK builds cleanly and installs, app loads a splash frame, then vanishes immediately without an error dialog on the device. EAS build logs are CLEAN — this is NOT a build failure, it's a runtime init failure.
+**Root cause seen**: `expo-blur` + `lottie-react-native` added together in v1.2.4. One of the two native modules fails to link at RN module-registration time on some devices (specifically lower-RAM Android phones / certain vendor ROMs). The whole JS bridge crashes during module init before our App component renders.
+**Fix (both short term and long term)**:
+1. Before shipping any new native module, confirm it installed via `npx expo install` (not `npm install`) so the SDK-matching version is chosen.
+2. Remove the native module's import at call sites (NOT from package.json) and replace with a pure-JS fallback. Ship the hotfix. Keep the dep in package.json so the next build can try again.
+3. When re-enabling, add ONE native module at a time, queue a build, and install on a real low-RAM device before combining with another new native module.
+4. Specifically for `expo-blur`: the Android side needs `android.windowSoftInputMode` and a supported OS level — verify on Android 10+ devices.
+5. Specifically for `lottie-react-native`: keep Lottie JSONs small (<50KB), avoid heavy bodymovin features like text layers, and wrap `LottieView` in a try/catch boundary.
+
 ## Build Readiness Checklist
 
 Run through this before EVERY build:
@@ -166,12 +176,19 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Build
-- **APK (queued)**: `2181a3b8-3611-4882-ba41-b33cc9ba18b4` (v1.2.0, 2026-04-18, queued — check status)
-- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/2181a3b8-3611-4882-ba41-b33cc9ba18b4`
+- **APK (queued)**: `ed6cce5f-5f15-49f3-8971-7aaa603c0bb6` (v1.2.5 hotfix, 2026-04-19)
+- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/ed6cce5f-5f15-49f3-8971-7aaa603c0bb6`
 - Artifact URL: available once build status = FINISHED
 
+### ⚠️ Known broken APK
+- **`d718bd8a-ab12-4135-af31-f028aa200103`** — v1.2.4, 2026-04-19. **Crashes on launch** on some devices. Do NOT distribute. Replaced by v1.2.5 hotfix above.
+
 ### Previous builds
-- `9ce82345-5d1d-42d2-934a-d8971387af2f` — v1.1.2, 2026-04-11 (last shipped APK, `https://expo.dev/artifacts/eas/knMfhN6yNhTxnzybRzzKdk.apk`)
+- `2218683b-51d8-4db2-9f49-9a3d559a8068` — v1.2.3, 2026-04-19 (last confirmed-working APK)
+- `8e74a970-8e4d-4bbb-a0c5-402dee135cc4` — v1.2.2, 2026-04-19
+- `507b9347-1bb5-49bc-b26e-6e4af1000009` — v1.2.1, 2026-04-18
+- `2181a3b8-3611-4882-ba41-b33cc9ba18b4` — v1.2.0, 2026-04-18
+- `9ce82345-5d1d-42d2-934a-d8971387af2f` — v1.1.2, 2026-04-11 (`https://expo.dev/artifacts/eas/knMfhN6yNhTxnzybRzzKdk.apk`)
 - `d9dc1bb8-3514-4e4c-9f3c-ed0940449cfe` — v1.1.2 cancelled
 - `c534cf09-f9fe-470c-a9b4-de41d78bb21d` — v1.1.1
 - `04b1be04-8847-405b-9a84-74a74f3e2238` — v1.1.0 (Body Stats feature release)

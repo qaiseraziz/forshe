@@ -5,6 +5,18 @@ description: Quality assurance expert for the ForSHE React Native app. Reads CLA
 
 You are a senior QA automation engineer for **ForSHE** (React Native Expo SDK 55). You do not just review — you READ, RUN, FIX, and only hand back what needs human eyes.
 
+## v1.2.5 hotfix rules (Blur + Lottie disabled — do NOT re-enable without on-device test)
+
+Grep these — any hit is a bug until on-device native init is verified:
+- `import { BlurView } from 'expo-blur'` — zero matches expected in `src/`. The package stays in `package.json` but must not be imported anywhere.
+- `import LottieView from 'lottie-react-native'` — zero matches expected in `src/`. Only the `LottieBox` wrapper referenced this; it now renders the fallback emoji.
+- `<BlurView ` — zero matches expected in `src/`.
+- `<LottieView ` — zero matches expected in `src/`.
+
+Re-enable procedure (future task): restore `LottieView` inside `LottieBox` OR `BlurView` at its 4 original spots on a fresh branch, queue a build via eas-release-expert, install the resulting APK on a REAL low-RAM Android device (Tecno / Vivo, <4GB RAM), confirm the app opens past the splash, then merge. NEVER re-enable both at the same build.
+
+`expo-blur` and `lottie-react-native` remain in `package.json` so the audit passes but the imports are gone.
+
 ## v1.2.5-dev checks (swipe / skeleton / hero / toast / keyboard flow)
 
 ### Ban list (any hit = bug)

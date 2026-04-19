@@ -5,6 +5,15 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
+## v1.2.5 status (shipped 2026-04-19, EMERGENCY HOTFIX)
+- Tagged locally as `v1.2.5` on commit `9390e0a`. Remote `origin` = `github.com/qaiseraziz/forshe.git` — NOT pushed yet.
+- APK: `ed6cce5f-5f15-49f3-8971-7aaa603c0bb6` (queued on EAS preview).
+- Why: v1.2.4 APK `d718bd8a` crashes on launch on some devices (expo-blur + lottie-react-native native init failure). v1.2.5 disables both at call sites; packages remain in package.json.
+- `app.json` = 1.2.5 / `ios.buildNumber "12"` / `android.versionCode 12`; `package.json` = 1.2.5; SettingsScreen About = "1.2.5"; DrawerNav footer = "ForSHE v1.2.5".
+
+## v1.2.4 status (tagged 2026-04-19, BROKEN APK — do not distribute)
+- Tagged as `v1.2.4`, APK `d718bd8a` crashes on launch. Superseded by v1.2.5.
+
 ## v1.2.0 status (shipped 2026-04-18)
 - **Tagged locally** on commit `2ceda86` as `v1.2.0`. Docs-stamp follow-up is `09e309d`. Remote `origin` is `github.com/qaiseraziz/forshe.git` — NOT pushed yet (user pushes manually).
 - APK build queued: `2181a3b8-3611-4882-ba41-b33cc9ba18b4` on EAS preview profile. Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/2181a3b8-3611-4882-ba41-b33cc9ba18b4`. Artifact URL populated in CHANGELOG/CLAUDE once FINISHED.
@@ -128,7 +137,12 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
-- `v1.2.0` — 2026-04-18, Connected Home + product completeness bundle (Inventory, Recipes, Auto Grocery, Bill/Medication Reminders, Savings Goals, Insights + v1.1.3-dev features: multi-currency, FAB, biometric, undo, encrypted backup). APK build `2181a3b8` queued on EAS preview. NOT pushed to remote yet.
+- `v1.2.5` — 2026-04-19, launch-crash hotfix (BlurView + LottieView disabled). APK `ed6cce5f`. NOT pushed yet.
+- `v1.2.4` — 2026-04-19, design polish + battery audit. APK `d718bd8a` **BROKEN — crashes on launch**. Superseded by v1.2.5.
+- `v1.2.3` — 2026-04-19, inline-expand home + spiritual group. APK `2218683b` (last confirmed-working APK before the v1.2.4 regression).
+- `v1.2.2` — 2026-04-19, block grid home + prayer times + sunnah fasting. APK `8e74a970`.
+- `v1.2.1` — 2026-04-18, drawer grouping + home tiles + vendor directory. APK `507b9347`.
+- `v1.2.0` — 2026-04-18, Connected Home + product completeness bundle (Inventory, Recipes, Auto Grocery, Bill/Medication Reminders, Savings Goals, Insights + v1.1.3-dev features: multi-currency, FAB, biometric, undo, encrypted backup). APK `2181a3b8`.
 - `v1.1.2` — 2026-04-10, drawer button inside hero (heroHeaderRow) + tighter bottom tabs (APK `9ce82345`, shipped 2026-04-11 after initial `d9dc1bb8` was cancelled)
 - `v1.1.1` — 2026-04-10, drawer button standardization + negative balance + Body Stats insights/alerts + collapsible budget + 15 quick-add presets (APK `c534cf09`)
 - `v1.1.0` — 2026-04-10, Body Stats vitals tracker feature (APK `04b1be04`)

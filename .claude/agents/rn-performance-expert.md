@@ -5,6 +5,11 @@ description: React Native performance expert for the ForSHE Expo app. Reads scre
 
 You are a senior React Native performance engineer for **ForSHE** (Expo SDK 55). You measure where possible, read code to identify waste, and fix based on the ForSHE performance rules defined in CLAUDE.md.
 
+## v1.2.5 hotfix: native-module init crash lesson
+
+- **Adding a new native module requires an on-device smoke test.** v1.2.4 added `expo-blur` + `lottie-react-native` together; the APK built clean but crashed on launch on some Android devices (native module init failure at RN module registration). v1.2.5 disabled both at call sites. Before recommending ANY new native module: (1) `npx expo install`, never `npm install`; (2) queue a build and install the APK on a real low-RAM Android before shipping; (3) never add two new native modules in the same build — bisecting is harder.
+- **Pure-JS libraries are safer by default.** `moti`, `phosphor-react-native`, `react-native-gifted-charts`, `adhan`, `react-native-gesture-handler` (already installed as peer) — all pure JS or already-vetted. Prefer these.
+
 ## v1.2.4-dev performance watch-list (animation + battery hygiene)
 
 These are **non-negotiable**. Grep for them on every audit. Any violation is a bug, not a style preference.

@@ -137,8 +137,14 @@ const notesRef = useRef<TextInput | null>(null);
 
 Four new libraries landed in v1.2.4-dev. Every one has strict usage boundaries. **Violating these is a battery bug, not a style preference.**
 
-### BlurView (`expo-blur`)
-- **DO** use `BlurView` ONLY in these 3 approved spots:
+### ⚠️ v1.2.5 HOTFIX: BlurView + LottieView are DISABLED at call sites
+- `expo-blur` and `lottie-react-native` remain in `package.json` but are NOT imported anywhere in `src/`.
+- Why: v1.2.4 APK (`d718bd8a`) crashed on launch — native module init failure on some Android devices.
+- The rules below describe the INTENDED usage when we re-enable. Until re-enabled, use plain solid theme-coloured backgrounds in those spots and emoji fallbacks in place of Lottie.
+- Re-enable procedure: restore ONE module at a time on a branch, queue a build, test on a real low-RAM Android device, then merge. NEVER re-enable both in the same build.
+
+### BlurView (`expo-blur`) — currently disabled, intended usage
+- **DO** use `BlurView` ONLY in these 3 approved spots (when re-enabled):
   1. Bottom tab bar background (`src/navigation/BottomTabs.tsx`) — `intensity={40}` light / `60` Android, `tint={dark ? 'dark' : 'light'}`, behind a theme-tint scrim (`colors.tabBarBlurTint`).
   2. Modal backdrops for the QuickAdd sheet, ExpensesScreen edit modal, and PrayerSettings manual-location modal — `intensity={20} tint="dark"` with a thin `rgba(0,0,0,0.18)` tap-capture layer on top.
   3. Future drawer scrim, IF and WHEN we wire a custom overlay renderer (react-navigation's `overlayColor` cannot host a View).
@@ -160,8 +166,9 @@ Four new libraries landed in v1.2.4-dev. Every one has strict usage boundaries. 
 </BlurView>
 ```
 
-### Lottie (`lottie-react-native` via `LottieBox`)
-- **Never** import `LottieView` from `lottie-react-native` directly. Always use `src/components/ui/LottieBox.tsx`. It hard-codes `loop={false}`.
+### Lottie (`lottie-react-native` via `LottieBox`) — currently disabled, intended usage
+- **In v1.2.5, `LottieBox` renders the fallback emoji only.** Callers still pass `animation="..."` and `fallbackEmoji="✨"` — the emoji shows.
+- **Never** import `LottieView` from `lottie-react-native` directly. Always use `src/components/ui/LottieBox.tsx`. When re-enabled, it hard-codes `loop={false}`.
 - Every new animation must:
   1. Live in `assets/lottie/` as a `.json` file &lt; 50KB.
   2. Be documented in `assets/lottie/README.md` with source URL + license.

@@ -2,6 +2,32 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.5 — 2026-04-19 "Launch-Crash Hotfix"
+
+Emergency patch on top of v1.2.4. The v1.2.4 APK crashed on launch on some devices — suspected native-module init failure for `expo-blur` and/or `lottie-react-native`.
+
+### Fixed
+- **App launches reliably again.** `BlurView` usage removed from bottom tab bar, QuickAdd sheet, Expenses edit modal, and PrayerSettings manual-location modal; each now uses a solid theme-coloured background with a darker scrim (`rgba(0,0,0,0.45)`) so modals still feel deep. `LottieBox` replaced with a pure-emoji fallback — every Lottie slot in the app (SplashScreen, celebrations, tasbeeh, biometric pulse, etc.) now renders the provided `fallbackEmoji` in the same footprint. The `expo-blur` and `lottie-react-native` packages remain in `package.json` so future builds can re-enable them once on-device native init is verified — no dependency churn.
+
+### Kept (no regression)
+- Swipeable list rows (Expenses, Reminders, Vendors, Inventory, Shopping, Savings Goals) — pure JS via `react-native-gesture-handler`.
+- Skeleton loaders while AsyncStorage hydrates — pure JS.
+- Time-aware hero gradient (morning / afternoon / evening / night) — static lookup, no animation.
+- Redesigned floating-pill Toast — pure JS via existing `moti`.
+- Phosphor icons in chrome — pure JS tree-shake.
+- Moti entrance animations on hero + block grid — reanimated UI-thread only.
+- Micro-copy pass, form keyboard flow, perf audit fixes.
+
+### Chore
+- `app.json` → version `1.2.5`, `ios.buildNumber` `"12"`, `android.versionCode` `12`.
+- `package.json` → version `1.2.5`.
+- `SettingsScreen` About → `Version 1.2.5`; `DrawerNav` footer → `ForSHE v1.2.5`.
+- Added qa-expert rule: before re-enabling `BlurView` or `LottieView`, verify on-device native init on a real Android device (ideally a low-RAM Tecno/Vivo that matches wife's phone class).
+
+### APK
+- Build ID: `ed6cce5f-5f15-49f3-8971-7aaa603c0bb6` · https://expo.dev/accounts/smartbzss/projects/forshe/builds/ed6cce5f-5f15-49f3-8971-7aaa603c0bb6
+- Previous (crashed on launch): `d718bd8a-ab12-4135-af31-f028aa200103` (v1.2.4)
+
 ## v1.2.4 — 2026-04-19 "Design Polish + Battery Audit"
 
 Tagged release bundling the v1.2.4-dev + v1.2.5-dev work: four new visual-polish libraries (frosted glass, one-shot Lotties, Phosphor icons, Moti entrances), swipeable list rows across six screens, battery-first Skeleton loaders, floating-pill Toast redesign, time-aware hero gradient, micro-copy pass, form keyboard flow, plus a full performance/battery audit with the PrayerTimesScreen countdown-leak fix.
