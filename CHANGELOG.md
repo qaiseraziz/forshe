@@ -8,7 +8,7 @@ Tagged release bundling the v1.2.4-dev + v1.2.5-dev work: four new visual-polish
 
 ### APK
 
-- Preview APK queued 2026-04-19 — build id pending stamp (see post-commit update).
+- Preview APK queued 2026-04-19 — build id `d718bd8a-ab12-4135-af31-f028aa200103` (https://expo.dev/accounts/smartbzss/projects/forshe/builds/d718bd8a-ab12-4135-af31-f028aa200103). Artifact URL visible after build finishes.
 
 ### Added
 
