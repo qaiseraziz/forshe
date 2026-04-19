@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import { Alert, Share } from 'react-native';
 import CryptoJS from 'crypto-js';
-import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal, Vendor } from '../types';
+import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal, Vendor, PrayerSettings } from '../types';
 
 // --- Encryption helpers ---
 
@@ -179,6 +179,16 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
     if (typeof bs.reminderTime !== 'string') return { valid: false, error: 'bodyStatsSettings.reminderTime must be a string.' };
   }
 
+  if (obj.prayerSettings !== undefined) {
+    if (obj.prayerSettings === null || typeof obj.prayerSettings !== 'object' || Array.isArray(obj.prayerSettings)) {
+      return { valid: false, error: '"prayerSettings" must be an object.' };
+    }
+    const ps = obj.prayerSettings as Record<string, unknown>;
+    if (typeof ps.enabled !== 'boolean') return { valid: false, error: 'prayerSettings.enabled must be a boolean.' };
+    if (typeof ps.method !== 'string') return { valid: false, error: 'prayerSettings.method must be a string.' };
+    if (typeof ps.asrMethod !== 'string') return { valid: false, error: 'prayerSettings.asrMethod must be a string.' };
+  }
+
   return { valid: true, data: obj as BackupData };
 }
 
@@ -203,11 +213,12 @@ interface AllData {
   savingsGoals?: SavingsGoal[];
   // v1.2.2-dev
   vendors?: Vendor[];
+  prayerSettings?: PrayerSettings;
 }
 
 function buildBackupJSON(data: AllData): string {
   const backup = {
-    version: '2.4',
+    version: '2.5',
     exported: new Date().toISOString(),
     history: data.history,
     cooking: data.cooking,
@@ -229,6 +240,7 @@ function buildBackupJSON(data: AllData): string {
     savingsGoals: data.savingsGoals,
     // v1.2.2-dev
     vendors: data.vendors,
+    prayerSettings: data.prayerSettings,
   };
   return JSON.stringify(backup, null, 2);
 }

@@ -7,7 +7,7 @@ import {
   Transaction, CookingData, MaidData, Attendance, Reminder, PeriodLog,
   BackupData, RecurringExpense, ShoppingItem, ShoppingSession, MaidSalary,
   BodyProfile, BodyLog, BodyStatsSettings,
-  InventoryItem, Recipe, SavingsGoal, Vendor,
+  InventoryItem, Recipe, SavingsGoal, Vendor, PrayerSettings,
 } from '../types';
 
 const DEFAULT_BODY_PROFILE: BodyProfile = { height: 0, heightUnit: 'cm' };
@@ -16,6 +16,24 @@ const DEFAULT_BODY_SETTINGS: BodyStatsSettings = {
   reminderEnabled: false,
   reminderTime: '08:00',
   reminderNotifIds: [],
+};
+
+export const DEFAULT_PRAYER_SETTINGS: PrayerSettings = {
+  enabled: false,
+  location: null,
+  locationSource: 'none',
+  method: 'Karachi',
+  asrMethod: 'Hanafi',
+  highLatitudeRule: 'MiddleOfTheNight',
+  prayerNotifyFajr: true,
+  prayerNotifyDhuhr: true,
+  prayerNotifyAsr: true,
+  prayerNotifyMaghrib: true,
+  prayerNotifyIsha: true,
+  mondayThursdayFasting: true,
+  ayyamAlBidFasting: true,
+  fastingNotifIds: [],
+  prayerNotifIds: [],
 };
 
 interface DataCtx {
@@ -57,6 +75,8 @@ interface DataCtx {
   // v1.2.2-dev
   vendors: Vendor[];
   setVendors: (v: Vendor[] | ((p: Vendor[]) => Vendor[])) => void;
+  prayerSettings: PrayerSettings;
+  setPrayerSettings: (v: PrayerSettings | ((p: PrayerSettings) => PrayerSettings)) => void;
   allLoaded: boolean;
   handleImport: (data: BackupData) => void;
 }
@@ -82,7 +102,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [recipes, setRecipes, l16] = useStorage<Recipe[]>(STORAGE_KEYS.recipes, SEED_RECIPES);
   const [savingsGoals, setSavingsGoals, l17] = useStorage<SavingsGoal[]>(STORAGE_KEYS.savingsGoals, []);
   const [vendors, setVendors, l18] = useStorage<Vendor[]>(STORAGE_KEYS.vendors, []);
-  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17 && l18;
+  const [prayerSettings, setPrayerSettings, l19] = useStorage<PrayerSettings>(STORAGE_KEYS.prayerSettings, DEFAULT_PRAYER_SETTINGS);
+  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17 && l18 && l19;
 
   // Migrate old flat shopping list → session (one-time)
   const shoppingMigrated = useRef(false);
@@ -176,7 +197,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.recipes) setRecipes(data.recipes);
     if (data.savingsGoals) setSavingsGoals(data.savingsGoals);
     if (data.vendors) setVendors(data.vendors);
-  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals, setVendors]);
+    if (data.prayerSettings) setPrayerSettings(data.prayerSettings);
+  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals, setVendors, setPrayerSettings]);
 
   const value = useMemo(() => ({
     history, setHistory,
@@ -197,6 +219,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     recipes, setRecipes,
     savingsGoals, setSavingsGoals,
     vendors, setVendors,
+    prayerSettings, setPrayerSettings,
     allLoaded,
     handleImport,
   }), [
@@ -208,6 +231,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     bodyStatsSettings, setBodyStatsSettings,
     inventory, setInventory, recipes, setRecipes, savingsGoals, setSavingsGoals,
     vendors, setVendors,
+    prayerSettings, setPrayerSettings,
     allLoaded, handleImport,
   ]);
 

@@ -2,6 +2,41 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.2 — 2026-04-19 "Block Grid Home + Prayer Times"
+
+Patch release on top of v1.2.1. Two connected UX additions: TodayScreen's stacked group tiles become a real 2-column block grid with themed gradients, and a brand-new Prayer Times + Sunnah Fasting module ships inside the 💝 Personal group.
+
+### APK
+
+- Build ID: _pending EAS build_ (queued 2026-04-19)
+- Build page: _pending_
+
+### Added
+
+- **PrayerTimesScreen** (`src/screens/PrayerTimesScreen.tsx`) — new drawer screen inside the 💝 Personal group (1st item, before Cycle Tracker + Body Stats). Hero card with `heroHeaderRow` + 🕌 Prayer Times label + location name + Hijri date. "Next prayer" card (name + formatted time + minutes-until countdown, ticks every 30s). Today's 6 times (Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha) with the next one highlighted in gold. Sunnah fasting status card: "✨ Sunnah fasting day (Monday/Thursday)" on Mon/Thu; "🌙 Ayyam al-Bid — day X of 3" on 13/14/15 Hijri; else a neutral line with upcoming-reminder hint. Settings gear in the hero row and an outline button below the list both navigate to `PrayerSettings`. No-location state: shows an `EmptyState` with a single "Set Up Prayer Times" button.
+- **PrayerSettingsScreen** (`src/screens/PrayerSettingsScreen.tsx`) — drawer-level route accessed from the Prayer Times hero or from `SettingsScreen`. Sections: Master toggle, Location (Use GPS + Enter Manually buttons), Calculation Method (Picker, 12 options), Asr Juristic Method (segmented Standard/Hanafi), High Latitude Rule (Picker, 3 options), 5 per-prayer notification switches, 2 Sunnah fasting switches (Monday/Thursday + Ayyam al-Bid). "Save & Schedule Reminders" green button at the bottom cancels previous notification IDs and reschedules both prayer + fasting notifs, then stores the new IDs back into `prayerSettings`. Manual location modal is a bottom-sheet with an 8-city Pakistani chip grid (Karachi, Lahore, Islamabad, Rawalpindi, Faisalabad, Peshawar, Quetta, Multan) plus free-form name/lat/lng inputs.
+- **`src/utils/prayer.ts`** — adhan wrapper. `computePrayerTimes(date, settings)`, `getNextPrayer(times, now?)`, `formatPrayerTime(date)`, `formatCountdown(minutes)`, `hijriToday(date?)` (Intl `en-u-ca-islamic-umalqura` with arithmetic fallback), `isSunnahWeekday(date?)`, `isAyyamAlBid(date?)`, `schedulePrayerNotifications(settings)`, `scheduleFastingNotifications(settings)`. Exports `METHOD_OPTIONS`, `HIGH_LAT_OPTIONS`, `ASR_OPTIONS`, `PAKISTAN_CITIES`. All scheduling cancels previous IDs first, gracefully returns `[]` when disabled or permission is denied, and uses typed `SchedulableTriggerInputTypes.DATE`.
+- **TodayScreen onboarding nudge** — while `prayerSettings.enabled === false`, a green-gradient card below the block grid invites the user to set up Prayer Times and navigates to `PrayerSettings` on tap.
+- **SettingsScreen row** — new "Prayer Times" card under App Lock shows a one-line summary (location + method when enabled, setup CTA otherwise) and navigates into `PrayerSettings`.
+- **npm packages** — `adhan` `^4.4.3` (pure JS, MIT, Batoul Apps) + `expo-location` `~55.1.8` (SDK 55 compatible, installed via `npx expo install`). No native module dependencies.
+- **app.json plugin** — added `expo-location` plugin block with `locationWhenInUsePermission` + `locationAlwaysAndWhenInUsePermission` strings; iOS `NSLocationWhenInUseUsageDescription` under `ios.infoPlist`; Android `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION` permissions.
+
+### Changed
+
+- **TodayScreen block grid** (`src/screens/TodayScreen.tsx`) — the vertical "long strips" tile list from v1.2.1-dev is replaced by a proper 2-column block grid. Money / Kitchen / Household / Personal render as 2×2 square-ish blocks (`aspectRatio: 1 / 0.9`) with themed soft gradient backgrounds (Money→`goldHero`, Kitchen→`greenHero`, Household→blue-ish custom pair, Personal→`pinkHero`) and dark-mode variants. Top-right shows the large group emoji (fontSize 32); bottom-left shows the group name (Outfit-Bold 18) + status badge pill. System gets its own full-width compact tile at the bottom of the grid (narrower paddingVertical since users rarely visit it). Uses `flex-wrap` + `width: '47%'` + `gap: 12` — no FlatList since only 4 items in the main grid. `activeOpacity={0.8}` for tactile press feedback. Personal target is dynamic: `PrayerTimes` when enabled, else `BodyStats`. Personal badge is prayer-aware: "Sunnah day 🌙" on Mon/Thu/13-14-15 Hijri, else "{next prayer} {HH:MM AM/PM}", falling back to "logged today" / "no log today" / "Setup Prayer Times" when prayer is off. Hero card (greeting + balance + today's spend) unchanged. "Today's Essentials" (due-soon / meals / maid) unchanged.
+- **Personal drawer group now 3 items** (`src/navigation/DrawerNav.tsx`) — Prayer Times (new) → Cycle Tracker → Body Stats. Both Prayer screens registered as drawer routes (`Drawer.Screen name="PrayerTimes"` + `Drawer.Screen name="PrayerSettings"`). The qa-expert "Personal = 2" assertion from v1.2.1 becomes "Personal = 3".
+- `src/types.ts` — new `CalculationMethodKey`, `AsrJuristicMethod`, `HighLatitudeRule`, `PrayerLocation`, `PrayerSettings` types; `BackupData` gains optional `prayerSettings?: PrayerSettings`.
+- `src/constants/data.ts` — new `STORAGE_KEYS.prayerSettings = 'hm_prayer_settings'`.
+- `src/context/DataContext.tsx` — new `prayerSettings` / `setPrayerSettings` slice via `useStorage<PrayerSettings>`, default from exported `DEFAULT_PRAYER_SETTINGS`. `allLoaded` widened to include `l19`. `handleImport` restores `data.prayerSettings`. Context value memo dep array extended.
+- `src/utils/backup.ts` — `AllData` gains `prayerSettings?: PrayerSettings`; `buildBackupJSON` includes them and bumps schema to `2.5`; `validateBackupData` checks the object shape (enabled/method/asrMethod types).
+- `src/screens/BackupScreen.tsx` — destructures `prayerSettings` from `useData`, adds it to the `allData` memo + deps so export includes them.
+
+### Chore
+
+- Bumped `app.json` version to `1.2.2`, `ios.buildNumber` to `"9"`, `android.versionCode` to `9`. Bumped `package.json` version to `1.2.2`. Updated `SettingsScreen` About copy + `DrawerNav` footer to `v1.2.2`.
+- `npx tsc --noEmit` and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` both exit 0 at release.
+- Tagged `v1.2.2` on `master`; APK queued on EAS preview profile.
+
 ## v1.2.1 — 2026-04-18 "Grouped Home + Vendor Directory"
 
 Patch release on top of v1.2.0 bundling two UX iterations (drawer grouping + TodayScreen redesign) and one new mini-module (Vendor & Services Directory). No framework upgrades, no new npm packages — all work uses existing primitives.

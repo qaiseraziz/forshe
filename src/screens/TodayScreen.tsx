@@ -13,15 +13,27 @@ import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, todayDay, todayISO, fmtISO } from '../utils/dates';
 import { gradients } from '../constants/colors';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import {
+  computePrayerTimes,
+  getNextPrayer,
+  formatPrayerTime,
+  isSunnahWeekday,
+  isAyyamAlBid,
+} from '../utils/prayer';
 
-type GroupTile = {
-  key: string;
+type Tone = 'gold' | 'red' | 'green' | 'muted';
+type BlockKey = 'money' | 'kitchen' | 'household' | 'personal' | 'system';
+
+interface GroupBlock {
+  key: BlockKey;
   icon: string;
   name: string;
-  target: string;    // drawer route OR tab route name
+  target: string;
   targetIsTab: boolean;
-  badge?: { label: string; tone: 'gold' | 'red' | 'green' | 'muted' };
-};
+  gradientLight: [string, string];
+  gradientDark: [string, string];
+  badge?: { label: string; tone: Tone };
+}
 
 const TAB_NAMES = new Set(['Today', 'Expenses', 'Cooking', 'Remind']);
 
@@ -29,7 +41,10 @@ export default function TodayScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { history, cooking, maidData, reminders, attendance, budget, inventory, bodyLogs } = useData();
+  const {
+    history, cooking, maidData, reminders, attendance, budget,
+    inventory, bodyLogs, prayerSettings,
+  } = useData();
   const { pkr } = useCurrency();
   const { toast, dismiss: dismissToast } = useToast();
 
@@ -62,7 +77,6 @@ export default function TodayScreen() {
     [history, td],
   );
 
-  // Month spend (for Money group "over budget" badge)
   const monthSpent = useMemo(() => {
     const now = new Date();
     const m = now.getMonth();
@@ -93,64 +107,128 @@ export default function TodayScreen() {
     });
   }, [reminders]);
 
-  // Household badge — reminders due today not yet done
   const dueTodayCount = useMemo(
     () => reminders.filter(r => !r.isDone && r.date === iso).length,
     [reminders, iso],
   );
 
-  // Kitchen badge — low-stock inventory count
   const lowStockCount = useMemo(
     () => inventory.filter(i => i.qty <= i.lowStockThreshold).length,
     [inventory],
   );
 
-  // Personal badge — any BodyLog dated today
   const loggedToday = useMemo(
     () => bodyLogs.some(b => b.date === iso),
     [bodyLogs, iso],
   );
 
-  const tiles = useMemo<GroupTile[]>(() => {
-    const moneyBadge: GroupTile['badge'] =
+  // Personal badge is prayer-aware once enabled
+  const personalBadge = useMemo<{ label: string; tone: Tone }>(() => {
+    if (!prayerSettings.enabled) {
+      return loggedToday
+        ? { label: 'logged today', tone: 'green' }
+        : { label: 'Setup Prayer Times', tone: 'gold' };
+    }
+    const now = new Date();
+    const sun = isSunnahWeekday(now);
+    const bid = isAyyamAlBid(now);
+    if (sun || bid !== null) return { label: 'Sunnah day 🌙', tone: 'gold' };
+    const times = prayerSettings.location ? computePrayerTimes(now, prayerSettings) : null;
+    if (times) {
+      const next = getNextPrayer(times, now);
+      return { label: `${next.name} ${formatPrayerTime(next.time)}`, tone: 'muted' };
+    }
+    if (loggedToday) return { label: 'logged today', tone: 'green' };
+    return { label: 'no log today', tone: 'muted' };
+  }, [prayerSettings, loggedToday]);
+
+  // Target for Personal block — Prayer Times if enabled, else BodyStats
+  const personalTarget = prayerSettings.enabled ? 'PrayerTimes' : 'BodyStats';
+
+  const blocks = useMemo<GroupBlock[]>(() => {
+    const moneyBadge: GroupBlock['badge'] =
       budget > 0 && monthSpent > budget
         ? { label: 'over budget', tone: 'red' }
         : budget > 0
           ? { label: 'on track', tone: 'green' }
           : undefined;
 
-    const kitchenBadge: GroupTile['badge'] =
+    const kitchenBadge: GroupBlock['badge'] =
       lowStockCount > 0
         ? { label: `${lowStockCount} low stock`, tone: 'red' }
         : { label: 'stocked', tone: 'muted' };
 
-    const householdBadge: GroupTile['badge'] =
+    const householdBadge: GroupBlock['badge'] =
       dueTodayCount > 0
         ? { label: `${dueTodayCount} due today`, tone: 'gold' }
         : { label: 'all clear', tone: 'muted' };
 
-    const personalBadge: GroupTile['badge'] = loggedToday
-      ? { label: 'logged today', tone: 'green' }
-      : { label: 'no log today', tone: 'muted' };
-
     return [
-      { key: 'money', icon: '💰', name: 'Money', target: 'Expenses', targetIsTab: true, badge: moneyBadge },
-      { key: 'kitchen', icon: '🍽️', name: 'Kitchen', target: 'Cooking', targetIsTab: true, badge: kitchenBadge },
-      { key: 'household', icon: '🏠', name: 'Household', target: 'Remind', targetIsTab: true, badge: householdBadge },
-      { key: 'personal', icon: '💝', name: 'Personal', target: 'BodyStats', targetIsTab: false, badge: personalBadge },
-      { key: 'system', icon: '⚙️', name: 'System', target: 'Settings', targetIsTab: false },
+      {
+        key: 'money',
+        icon: '💰',
+        name: 'Money',
+        target: 'Expenses',
+        targetIsTab: true,
+        gradientLight: gradients.goldHero,
+        gradientDark: gradients.goldHeroDark,
+        badge: moneyBadge,
+      },
+      {
+        key: 'kitchen',
+        icon: '🍽️',
+        name: 'Kitchen',
+        target: 'Cooking',
+        targetIsTab: true,
+        gradientLight: gradients.greenHero,
+        gradientDark: gradients.greenHeroDark,
+        badge: kitchenBadge,
+      },
+      {
+        key: 'household',
+        icon: '🏠',
+        name: 'Household',
+        target: 'Remind',
+        targetIsTab: true,
+        gradientLight: ['#f0f7ff', '#e0ecff'],
+        gradientDark: ['#050d1a', '#071226'],
+        badge: householdBadge,
+      },
+      {
+        key: 'personal',
+        icon: '💝',
+        name: 'Personal',
+        target: personalTarget,
+        targetIsTab: false,
+        gradientLight: gradients.pinkHero,
+        gradientDark: gradients.pinkHeroDark,
+        badge: personalBadge,
+      },
     ];
-  }, [budget, monthSpent, lowStockCount, dueTodayCount, loggedToday]);
+  }, [budget, monthSpent, lowStockCount, dueTodayCount, personalBadge, personalTarget]);
 
-  const onTilePress = (tile: GroupTile) => {
-    if (tile.targetIsTab || TAB_NAMES.has(tile.target)) {
-      navigation.navigate('Home', { screen: tile.target });
+  const systemBlock: GroupBlock = useMemo(
+    () => ({
+      key: 'system',
+      icon: '⚙️',
+      name: 'System',
+      target: 'Settings',
+      targetIsTab: false,
+      gradientLight: ['#f5f3f0', '#ebe7e0'],
+      gradientDark: ['#1f1f28', '#18181f'],
+    }),
+    [],
+  );
+
+  const onBlockPress = (block: GroupBlock) => {
+    if (block.targetIsTab || TAB_NAMES.has(block.target)) {
+      navigation.navigate('Home', { screen: block.target });
     } else {
-      navigation.navigate(tile.target);
+      navigation.navigate(block.target);
     }
   };
 
-  const badgeColorFor = (tone: 'gold' | 'red' | 'green' | 'muted') => {
+  const badgeColorFor = (tone: Tone) => {
     switch (tone) {
       case 'red':
         return { bg: colors.redBg, fg: colors.red };
@@ -173,7 +251,7 @@ export default function TodayScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Card — greeting + balance + today's spend (kept) */}
+        {/* Hero */}
         <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={styles.heroCard}>
           <View style={styles.heroHeaderRow}>
             <DrawerMenuButton />
@@ -204,42 +282,84 @@ export default function TodayScreen() {
           </View>
         </Card>
 
-        {/* Group Tiles — 5 tiles, one per drawer group */}
+        {/* Block Grid — 2-col square-ish blocks for Money/Kitchen/Household/Personal */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.deep }]}>Explore</Text>
-          <View style={styles.tileGrid}>
-            {tiles.map(tile => {
-              const badge = tile.badge ? badgeColorFor(tile.badge.tone) : null;
+          <View style={styles.gridWrap}>
+            {blocks.map(block => {
+              const badge = block.badge ? badgeColorFor(block.badge.tone) : null;
+              const grad = dark ? block.gradientDark : block.gradientLight;
               return (
                 <TouchableOpacity
-                  key={tile.key}
-                  activeOpacity={0.75}
-                  onPress={() => onTilePress(tile)}
+                  key={block.key}
+                  activeOpacity={0.8}
+                  onPress={() => onBlockPress(block)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${tile.name} group`}
-                  style={styles.tileWrapper}
+                  accessibilityLabel={`${block.name} group`}
+                  style={styles.blockWrapper}
                 >
-                  <Card style={styles.tileCard}>
-                    <View style={styles.tileRow}>
-                      <Text style={styles.tileIcon}>{tile.icon}</Text>
-                      <View style={styles.tileTextCol}>
-                        <Text style={[styles.tileName, { color: colors.deep }]}>{tile.name}</Text>
-                        {tile.badge && badge && (
-                          <View style={[styles.tileBadge, { backgroundColor: badge.bg }]}>
-                            <Text style={[styles.tileBadgeText, { color: badge.fg }]}>
-                              {tile.badge.label}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[styles.tileChevron, { color: colors.muted }]}>›</Text>
+                  <Card style={styles.blockCard} gradient={grad}>
+                    <View style={styles.blockTopRow}>
+                      <Text style={styles.blockIcon}>{block.icon}</Text>
+                    </View>
+                    <View style={styles.blockBottom}>
+                      <Text style={[styles.blockName, { color: colors.deep }]}>{block.name}</Text>
+                      {block.badge && badge && (
+                        <View style={[styles.blockBadge, { backgroundColor: badge.bg }]}>
+                          <Text style={[styles.blockBadgeText, { color: badge.fg }]}>
+                            {block.badge.label}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </Card>
                 </TouchableOpacity>
               );
             })}
           </View>
+
+          {/* System — full-width narrower tile */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onBlockPress(systemBlock)}
+            accessibilityRole="button"
+            accessibilityLabel="System group"
+          >
+            <Card
+              style={styles.systemCard}
+              gradient={dark ? systemBlock.gradientDark : systemBlock.gradientLight}
+            >
+              <View style={styles.systemRow}>
+                <Text style={styles.systemIcon}>{systemBlock.icon}</Text>
+                <Text style={[styles.systemName, { color: colors.deep }]}>{systemBlock.name}</Text>
+                <Text style={[styles.systemChevron, { color: colors.muted }]}>›</Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
         </View>
+
+        {/* Prayer Times setup nudge */}
+        {!prayerSettings.enabled && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('PrayerSettings')}
+            accessibilityRole="button"
+            accessibilityLabel="Set up prayer times"
+          >
+            <Card style={styles.onboardCard} gradient={dark ? gradients.greenHeroDark : gradients.greenHero}>
+              <View style={styles.onboardRow}>
+                <Text style={styles.onboardIcon}>🕌</Text>
+                <View style={styles.onboardText}>
+                  <Text style={[styles.onboardTitle, { color: colors.deep }]}>Enable Prayer Times</Text>
+                  <Text style={[styles.onboardSub, { color: colors.sub }]}>
+                    Accurate salah schedules + Sunnah fasting reminders
+                  </Text>
+                </View>
+                <Text style={[styles.onboardCta, { color: colors.green }]}>Set Up ›</Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
+        )}
 
         {/* Today's Essentials */}
         {(dueSoon.length > 0 || meals.length > 0 || maidTasks.length > 0) && (
@@ -350,125 +470,89 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-  },
+  container: { flex: 1 },
+  content: { padding: 20 },
   heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
   heroHeaderText: { flex: 1 },
-  heroCard: {
-    paddingTop: 28,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-  },
+  heroCard: { paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24 },
   heroLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
+    fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
+    letterSpacing: 1.5, marginBottom: 8,
   },
-  heroGreeting: {
-    fontFamily: 'PlayfairDisplay-ExtraBold',
-    fontSize: 30,
-    lineHeight: 36,
-  },
-  heroDate: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 4,
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
-    gap: 16,
-  },
-  heroStatCol: {
-    flex: 1,
-  },
+  heroGreeting: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },
+  heroDate: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
+  heroStatsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 16 },
+  heroStatCol: { flex: 1 },
   heroStatLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit-SemiBold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 6,
+    fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase',
+    letterSpacing: 0.8, marginBottom: 6,
   },
-  heroStatValue: {
-    fontSize: 22,
-    fontFamily: 'Outfit-Bold',
-  },
-  heroStatDivider: {
-    width: 1,
-    height: 40,
-  },
-  section: {
-    marginBottom: 20,
-  },
+  heroStatValue: { fontSize: 22, fontFamily: 'Outfit-Bold' },
+  heroStatDivider: { width: 1, height: 40 },
+
+  section: { marginBottom: 20 },
   sectionTitle: {
     fontFamily: 'PlayfairDisplay-Bold',
     fontSize: 20,
     marginBottom: 12,
   },
-  subsection: {
+  subsection: { marginBottom: 12 },
+  subsectionTitle: {
+    fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase',
+    letterSpacing: 0.8, marginBottom: 8,
+  },
+
+  // --- 2-col block grid ---
+  gridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
     marginBottom: 12,
   },
-  subsectionTitle: {
-    fontSize: 11,
-    fontFamily: 'Outfit-SemiBold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
+  blockWrapper: {
+    width: '47%',
+    flexGrow: 1,
   },
-  tileGrid: {
-    gap: 0,
+  blockCard: {
+    aspectRatio: 1 / 0.9,
+    padding: 16,
+    marginBottom: 0,
+    justifyContent: 'space-between',
   },
-  tileWrapper: {
-    width: '100%',
-  },
-  tileCard: {
-    marginBottom: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  tileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    minHeight: 44,
-  },
-  tileIcon: {
-    fontSize: 28,
-    width: 36,
-    textAlign: 'center',
-  },
-  tileTextCol: {
-    flex: 1,
-    gap: 4,
-  },
-  tileName: {
-    fontSize: 17,
-    fontFamily: 'Outfit-Bold',
-  },
-  tileBadge: {
+  blockTopRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  blockIcon: { fontSize: 32, lineHeight: 36 },
+  blockBottom: { alignItems: 'flex-start', gap: 8 },
+  blockName: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  blockBadge: {
     alignSelf: 'flex-start',
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
-  tileBadgeText: {
+  blockBadgeText: {
     fontSize: 11,
     fontFamily: 'Outfit-SemiBold',
     textTransform: 'lowercase',
     letterSpacing: 0.3,
   },
-  tileChevron: {
-    fontSize: 24,
-    fontFamily: 'Outfit-Bold',
-    lineHeight: 24,
-  },
+
+  // --- System full-width narrower tile ---
+  systemCard: { paddingVertical: 14, paddingHorizontal: 18 },
+  systemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  systemIcon: { fontSize: 24, width: 32, textAlign: 'center' },
+  systemName: { flex: 1, fontSize: 17, fontFamily: 'Outfit-Bold' },
+  systemChevron: { fontSize: 24, fontFamily: 'Outfit-Bold' },
+
+  // Prayer onboarding nudge
+  onboardCard: { marginBottom: 16 },
+  onboardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  onboardIcon: { fontSize: 26, width: 32, textAlign: 'center' },
+  onboardText: { flex: 1 },
+  onboardTitle: { fontSize: 15, fontFamily: 'Outfit-Bold' },
+  onboardSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
+  onboardCta: { fontSize: 13, fontFamily: 'Outfit-Bold' },
+
+  // Essentials
   dueSoonItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,65 +566,18 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
-  dueSoonIcon: {
-    fontSize: 18,
-  },
-  dueSoonContent: {
-    flex: 1,
-  },
-  dueSoonTitle: {
-    fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
-  },
-  dueSoonMeta: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Regular',
-  },
-  mealRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-  },
-  mealIcon: {
-    fontSize: 18,
-  },
-  mealLabel: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: 'Outfit-Regular',
-  },
-  mealText: {
-    fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
-  },
-  taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-  },
-  taskCheck: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  taskCheckMark: {
-    fontSize: 11,
-    color: '#fff',
-  },
-  taskName: {
-    fontSize: 13,
-    fontFamily: 'Outfit-Regular',
-  },
-  taskDone: {
-    textDecorationLine: 'line-through',
-  },
-  moreText: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Regular',
-    paddingTop: 6,
-  },
+  dueSoonIcon: { fontSize: 18 },
+  dueSoonContent: { flex: 1 },
+  dueSoonTitle: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
+  dueSoonMeta: { fontSize: 11, fontFamily: 'Outfit-Regular' },
+  mealRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
+  mealIcon: { fontSize: 18 },
+  mealLabel: { flex: 1, fontSize: 12, fontFamily: 'Outfit-Regular' },
+  mealText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
+  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
+  taskCheck: { width: 18, height: 18, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+  taskCheckMark: { fontSize: 11, color: '#fff' },
+  taskName: { fontSize: 13, fontFamily: 'Outfit-Regular' },
+  taskDone: { textDecorationLine: 'line-through' },
+  moreText: { fontSize: 12, fontFamily: 'Outfit-Regular', paddingTop: 6 },
 });

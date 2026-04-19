@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Platform, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '../context/ThemeContext';
@@ -24,7 +25,8 @@ import { scheduleBodyStatsReminder, cancelBodyStatsReminder } from '../utils/bod
 export default function SettingsScreen() {
   const { colors, dark, setDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { recurring, setRecurring, bodyStatsSettings, setBodyStatsSettings } = useData();
+  const navigation = useNavigation<any>();
+  const { recurring, setRecurring, bodyStatsSettings, setBodyStatsSettings, prayerSettings } = useData();
   const { pkrF, currencyCode, currency, setCurrency } = useCurrency();
   const systemScheme = useColorScheme();
   const [biometricEnabled, setBiometricEnabled] = useStorage<boolean>('hm_biometric_lock', false);
@@ -315,6 +317,30 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
+        {/* Prayer Times */}
+        <Card>
+          <Text style={[styles.sectionLabel, { color: colors.deep }]}>🕌 Prayer Times</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('PrayerSettings')}
+            accessibilityRole="button"
+            accessibilityLabel="Open prayer times settings"
+            activeOpacity={0.75}
+            style={[styles.settingRow, { minHeight: 44 }]}
+          >
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingTitle, { color: colors.deep }]}>
+                Salah & Sunnah Fasting
+              </Text>
+              <Text style={[styles.settingSub, { color: colors.muted }]}>
+                {prayerSettings.enabled && prayerSettings.location
+                  ? `${prayerSettings.location.name} · ${prayerSettings.method} method`
+                  : 'Tap to set up accurate prayer times and fasting reminders'}
+              </Text>
+            </View>
+            <Text style={[styles.settingChevron, { color: colors.muted }]}>›</Text>
+          </TouchableOpacity>
+        </Card>
+
         {/* Body Stats */}
         <Card>
           <Text style={[styles.sectionLabel, { color: colors.deep }]}>💪 Body Stats</Text>
@@ -457,7 +483,7 @@ export default function SettingsScreen() {
         <Card>
           <View style={styles.aboutSection}>
             <Text style={[styles.aboutName, { color: colors.deep }]}>ForSHE</Text>
-            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.2.1</Text>
+            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.2.2</Text>
             <Text style={[styles.aboutDesc, { color: colors.sub }]}>
               Your complete home management companion. Track expenses, plan meals, manage maid tasks, set reminders, and more — all in one beautiful app.
             </Text>
@@ -500,6 +526,7 @@ const styles = StyleSheet.create({
   settingInfo: { flex: 1 },
   settingTitle: { fontSize: 16, fontFamily: 'Outfit-SemiBold', marginBottom: 2 },
   settingSub: { fontSize: 13, fontFamily: 'Outfit-Regular' },
+  settingChevron: { fontSize: 24, fontFamily: 'Outfit-Bold', marginLeft: 12 },
   settingDesc: { fontSize: 14, fontFamily: 'Outfit-Regular', lineHeight: 22 },
   aboutSection: { alignItems: 'center', paddingVertical: 10 },
   aboutName: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 24, marginBottom: 4 },

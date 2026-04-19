@@ -26,6 +26,8 @@ import RecipeBookScreen from '../screens/RecipeBookScreen';
 import SavingsGoalsScreen from '../screens/SavingsGoalsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import VendorsScreen from '../screens/VendorsScreen';
+import PrayerTimesScreen from '../screens/PrayerTimesScreen';
+import PrayerSettingsScreen from '../screens/PrayerSettingsScreen';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -72,6 +74,7 @@ export const DRAWER_GROUPS: DrawerGroup[] = [
     title: 'Personal',
     icon: '💝',
     items: [
+      { name: 'PrayerTimes', icon: '🕌', label: 'Prayer Times' },
       { name: 'CycleTracker', icon: '🌸', label: 'Cycle Tracker' },
       { name: 'BodyStats', icon: '💪', label: 'Body Stats' },
     ],
@@ -227,7 +230,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.1</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.2</Text>
       </View>
     </View>
   );
@@ -259,6 +262,8 @@ export function DrawerNav() {
       <Drawer.Screen name="Recipes" component={RecipeBookScreen} />
       <Drawer.Screen name="SavingsGoals" component={SavingsGoalsScreen} />
       <Drawer.Screen name="Insights" component={InsightsScreen} />
+      <Drawer.Screen name="PrayerTimes" component={PrayerTimesScreen} />
+      <Drawer.Screen name="PrayerSettings" component={PrayerSettingsScreen} />
       <Drawer.Screen name="CycleTracker" component={CycleScreen} />
       <Drawer.Screen name="BodyStats" component={BodyStatsScreen} />
       <Drawer.Screen name="MonthlyReport" component={MonthlyReportScreen} />

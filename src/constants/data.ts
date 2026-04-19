@@ -124,4 +124,5 @@ export const STORAGE_KEYS = {
   savingsGoals: 'hm_savings_goals',
   // v1.2.2-dev
   vendors: 'hm_vendors',
+  prayerSettings: 'hm_prayer_settings',
 } as const;

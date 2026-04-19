@@ -161,6 +161,54 @@ export interface SavingsGoal {
   notes?: string;
 }
 
+// --- v1.2.2-dev — Prayer Times + Sunnah Fasting ---
+
+export type CalculationMethodKey =
+  | 'MuslimWorldLeague'
+  | 'Egyptian'
+  | 'Karachi'
+  | 'UmmAlQura'
+  | 'Dubai'
+  | 'Qatar'
+  | 'Kuwait'
+  | 'MoonsightingCommittee'
+  | 'NorthAmerica'
+  | 'Turkey'
+  | 'Tehran'
+  | 'Singapore';
+
+export type AsrJuristicMethod = 'Standard' | 'Hanafi';
+
+// adhan v4.4.3 exposes three high-latitude rules. 'None' falls back to MiddleOfTheNight internally.
+export type HighLatitudeRule = 'MiddleOfTheNight' | 'SeventhOfTheNight' | 'TwilightAngle';
+
+export interface PrayerLocation {
+  lat: number;
+  lng: number;
+  name: string;
+}
+
+export interface PrayerSettings {
+  enabled: boolean;                         // master switch, default false until first configuration
+  location: PrayerLocation | null;
+  locationSource: 'gps' | 'manual' | 'none';
+  method: CalculationMethodKey;             // default 'Karachi'
+  asrMethod: AsrJuristicMethod;             // default 'Hanafi'
+  highLatitudeRule: HighLatitudeRule;       // default 'MiddleOfTheNight'
+  // Per-prayer notification toggles
+  prayerNotifyFajr: boolean;
+  prayerNotifyDhuhr: boolean;
+  prayerNotifyAsr: boolean;
+  prayerNotifyMaghrib: boolean;
+  prayerNotifyIsha: boolean;
+  // Sunnah fasting reminders (fire ~20:00 the night before)
+  mondayThursdayFasting: boolean;
+  ayyamAlBidFasting: boolean;
+  // Scheduled notif IDs for cleanup
+  fastingNotifIds?: string[];
+  prayerNotifIds?: string[];
+}
+
 // --- v1.2.2-dev — Vendor & Services Directory ---
 
 export type VendorCategory =
@@ -214,4 +262,5 @@ export interface BackupData {
   savingsGoals?: SavingsGoal[];
   // v1.2.2-dev
   vendors?: Vendor[];
+  prayerSettings?: PrayerSettings;
 }
