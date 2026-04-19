@@ -3,7 +3,6 @@ import {
   View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Modal, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
@@ -400,10 +399,9 @@ export default function PrayerSettingsScreen() {
         />
       </ScrollView>
 
-      {/* Manual location modal — v1.2.4-dev: frosted-glass backdrop */}
+      {/* v1.2.5 hotfix: BlurView removed (native-init crash). */}
       <Modal visible={manualModal} transparent animationType="slide" onRequestClose={() => setManualModal(false)}>
         <View style={styles.modalBackdrop}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
           <View style={[styles.modalSheet, { backgroundColor: colors.bg }]}>
             <ScrollView
               contentContainerStyle={[styles.modalScroll, { paddingBottom: insets.bottom + 20 }]}
@@ -533,7 +531,7 @@ const styles = StyleSheet.create({
   },
 
   // v1.2.4-dev: frosted-glass backdrop (BlurView added above), thinner dark tint
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.22)', justifyContent: 'flex-end' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalSheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

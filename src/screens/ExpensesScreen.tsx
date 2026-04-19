@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -827,13 +826,7 @@ export default function ExpensesScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          {/* v1.2.4-dev: frosted-glass backdrop — matches Quick-Add sheet. */}
-          <BlurView
-            intensity={20}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
+          {/* v1.2.5 hotfix: BlurView removed (native-init crash). */}
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -1262,8 +1255,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    // Transparent overlay — actual darkening is the BlurView behind it (v1.2.4-dev).
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   modalContent: {
     borderTopLeftRadius: 24,

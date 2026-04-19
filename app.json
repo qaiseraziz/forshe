@@ -2,7 +2,7 @@
   "expo": {
     "name": "ForSHE",
     "slug": "forshe",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -14,14 +14,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.forshe.app",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow ForSHE to use your location to calculate accurate prayer times."
       }
     },
     "android": {
       "package": "com.forshe.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "backgroundColor": "#c8860a",
         "foregroundImage": "./assets/android-icon-foreground.png",

@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import TodayScreen from '../screens/TodayScreen';
@@ -47,16 +46,13 @@ const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any
     // backgrounds (gradients, photos in Recipes).
     <View style={[styles.tabBar, {
       shadowColor: '#000',
+      // v1.2.5 hotfix: BlurView removed — was causing a native-module init
+      // crash on some devices. Solid theme fill preserved via tabBarBg.
+      backgroundColor: colors.tabBarBg,
       // Float above Android nav gestures with a single safe-area-aware margin.
       // Interior padding is fixed — no double-counting the inset (v1.1.2 fix).
       marginBottom: Math.max(insets.bottom, 8),
     }]}>
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 40 : 60}
-        tint={dark ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBarBlurTint }]} pointerEvents="none" />
       {state.routes.map((route: any, index: number) => {
         const focused = state.index === index;
         const tab = TABS[index];
