@@ -39,7 +39,9 @@ const Drawer = createDrawerNavigator();
 type DrawerItemDef = { name: string; icon: string; label: string };
 type DrawerGroup = { title: string; icon: string; items: DrawerItemDef[] };
 
-// v1.2.1-dev: 5 grouped sections (Today stays outside, standalone at the top)
+// v1.2.3-dev: 6 grouped sections (Today stays outside, standalone at the top).
+// Spiritual split out of Personal — Islamic features get their own home (Qibla, Duas, Quran
+// bookmarks, Zakat calc, Islamic events will land here). Personal goes back to wellness-only.
 export const DRAWER_GROUPS: DrawerGroup[] = [
   {
     title: 'Money',
@@ -74,9 +76,15 @@ export const DRAWER_GROUPS: DrawerGroup[] = [
     title: 'Personal',
     icon: '💝',
     items: [
-      { name: 'PrayerTimes', icon: '🕌', label: 'Prayer Times' },
       { name: 'CycleTracker', icon: '🌸', label: 'Cycle Tracker' },
       { name: 'BodyStats', icon: '💪', label: 'Body Stats' },
+    ],
+  },
+  {
+    title: 'Spiritual',
+    icon: '🕌',
+    items: [
+      { name: 'PrayerTimes', icon: '🕌', label: 'Prayer Times' },
     ],
   },
   {
@@ -230,7 +238,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.2</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.3</Text>
       </View>
     </View>
   );

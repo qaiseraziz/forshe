@@ -1,8 +1,18 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
@@ -21,20 +31,33 @@ import {
   isAyyamAlBid,
 } from '../utils/prayer';
 
+// Enable LayoutAnimation on Android for the accordion expand/collapse
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 type Tone = 'gold' | 'red' | 'green' | 'muted';
-type BlockKey = 'money' | 'kitchen' | 'household' | 'personal' | 'system';
+type BlockKey = 'money' | 'kitchen' | 'household' | 'personal' | 'spiritual' | 'system';
+
+interface SubModule {
+  key: string;
+  label: string;
+  icon: string;
+  target: string;
+  targetIsTab: boolean;
+}
 
 interface GroupBlock {
   key: BlockKey;
   icon: string;
   name: string;
-  target: string;
-  targetIsTab: boolean;
   gradientLight: [string, string];
   gradientDark: [string, string];
   badge?: { label: string; tone: Tone };
+  submodules: SubModule[];
 }
 
+// Tab-names inside BottomTabs (hosted under Drawer route "Home")
 const TAB_NAMES = new Set(['Today', 'Expenses', 'Cooking', 'Remind']);
 
 export default function TodayScreen() {
@@ -47,6 +70,9 @@ export default function TodayScreen() {
   } = useData();
   const { pkr } = useCurrency();
   const { toast, dismiss: dismissToast } = useToast();
+
+  // v1.2.3-dev: inline-expand accordion. null = all collapsed. Only one open at a time.
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   const td = todayStr();
   const day = todayDay();
@@ -122,12 +148,17 @@ export default function TodayScreen() {
     [bodyLogs, iso],
   );
 
-  // Personal badge is prayer-aware once enabled
+  // v1.2.3-dev: Personal badge reverts to pre-v1.2.2 wellness-only logic
   const personalBadge = useMemo<{ label: string; tone: Tone }>(() => {
+    return loggedToday
+      ? { label: 'logged today', tone: 'green' }
+      : { label: 'no log today', tone: 'muted' };
+  }, [loggedToday]);
+
+  // v1.2.3-dev: Spiritual block badge — prayer-aware
+  const spiritualBadge = useMemo<{ label: string; tone: Tone }>(() => {
     if (!prayerSettings.enabled) {
-      return loggedToday
-        ? { label: 'logged today', tone: 'green' }
-        : { label: 'Setup Prayer Times', tone: 'gold' };
+      return { label: 'Setup', tone: 'gold' };
     }
     const now = new Date();
     const sun = isSunnahWeekday(now);
@@ -138,12 +169,8 @@ export default function TodayScreen() {
       const next = getNextPrayer(times, now);
       return { label: `${next.name} ${formatPrayerTime(next.time)}`, tone: 'muted' };
     }
-    if (loggedToday) return { label: 'logged today', tone: 'green' };
-    return { label: 'no log today', tone: 'muted' };
-  }, [prayerSettings, loggedToday]);
-
-  // Target for Personal block — Prayer Times if enabled, else BodyStats
-  const personalTarget = prayerSettings.enabled ? 'PrayerTimes' : 'BodyStats';
+    return { label: 'Setup', tone: 'gold' };
+  }, [prayerSettings]);
 
   const blocks = useMemo<GroupBlock[]>(() => {
     const moneyBadge: GroupBlock['badge'] =
@@ -168,65 +195,96 @@ export default function TodayScreen() {
         key: 'money',
         icon: '💰',
         name: 'Money',
-        target: 'Expenses',
-        targetIsTab: true,
         gradientLight: gradients.goldHero,
         gradientDark: gradients.goldHeroDark,
         badge: moneyBadge,
+        submodules: [
+          { key: 'Expenses', label: 'Expenses', icon: '💸', target: 'Expenses', targetIsTab: true },
+          { key: 'SavingsGoals', label: 'Savings', icon: '🎯', target: 'SavingsGoals', targetIsTab: false },
+          { key: 'Insights', label: 'Insights', icon: '📈', target: 'Insights', targetIsTab: false },
+          { key: 'MonthlyReport', label: 'Report', icon: '📊', target: 'MonthlyReport', targetIsTab: false },
+        ],
       },
       {
         key: 'kitchen',
         icon: '🍽️',
         name: 'Kitchen',
-        target: 'Cooking',
-        targetIsTab: true,
         gradientLight: gradients.greenHero,
         gradientDark: gradients.greenHeroDark,
         badge: kitchenBadge,
+        submodules: [
+          { key: 'Cooking', label: 'Cooking', icon: '🍳', target: 'Cooking', targetIsTab: true },
+          { key: 'Recipes', label: 'Recipes', icon: '📖', target: 'Recipes', targetIsTab: false },
+          { key: 'Shopping', label: 'Shopping', icon: '🛒', target: 'Shopping', targetIsTab: false },
+          { key: 'Inventory', label: 'Inventory', icon: '📦', target: 'Inventory', targetIsTab: false },
+        ],
       },
       {
         key: 'household',
         icon: '🏠',
         name: 'Household',
-        target: 'Remind',
-        targetIsTab: true,
         gradientLight: ['#f0f7ff', '#e0ecff'],
         gradientDark: ['#050d1a', '#071226'],
         badge: householdBadge,
+        submodules: [
+          { key: 'MaidTasks', label: 'Maid', icon: '🧹', target: 'MaidTasks', targetIsTab: false },
+          { key: 'Remind', label: 'Reminders', icon: '🔔', target: 'Remind', targetIsTab: true },
+          { key: 'Vendors', label: 'Vendors', icon: '💼', target: 'Vendors', targetIsTab: false },
+        ],
       },
       {
         key: 'personal',
         icon: '💝',
         name: 'Personal',
-        target: personalTarget,
-        targetIsTab: false,
         gradientLight: gradients.pinkHero,
         gradientDark: gradients.pinkHeroDark,
         badge: personalBadge,
+        submodules: [
+          { key: 'CycleTracker', label: 'Cycle', icon: '🌸', target: 'CycleTracker', targetIsTab: false },
+          { key: 'BodyStats', label: 'Body Stats', icon: '💪', target: 'BodyStats', targetIsTab: false },
+        ],
+      },
+      {
+        key: 'spiritual',
+        icon: '🕌',
+        name: 'Spiritual',
+        gradientLight: gradients.greenHero,
+        gradientDark: gradients.greenHeroDark,
+        badge: spiritualBadge,
+        submodules: [
+          { key: 'PrayerTimes', label: 'Prayer Times', icon: '🕌', target: 'PrayerTimes', targetIsTab: false },
+        ],
+      },
+      {
+        key: 'system',
+        icon: '⚙️',
+        name: 'System',
+        gradientLight: ['#f5f3f0', '#ebe7e0'],
+        gradientDark: ['#1f1f28', '#18181f'],
+        submodules: [
+          { key: 'Backup', label: 'Backup', icon: '💾', target: 'Backup', targetIsTab: false },
+          { key: 'Settings', label: 'Settings', icon: '⚙️', target: 'Settings', targetIsTab: false },
+        ],
       },
     ];
-  }, [budget, monthSpent, lowStockCount, dueTodayCount, personalBadge, personalTarget]);
+  }, [budget, monthSpent, lowStockCount, dueTodayCount, personalBadge, spiritualBadge]);
 
-  const systemBlock: GroupBlock = useMemo(
-    () => ({
-      key: 'system',
-      icon: '⚙️',
-      name: 'System',
-      target: 'Settings',
-      targetIsTab: false,
-      gradientLight: ['#f5f3f0', '#ebe7e0'],
-      gradientDark: ['#1f1f28', '#18181f'],
-    }),
-    [],
+  const toggleBlock = useCallback((key: BlockKey) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.selectionAsync();
+    setExpandedGroup(prev => (prev === key ? null : key));
+  }, []);
+
+  const navigateToSubmodule = useCallback(
+    (sub: SubModule) => {
+      if (sub.targetIsTab || TAB_NAMES.has(sub.target)) {
+        navigation.navigate('Home', { screen: sub.target });
+      } else {
+        navigation.navigate(sub.target);
+      }
+    },
+    [navigation],
   );
-
-  const onBlockPress = (block: GroupBlock) => {
-    if (block.targetIsTab || TAB_NAMES.has(block.target)) {
-      navigation.navigate('Home', { screen: block.target });
-    } else {
-      navigation.navigate(block.target);
-    }
-  };
 
   const badgeColorFor = (tone: Tone) => {
     switch (tone) {
@@ -282,60 +340,70 @@ export default function TodayScreen() {
           </View>
         </Card>
 
-        {/* Block Grid — 2-col square-ish blocks for Money/Kitchen/Household/Personal */}
+        {/* Block accordion — tap a block to reveal its sub-modules in place.
+            Single-open accordion: tapping a different block collapses the previous one. */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.deep }]}>Explore</Text>
-          <View style={styles.gridWrap}>
-            {blocks.map(block => {
-              const badge = block.badge ? badgeColorFor(block.badge.tone) : null;
-              const grad = dark ? block.gradientDark : block.gradientLight;
-              return (
+          {blocks.map(block => {
+            const isExpanded = expandedGroup === block.key;
+            const badge = block.badge ? badgeColorFor(block.badge.tone) : null;
+            const grad = dark ? block.gradientDark : block.gradientLight;
+            return (
+              <Card key={block.key} style={styles.blockCard} gradient={grad}>
                 <TouchableOpacity
-                  key={block.key}
                   activeOpacity={0.8}
-                  onPress={() => onBlockPress(block)}
+                  onPress={() => toggleBlock(block.key)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${block.name} group`}
-                  style={styles.blockWrapper}
+                  accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${block.name} group`}
+                  accessibilityState={{ expanded: isExpanded }}
+                  style={styles.blockHeaderTouch}
                 >
-                  <Card style={styles.blockCard} gradient={grad}>
-                    <View style={styles.blockTopRow}>
-                      <Text style={styles.blockIcon}>{block.icon}</Text>
+                  <View style={styles.blockHeaderRow}>
+                    <Text style={styles.blockIcon}>{block.icon}</Text>
+                    <Text style={[styles.blockName, { color: colors.deep }]}>{block.name}</Text>
+                    <Text style={[styles.blockChevron, { color: colors.muted }]}>
+                      {isExpanded ? '▾' : '▸'}
+                    </Text>
+                  </View>
+                  {block.badge && badge && (
+                    <View style={styles.blockBadgeRow}>
+                      <View style={[styles.blockBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.blockBadgeText, { color: badge.fg }]}>
+                          {block.badge.label}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.blockBottom}>
-                      <Text style={[styles.blockName, { color: colors.deep }]}>{block.name}</Text>
-                      {block.badge && badge && (
-                        <View style={[styles.blockBadge, { backgroundColor: badge.bg }]}>
-                          <Text style={[styles.blockBadgeText, { color: badge.fg }]}>
-                            {block.badge.label}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </Card>
+                  )}
                 </TouchableOpacity>
-              );
-            })}
-          </View>
 
-          {/* System — full-width narrower tile */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => onBlockPress(systemBlock)}
-            accessibilityRole="button"
-            accessibilityLabel="System group"
-          >
-            <Card
-              style={styles.systemCard}
-              gradient={dark ? systemBlock.gradientDark : systemBlock.gradientLight}
-            >
-              <View style={styles.systemRow}>
-                <Text style={styles.systemIcon}>{systemBlock.icon}</Text>
-                <Text style={[styles.systemName, { color: colors.deep }]}>{systemBlock.name}</Text>
-                <Text style={[styles.systemChevron, { color: colors.muted }]}>›</Text>
-              </View>
-            </Card>
-          </TouchableOpacity>
+                {isExpanded && (
+                  <View style={styles.submoduleGrid}>
+                    {block.submodules.map(sub => (
+                      <TouchableOpacity
+                        key={sub.key}
+                        activeOpacity={0.7}
+                        onPress={() => navigateToSubmodule(sub)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${sub.label}, inside ${block.name}`}
+                        style={[
+                          styles.submoduleTile,
+                          { backgroundColor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.55)' },
+                        ]}
+                      >
+                        <Text style={styles.submoduleIcon}>{sub.icon}</Text>
+                        <Text
+                          style={[styles.submoduleLabel, { color: colors.deep }]}
+                          numberOfLines={1}
+                        >
+                          {sub.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </Card>
+            );
+          })}
         </View>
 
         {/* Prayer Times setup nudge */}
@@ -502,27 +570,37 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8, marginBottom: 8,
   },
 
-  // --- 2-col block grid ---
-  gridWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  // --- v1.2.3-dev: inline-expanding accordion blocks ---
+  blockCard: {
+    padding: 18,
     marginBottom: 12,
   },
-  blockWrapper: {
-    width: '47%',
-    flexGrow: 1,
+  blockHeaderTouch: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  blockCard: {
-    aspectRatio: 1 / 0.9,
-    padding: 16,
-    marginBottom: 0,
-    justifyContent: 'space-between',
+  blockHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  blockTopRow: { flexDirection: 'row', justifyContent: 'flex-end' },
-  blockIcon: { fontSize: 32, lineHeight: 36 },
-  blockBottom: { alignItems: 'flex-start', gap: 8 },
-  blockName: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  blockIcon: { fontSize: 28, lineHeight: 32 },
+  blockName: {
+    flex: 1,
+    fontSize: 18,
+    fontFamily: 'Outfit-Bold',
+  },
+  blockChevron: {
+    fontSize: 16,
+    fontFamily: 'Outfit-Bold',
+    width: 18,
+    textAlign: 'center',
+  },
+  blockBadgeRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    paddingLeft: 40, // align with group name (icon 28 + gap 12)
+  },
   blockBadge: {
     alignSelf: 'flex-start',
     borderRadius: 10,
@@ -536,12 +614,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // --- System full-width narrower tile ---
-  systemCard: { paddingVertical: 14, paddingHorizontal: 18 },
-  systemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
-  systemIcon: { fontSize: 24, width: 32, textAlign: 'center' },
-  systemName: { flex: 1, fontSize: 17, fontFamily: 'Outfit-Bold' },
-  systemChevron: { fontSize: 24, fontFamily: 'Outfit-Bold' },
+  // --- submodule mini-tile grid (2-col) ---
+  submoduleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  submoduleTile: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    minHeight: 80,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  submoduleIcon: { fontSize: 22, lineHeight: 26 },
+  submoduleLabel: {
+    fontSize: 14,
+    fontFamily: 'Outfit-SemiBold',
+  },
 
   // Prayer onboarding nudge
   onboardCard: { marginBottom: 16 },

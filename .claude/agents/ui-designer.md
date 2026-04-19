@@ -20,7 +20,71 @@ You are the premium mobile UI/UX designer for **ForSHE** (React Native Expo). Yo
 - **Modal form**: bottom-sheet (`animationType="slide"`, `borderTopLeftRadius: 32`). Fields in order — Name, Category picker, Phone (keyboardType `phone-pad`), Alt phone (phone-pad), Address (multiline), 5-star rating row (tappable 44×44 cells, tap the already-selected star to clear), Favorite switch with title + sub, Notes (multiline). Validation alerts: missing name, missing phone, phone `<7` digits after strip, alt phone `<7` digits if provided.
 - **No currency on this screen**: Vendors is contacts, not money. Do NOT add `useCurrency()` or any `pkr` / `pkrF` calls. Don't render any currency widget.
 
-## v1.2.2-dev patterns you MUST know (block grid + prayer times)
+## v1.2.3-dev patterns you MUST know (inline-expand home + Spiritual group)
+- **TodayScreen home blocks are an inline-expand accordion — NOT a 2×2 grid**. The v1.2.2 block grid is superseded. Tapping a block does NOT navigate; it expands the block in place to reveal the group's sub-modules as 2-column mini-tiles INSIDE the block. Single-open: tapping a different block collapses the previous one. Tapping the same block again collapses it. Animation via `LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)` + `Haptics.selectionAsync()` on toggle. State: `const [expandedGroup, setExpandedGroup] = useState<string | null>(null)` — never persisted. Never re-add the v1.2.2 `aspectRatio: 1/0.9` + `width: '47%'` 2×2 grid.
+- **Six home blocks, always in this order**: Money, Kitchen, Household, Personal, Spiritual, System — matches `DRAWER_GROUPS` exactly. Never render only 5 (that was v1.2.2). Never reorder.
+- **Canonical block JSX** (for reference when a future task edits this screen):
+  ```tsx
+  <Card key={block.key} style={styles.blockCard} gradient={dark ? block.gradientDark : block.gradientLight}>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => toggleBlock(block.key)}
+      accessibilityRole="button"
+      accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${block.name} group`}
+      accessibilityState={{ expanded: isExpanded }}
+      style={styles.blockHeaderTouch}
+    >
+      <View style={styles.blockHeaderRow}>
+        <Text style={styles.blockIcon}>{block.icon}</Text>
+        <Text style={[styles.blockName, { color: colors.deep }]}>{block.name}</Text>
+        <Text style={[styles.blockChevron, { color: colors.muted }]}>{isExpanded ? '▾' : '▸'}</Text>
+      </View>
+      {block.badge && badge && (
+        <View style={styles.blockBadgeRow}>
+          <View style={[styles.blockBadge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.blockBadgeText, { color: badge.fg }]}>{block.badge.label}</Text>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+
+    {isExpanded && (
+      <View style={styles.submoduleGrid}>
+        {block.submodules.map(sub => (
+          <TouchableOpacity
+            key={sub.key}
+            activeOpacity={0.7}
+            onPress={() => navigateToSubmodule(sub)}
+            accessibilityRole="button"
+            accessibilityLabel={`${sub.label}, inside ${block.name}`}
+            style={[styles.submoduleTile, { backgroundColor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.55)' }]}
+          >
+            <Text style={styles.submoduleIcon}>{sub.icon}</Text>
+            <Text style={[styles.submoduleLabel, { color: colors.deep }]} numberOfLines={1}>{sub.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    )}
+  </Card>
+  ```
+  Key style constants (see `TodayScreen.tsx` `StyleSheet.create`):
+  - `blockCard` — `padding: 18, marginBottom: 12` (no aspectRatio)
+  - `blockHeaderRow` — `flexDirection: 'row', alignItems: 'center', gap: 12`
+  - `blockIcon` — `fontSize: 28, lineHeight: 32`
+  - `blockName` — `flex: 1, fontSize: 18, fontFamily: 'Outfit-Bold'`
+  - `blockChevron` — `fontSize: 16, fontFamily: 'Outfit-Bold', width: 18`
+  - `blockBadgeRow` — `marginTop: 8, paddingLeft: 40` (aligns badge with group name, past icon 28 + gap 12)
+  - `submoduleGrid` — `flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14`
+  - `submoduleTile` — `flexBasis: '47%', flexGrow: 1, minHeight: 80, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14` (44×44 touch target is comfortably exceeded)
+  - `submoduleIcon` — `fontSize: 22, lineHeight: 26`
+  - `submoduleLabel` — `fontSize: 14, fontFamily: 'Outfit-SemiBold'`
+- **Sub-module tile background is a translucent white/black wash over the block gradient** — light `rgba(255,255,255,0.55)`, dark `rgba(255,255,255,0.06)`. This makes the mini-tile feel "inside" the parent block while preserving the themed gradient identity. Never solid white, never a hardcoded hex.
+- **Spiritual group gradient**: reuses `greenHero` / `greenHeroDark` (same as Kitchen). Rationale: green reads as calm / spiritual, keeps the palette tight, and the two blocks never sit adjacent (Kitchen 2nd, Spiritual 5th). If Spiritual grows to 3+ items (Qibla, Duas, Quran, Zakat, etc.), introduce a dedicated `spiritualHero` / `spiritualHeroDark` pair in `src/constants/colors.ts` — proposed values: `['#e8f5e9','#c8e6c9']` light / `['#0a1a12','#050d08']` dark. Until then, the shared green is fine.
+- **Personal block is wellness-only again**: Prayer Times is NOT in the Personal block. Personal badge is plain `loggedToday ? 'logged today' (green) : 'no log today' (muted)`. Prayer-aware copy lives on the Spiritual block.
+- **Spiritual block badge logic**: `!prayerSettings.enabled` → `"Setup"` (gold); today is Mon/Thu or 13/14/15 Hijri → `"Sunnah day 🌙"` (gold); location set + `computePrayerTimes` returns a value → `` `${next.name} ${formatPrayerTime(next.time)}` `` (muted); fallback → `"Setup"`. `getNextPrayer`, `formatPrayerTime`, `isSunnahWeekday`, `isAyyamAlBid`, `computePrayerTimes` all come from `src/utils/prayer.ts` — never `adhan` directly.
+- **What NOT to re-add to TodayScreen**: the v1.2.2 2×2 grid with `aspectRatio: 1/0.9`, `width: '47%'`, `gap: 12`, `gridWrap`, `blockWrapper`; the separate full-width System tile (System is now a first-class block in the accordion stack); per-block `onBlockPress` navigation handler that jumped to a default screen.
+
+## v1.2.2-dev patterns you MUST know (block grid + prayer times — SUPERSEDED by v1.2.3-dev inline-expand)
 - **2-column block grid on TodayScreen**: the v1.2.1-dev "vertical strip tile" list is OBSOLETE. TodayScreen now renders four square-ish blocks (Money / Kitchen / Household / Personal) in a 2×2 grid + a separate compact full-width System tile at the bottom. Each block is a `Card` with a themed soft gradient background (Money→`goldHero` / `goldHeroDark`, Kitchen→`greenHero` / `greenHeroDark`, Household→`['#f0f7ff','#e0ecff']` light / `['#050d1a','#071226']` dark, Personal→`pinkHero` / `pinkHeroDark`, System→neutral `['#f5f3f0','#ebe7e0']` / `['#1f1f28','#18181f']`). Never use a FlatList for this — just `flex-wrap` + `width: '47%'` + `gap: 12`.
 - **Block anatomy**: `aspectRatio: 1 / 0.9`, `padding: 16`, `justifyContent: 'space-between'`. Top-right: group emoji, `fontSize: 32`, `lineHeight: 36`. Bottom-left: group name (Outfit-Bold 18, `colors.deep`) + optional status badge pill (`alignSelf: 'flex-start'`, `paddingHorizontal: 10`, `paddingVertical: 4`, `borderRadius: 10`). Use `activeOpacity={0.8}` on the `TouchableOpacity` wrapper — DO NOT re-add scale transforms or haptics (haptics already fire on the destinations).
 - **System tile layout**: full-width `Card`, `paddingVertical: 14`, `paddingHorizontal: 18`, a single horizontal row: 24px emoji (width 32) + name (flex 1, Outfit-Bold 17, `colors.deep`) + `›` chevron (Outfit-Bold 24, `colors.muted`). No badge.

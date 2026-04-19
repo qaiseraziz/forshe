@@ -2,6 +2,38 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.3 — 2026-04-19 "Inline-Expand Home + Spiritual Group"
+
+Patch release on top of v1.2.2. Two connected UX fixes addressing user feedback that the v1.2.2 block grid was "complex and not flexible" because each block jumped to a default screen, hiding the rest of the group's sub-modules behind the drawer. Also carves a dedicated 🕌 Spiritual drawer group out of Personal so Islamic features have a home to grow into.
+
+### APK
+
+- Build ID: _(stamped in follow-up commit)_
+- Build page: _(stamped in follow-up commit)_
+
+### Added
+
+- _(none — this release is purely UX polish on existing modules)_
+
+### Changed
+
+- **TodayScreen home blocks are now an inline-expand accordion** (`src/screens/TodayScreen.tsx`) — the v1.2.2 "tap block = jump to default screen" behavior is removed. Tapping a block now expands it in place to reveal the group's sub-modules as a 2-column mini-tile grid INSIDE the block. Single-open accordion: tapping a different block collapses the previous one; tapping the same block again collapses it. Animation via `LayoutAnimation.Presets.easeInEaseOut` + `Haptics.selectionAsync()` — no new deps. Block header renders emoji + name + chevron (`▸` collapsed, `▾` expanded) + badge row. Sub-module tiles navigate to the specific screen (`navigation.navigate('Home', { screen })` for bottom-tab targets, plain `navigation.navigate()` otherwise). The v1.2.2 2×2 grid with `aspectRatio: 1/0.9` + `width: '47%'` is superseded — blocks are now full-width stacked cards. Sub-module tile backgrounds use `rgba(255,255,255,0.55)` light / `rgba(255,255,255,0.06)` dark so the parent block's gradient still reads through. `accessibilityState={{ expanded }}` + `accessibilityLabel` = `` `${expanded ? 'Collapse' : 'Expand'} ${block.name} group` `` on every header for screen readers.
+- **Drawer now has 6 groups** (`src/navigation/DrawerNav.tsx`) — new 🕌 **Spiritual** group inserted between Personal and System with a single item (Prayer Times). `DRAWER_GROUPS.length` goes from 5 → 6. Order: Money, Kitchen, Household, Personal, Spiritual, System. Personal is back to its pre-v1.2.2 shape with only Cycle Tracker + Body Stats (wellness-only). PrayerSettings stays registered as a deep-link-only `Drawer.Screen` and is NOT listed inside any group (same pattern as v1.2.2).
+- **TodayScreen Personal block reverts to wellness-only badge logic** — prayer-aware copy moved to the Spiritual block. Personal badge = `loggedToday ? 'logged today' (green) : 'no log today' (muted)`. `prayerSettings.enabled` no longer influences the Personal block's target or badge.
+- **TodayScreen Spiritual block** — new block, 5th in the stack. Reuses the `greenHero` / `greenHeroDark` gradient (designer chose to reuse rather than introduce a new `spiritualHero` pair; rationale is the palette stays tight, and Kitchen/Spiritual are 3 blocks apart so never visually adjacent). Badge logic: `!prayerSettings.enabled` → `"Setup"` (gold); today is Mon/Thu or 13/14/15 Hijri → `"Sunnah day 🌙"` (gold); location set + times computable → `"{PrayerName} {h:MM AM/PM}"` (muted); fallback → `"Setup"`. When Spiritual grows to 3+ items, revisit the shared gradient and consider adding `spiritualHero` (`['#e8f5e9','#c8e6c9']` light / `['#0a1a12','#050d08']` dark).
+
+### Fixed
+
+- _(none — behavior change rolled into Changed above)_
+
+### Chore
+
+- Bumped `app.json` version `1.2.2` → `1.2.3`; `ios.buildNumber` `"9"` → `"10"`; `android.versionCode` `9` → `10`. Bumped `package.json` version `1.2.2` → `1.2.3`. Updated `SettingsScreen` About copy + `DrawerNav` footer to `v1.2.3`.
+- `npx tsc --noEmit` and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` both exit 0 at release.
+- No new npm packages.
+- Documentation updated: `CLAUDE.md` (Navigation Architecture → 6 groups; new workflow rules for the accordion pattern, the Spiritual group, and the Personal wellness-only badge), `.claude/agents/ui-designer.md` (canonical JSX for the inline-expand block), `.claude/agents/qa-expert.md` (6-group assertions, Spiritual count = 1, Personal count = 2, `expandedGroup` state shape).
+- Tagged `v1.2.3` on `master`; APK queued on EAS preview profile.
+
 ## v1.2.2 — 2026-04-19 "Block Grid Home + Prayer Times"
 
 Patch release on top of v1.2.1. Two connected UX additions: TodayScreen's stacked group tiles become a real 2-column block grid with themed gradients, and a brand-new Prayer Times + Sunnah Fasting module ships inside the 💝 Personal group.
