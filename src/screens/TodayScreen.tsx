@@ -18,11 +18,13 @@ import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useToast, Toast } from '../components/ui/Toast';
+import { MotiEnter } from '../components/ui/MotiEnter';
 import { MEALS, MEAL_ICONS, FULL_DAYS, MONTHS } from '../constants/data';
 import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, todayDay, todayISO, fmtISO } from '../utils/dates';
-import { gradients } from '../constants/colors';
+import { gradients, heroGradientForHour } from '../constants/colors';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import { Skeleton, SkeletonCardRow } from '../components/ui/Skeleton';
 import {
   computePrayerTimes,
   getNextPrayer,
@@ -66,7 +68,7 @@ export default function TodayScreen() {
   const navigation = useNavigation<any>();
   const {
     history, cooking, maidData, reminders, attendance, budget,
-    inventory, bodyLogs, prayerSettings,
+    inventory, bodyLogs, prayerSettings, allLoaded,
   } = useData();
   const { pkr } = useCurrency();
   const { toast, dismiss: dismissToast } = useToast();
@@ -78,6 +80,11 @@ export default function TodayScreen() {
   const day = todayDay();
   const iso = todayISO();
 
+  // v1.2.5-dev: capture the hour once so the hero gradient `useMemo` is keyed
+  // on a stable primitive (not a Date instance). Re-runs only when the hour
+  // bucket changes, which happens at most 24× per day.
+  const currentHour = useMemo(() => new Date().getHours(), []);
+
   const { greeting, fullDate } = useMemo(() => {
     const now = new Date();
     const hr = now.getHours();
@@ -87,6 +94,14 @@ export default function TodayScreen() {
       fullDate: `${weekday}, ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
     };
   }, []);
+
+  // v1.2.5-dev: time-aware hero gradient. Static — no animation, no re-render
+  // trigger. Keyed on `currentHour` + `dark` so switching to dark mode picks
+  // the right pair without a full re-render chain.
+  const heroGradient = useMemo(
+    () => heroGradientForHour(currentHour, dark),
+    [currentHour, dark],
+  );
 
   const totalRec = useMemo(
     () => history.filter(h => h.type === 'topup').reduce((s, h) => s + h.amount, 0),
@@ -309,8 +324,9 @@ export default function TodayScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
-        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={styles.heroCard}>
+        {/* Hero — v1.2.4-dev: fade + slide-up entrance via MotiEnter. One-shot only. */}
+        <MotiEnter>
+        <Card gradient={heroGradient} style={styles.heroCard}>
           <View style={styles.heroHeaderRow}>
             <DrawerMenuButton />
             <View style={styles.heroHeaderText}>
@@ -323,33 +339,52 @@ export default function TodayScreen() {
           <View style={styles.heroStatsRow}>
             <View style={styles.heroStatCol}>
               <Text style={[styles.heroStatLabel, { color: colors.muted }]}>Balance</Text>
-              <Text
-                style={[
-                  styles.heroStatValue,
-                  { color: bal < 0 ? colors.red : colors.green },
-                ]}
-              >
-                {pkr(bal)}
-              </Text>
+              {allLoaded ? (
+                <Text
+                  style={[
+                    styles.heroStatValue,
+                    { color: bal < 0 ? colors.red : colors.green },
+                  ]}
+                >
+                  {pkr(bal)}
+                </Text>
+              ) : (
+                <Skeleton height={26} width={120} borderRadius={8} />
+              )}
             </View>
             <View style={[styles.heroStatDivider, { backgroundColor: colors.border }]} />
             <View style={styles.heroStatCol}>
               <Text style={[styles.heroStatLabel, { color: colors.muted }]}>Spent Today</Text>
-              <Text style={[styles.heroStatValue, { color: colors.deep }]}>{pkr(todaySpent)}</Text>
+              {allLoaded ? (
+                <Text style={[styles.heroStatValue, { color: colors.deep }]}>{pkr(todaySpent)}</Text>
+              ) : (
+                <Skeleton height={26} width={100} borderRadius={8} />
+              )}
             </View>
           </View>
         </Card>
+        </MotiEnter>
 
         {/* Block accordion — tap a block to reveal its sub-modules in place.
             Single-open accordion: tapping a different block collapses the previous one. */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.deep }]}>Explore</Text>
-          {blocks.map(block => {
+          {!allLoaded && (
+            <>
+              <SkeletonCardRow />
+              <SkeletonCardRow />
+              <SkeletonCardRow />
+              <SkeletonCardRow />
+            </>
+          )}
+          {allLoaded && blocks.map((block, idx) => {
             const isExpanded = expandedGroup === block.key;
             const badge = block.badge ? badgeColorFor(block.badge.tone) : null;
             const grad = dark ? block.gradientDark : block.gradientLight;
+            // v1.2.4-dev: staggered 30ms one-shot entrance per block.
             return (
-              <Card key={block.key} style={styles.blockCard} gradient={grad}>
+              <MotiEnter key={block.key} delay={idx * 30}>
+              <Card style={styles.blockCard} gradient={grad}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => toggleBlock(block.key)}
@@ -402,6 +437,7 @@ export default function TodayScreen() {
                   </View>
                 )}
               </Card>
+              </MotiEnter>
             );
           })}
         </View>
@@ -527,8 +563,8 @@ export default function TodayScreen() {
         )}
 
         {/* Empty state when nothing today */}
-        {dueSoon.length === 0 && meals.length === 0 && maidTasks.length === 0 && (
-          <EmptyState icon="✨" text="No tasks, meals, or reminders for today. Enjoy your day!" />
+        {allLoaded && dueSoon.length === 0 && meals.length === 0 && maidTasks.length === 0 && (
+          <EmptyState icon="✨" text="All caught up for today. Enjoy yourself." />
         )}
       </ScrollView>
 

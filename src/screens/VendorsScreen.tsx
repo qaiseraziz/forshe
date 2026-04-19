@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Switch,
   Linking,
   ListRenderItem,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +30,8 @@ import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { VENDOR_CATS } from '../constants/data';
 import { Vendor, VendorCategory } from '../types';
+import { SwipeableRow } from '../components/ui/SwipeableRow';
+import { SkeletonCardRow } from '../components/ui/Skeleton';
 
 type FilterKey = 'all' | 'favorites' | VendorCategory;
 
@@ -48,7 +51,7 @@ function todayISO(): string {
 export default function VendorsScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { vendors, setVendors } = useData();
+  const { vendors, setVendors, allLoaded } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const [search, setSearch] = useState('');
@@ -66,6 +69,13 @@ export default function VendorsScreen() {
   const [fRating, setFRating] = useState(0);
   const [fFavorite, setFFavorite] = useState(false);
   const [fNotes, setFNotes] = useState('');
+
+  // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
+  const vNameRef = useRef<TextInput | null>(null);
+  const vPhoneRef = useRef<TextInput | null>(null);
+  const vAltPhoneRef = useRef<TextInput | null>(null);
+  const vAddressRef = useRef<TextInput | null>(null);
+  const vNotesRef = useRef<TextInput | null>(null);
 
   const resetForm = useCallback(() => {
     setFName('');
@@ -312,6 +322,13 @@ export default function VendorsScreen() {
     const catDef = VENDOR_CATS.find(c => c.key === item.category);
     const isExpanded = expandedId === item.id;
     return (
+      <SwipeableRow
+        itemLabel={item.name}
+        actions={[
+          { kind: 'call', onPress: () => handleCallPress(item) },
+          { kind: 'delete', onPress: () => deleteVendor(item.id) },
+        ]}
+      >
       <Card>
         <TouchableOpacity
           activeOpacity={0.7}
@@ -411,6 +428,7 @@ export default function VendorsScreen() {
           </>
         )}
       </Card>
+      </SwipeableRow>
     );
   }, [expandedId, colors, toggleExpanded, toggleFavorite, handleCall, handleCallPress, handleWhatsApp, openEdit, deleteVendor, renderStars]);
 
@@ -462,17 +480,29 @@ export default function VendorsScreen() {
     </View>
   ), [dark, colors, vendors.length, search, openAdd, filterPills, filter, filtered.length]);
 
-  const listEmpty = useMemo(() => (
-    <EmptyState
-      icon="💼"
-      text={vendors.length === 0
-        ? 'No vendors yet.'
-        : 'No vendors match this filter.'}
-      hint={vendors.length === 0
-        ? 'Tap + to add your first trusted service provider.'
-        : undefined}
-    />
-  ), [vendors.length]);
+  const listEmpty = useMemo(() => {
+    if (!allLoaded) {
+      return (
+        <View>
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+        </View>
+      );
+    }
+    return (
+      <EmptyState
+        icon="💼"
+        text={vendors.length === 0
+          ? 'Add your trusted service providers so they’re one tap away.'
+          : 'No vendors match this filter.'}
+        hint={vendors.length === 0
+          ? 'Tap + to save a plumber, doctor, or anyone you rely on.'
+          : undefined}
+      />
+    );
+  }, [vendors.length, allLoaded]);
 
   return (
     <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
@@ -502,11 +532,16 @@ export default function VendorsScreen() {
               </Text>
 
               <Input
+                ref={vNameRef}
                 label="Name"
                 placeholder="e.g. Ali Plumbing"
                 value={fName}
                 onChangeText={setFName}
                 style={{ marginBottom: 12 }}
+                autoFocus
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => vPhoneRef.current?.focus()}
               />
 
               <Text style={[styles.fieldLabel, { color: colors.muted }]}>CATEGORY</Text>
@@ -524,24 +559,33 @@ export default function VendorsScreen() {
               </View>
 
               <Input
+                ref={vPhoneRef}
                 label="Phone"
                 placeholder="e.g. 0300 1234567"
                 value={fPhone}
                 onChangeText={setFPhone}
                 keyboardType="phone-pad"
                 style={{ marginBottom: 12 }}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => vAltPhoneRef.current?.focus()}
               />
 
               <Input
+                ref={vAltPhoneRef}
                 label="Alt phone (optional)"
                 placeholder="e.g. 021 1234567"
                 value={fAltPhone}
                 onChangeText={setFAltPhone}
                 keyboardType="phone-pad"
                 style={{ marginBottom: 12 }}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => vAddressRef.current?.focus()}
               />
 
               <Input
+                ref={vAddressRef}
                 label="Address (optional)"
                 placeholder="Shop, street, area"
                 value={fAddress}
@@ -582,12 +626,15 @@ export default function VendorsScreen() {
               </View>
 
               <Input
+                ref={vNotesRef}
                 label="Notes (optional)"
                 placeholder="e.g. Fair prices, reliable"
                 value={fNotes}
                 onChangeText={setFNotes}
                 multiline
                 style={{ marginTop: 12 }}
+                returnKeyType="done"
+                onSubmitEditing={saveVendor}
               />
 
               <View style={styles.modalBtns}>

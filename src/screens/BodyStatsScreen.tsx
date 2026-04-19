@@ -1012,8 +1012,8 @@ export default function BodyStatsScreen() {
         {!bodyLogs.length && (
           <EmptyState
             icon="💪"
-            text="No logs yet."
-            hint="Log your first entry above to start tracking."
+            text="Log your first measurement to see insights over time."
+            hint="Just a weight or BP today is enough to start the trend."
           />
         )}
 

@@ -4,14 +4,14 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.2.3** (tagged 2026-04-19) — see `CHANGELOG.md` for full history.
+**v1.2.4** (tagged 2026-04-19) — "Design Polish + Battery Audit". Bundles the v1.2.4-dev + v1.2.5-dev work: four design libraries (BlurView, Lottie, Moti, Phosphor), frosted-glass tab bar + modal backdrops (4 approved spots), one-shot Lottie animations, Phosphor chrome icons, Moti entrances, swipeable list rows in 6 screens, battery-first Skeleton loaders on 7 screens, floating-pill Toast with icon + Moti spring, time-aware hero gradient on TodayScreen, micro-copy pass across 10 empty states, form keyboard flow (auto-focus + Next/Done chaining), and the PrayerTimesScreen countdown-leak fix (`useFocusEffect`). See `CHANGELOG.md` for full history.
 - v1.2.3 release theme: "Inline-Expand Home + Spiritual Group" — TodayScreen home blocks switch from "tap = jump to default screen" to an inline single-open accordion that reveals the group's sub-modules as 2-column mini-tiles inside the block. New 🕌 Spiritual drawer group split out of Personal (Prayer Times moves there; Personal returns to wellness-only = Cycle Tracker + Body Stats). Drawer now has 6 groups.
 - v1.2.2 release theme: "Block Grid Home + Prayer Times" — TodayScreen redesigned from stacked tile strips to a 2-column block grid (Money/Kitchen/Household/Personal) with themed gradient backgrounds + a full-width System tile. New Prayer Times + Sunnah Fasting feature (adhan library, GPS or manual city, 5 prayer notifications + Monday/Thursday + Ayyam al-Bid reminders).
 - v1.2.1 release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
-- `app.json`: version `1.2.3`, `ios.buildNumber "10"`, `android.versionCode 10`.
-- `package.json`: name `forshe`, version `1.2.3`.
-- Latest APK build: `2218683b-51d8-4db2-9f49-9a3d559a8068` (queued 2026-04-19, https://expo.dev/accounts/smartbzss/projects/forshe/builds/2218683b-51d8-4db2-9f49-9a3d559a8068).
-- Previous released tag: `v1.2.2` on master (APK `8e74a970`, 2026-04-19).
+- `app.json`: version `1.2.4`, `ios.buildNumber "11"`, `android.versionCode 11`.
+- `package.json`: name `forshe`, version `1.2.4`.
+- Latest APK build: pending EAS queue (stamp after `eas build` returns).
+- Previous released tag: `v1.2.3` on master.
 - Orchestration: every task routes through `project-manager` (see Agents section).
 
 ## Tech Stack
@@ -30,7 +30,12 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 - **Date picker**: @react-native-community/datetimepicker
 - **Category picker**: @react-native-picker/picker
 - **Prayer times**: `adhan` 4.4.3 (pure JS, MIT, offline — Batoul Apps)
-- **Location**: `expo-location` ~55.1.8 (GPS + reverse-geocode for prayer location)
+- **Location**: `expo-location` ~55.1.8 (GPS + reverse-geocode for prayer location; `Accuracy.Balanced`, one-shot `getCurrentPositionAsync`, NEVER `watchPositionAsync`)
+- **Visual polish (v1.2.4-dev)**:
+  - `expo-blur` ~15.0.8 — frosted glass in exactly 3 approved spots (bottom tab bar, QuickAdd sheet backdrop, ExpensesScreen edit-modal backdrop, PrayerSettings manual-location modal backdrop). **Never** in list rows, cards, or scrollable content — real battery hit.
+  - `lottie-react-native` 7.3.5 — one-shot vector animations, gated behind the `LottieBox` wrapper in `src/components/ui/LottieBox.tsx` which HARD-CODES `loop={false}`. No ambient / infinite Lottie anywhere. Files live in `assets/lottie/` and are documented in `assets/lottie/README.md`. Hand-authored bodymovin JSONs for `celebrate`, `pulse`, `sparkle` ship in-repo; `splash-intro`, `empty-inbox`, `tasbeeh` slot fall back to those until Lottiefiles.com replacements drop in.
+  - `phosphor-react-native` 2.3.1 — chrome icons only (bottom tab bar, hamburger). Weight: `regular` everywhere. Drawer group emojis (💰🍽️🏠💝🕌⚙️) stay — they are CONTENT, not chrome. react-native-svg was already a transitive dep of gifted-charts so no new native module.
+  - `moti` 0.30.0 — declarative spring/timing entrances via the `MotiEnter` wrapper (`src/components/ui/MotiEnter.tsx`). Built on the reanimated we already ship. One-shot only; no `repeat`, no `loop`. Staggered 30ms delay between siblings for a premium feel.
 - **Build**: EAS Build (project ID: 51ca4967-73b1-4656-9b1b-045e2933a842, owner: smartbzss)
 - **Babel**: babel.config.js with babel-preset-expo + react-native-reanimated/plugin
 
@@ -38,7 +43,7 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 ```
 src/
   components/
-    ui/                  # Card, Button, Input, Badge, Toast, Divider, EmptyState, Pill, ProgressBar (all React.memo)
+    ui/                  # Card, Button, Input (forwardRef v1.2.5-dev), Badge, Toast (floating pill v1.2.5-dev), Divider, EmptyState, Pill, ProgressBar, Skeleton (v1.2.5-dev), SwipeableRow (v1.2.5-dev), LottieBox, MotiEnter, ChromeIcon (all React.memo)
     DayStrip.tsx         # Day selector strip (React.memo)
     MonthBar.tsx         # Month filter bar (React.memo, static FILTERS array)
     DrawerMenuButton.tsx # Hamburger menu button (React.memo, useCallback)
@@ -298,6 +303,16 @@ The global Claude Code agent types available are `ui-designer`, `qa-expert`, `pe
 - Route to eas-release-expert for build failures or release prep (via project-manager)
 - All screens must use LinearGradient wrapper and safe area insets
 - All screens must include DrawerMenuButton for hamburger access
+- **No infinite animation loops, EVER** (v1.2.4-dev rule): no `loop={true}` on `LottieView`, no `repeat: Infinity` / `loop: Infinity` on Moti/reanimated, no `Animated.loop`, no ambient `setInterval` without `useFocusEffect` pausing it on blur, no `watchPositionAsync`. All animations are one-shot. `LottieBox` and `MotiEnter` wrappers enforce this — never import `LottieView` or `MotiView` directly in screens. v1.2.5-dev adds: Toast uses a single Moti spring on mount (one-shot, no `repeat`), Skeleton uses no animation at all.
+- **Swipeable list rows** (v1.2.5-dev rule): use `<SwipeableRow>` from `src/components/ui/SwipeableRow.tsx` — NEVER import `Swipeable` from `react-native-gesture-handler` directly in a screen. Actions passed as `SwipeAction[]` with `kind: 'delete' | 'edit' | 'done' | 'call' | 'custom'`. Every destructive `delete` action MUST still fire `showToast(msg, undoFn)` — the SwipeableRow wrapper does NOT fire the toast; that's the screen's job (matches the v1.1.3 Undo-everywhere rule). Apply to flat list rows only — NEVER to grid tiles (home block mini-tiles, drawer items) or single-row cards. Action buttons are 44×44 min, fire `Haptics.impactAsync(Light)` once, then call the callback. Swipeable does not interfere with tap navigation. Canonical screens: ExpensesScreen (edit+delete), RemindersScreen (done+delete), VendorsScreen (call+delete), InventoryScreen (edit+delete), ShoppingListScreen active-session items (delete), SavingsGoalsScreen (edit+delete).
+- **Skeleton loaders** (v1.2.5-dev rule): use `<Skeleton>`, `<SkeletonCardRow>`, or `<SkeletonChart>` from `src/components/ui/Skeleton.tsx`. Gate them behind `!allLoaded` from `useData()`. NEVER add shimmer, `repeat`, or any animation loop — the default is a static dim-gray rounded block. Typical AsyncStorage load completes in <400ms so animation is both pointless and a battery drain. If shimmer is ever genuinely needed, use the reserved `animated` prop (not yet implemented) — do NOT roll your own `Animated.loop`. Canonical uses: ExpensesScreen 5 rows, RemindersScreen 3 rows, VendorsScreen 4 rows, InventoryScreen 4 rows, RecipeBookScreen 3 rows, InsightsScreen 2 charts, TodayScreen hero numbers + block grid.
+- **Time-aware TodayScreen hero** (v1.2.5-dev rule): the greeting hero uses `heroGradientForHour(hour, dark)` from `src/constants/colors.ts` inside a `useMemo` whose deps are `[currentHour, dark]` where `currentHour` is itself a primitive captured via `useMemo(() => new Date().getHours(), [])`. **NEVER** key the memo on `new Date()` directly — the Date instance changes every render and the memo would recompute uselessly. Static — no animation, no re-render trigger. Four bands: Morning 5–10 (warm gold-ivory), Afternoon 11–16 (default = goldHero), Evening 17–20 (warmer peach), Night 21–4 (cool lavender). Dark-mode counterparts use `*HeroDark` variants. Only TodayScreen uses this — other screens keep their fixed hero gradient.
+- **Toast floating-pill** (v1.2.5-dev rule): Toast is rendered as a floating pill at `bottom = max(insets.bottom, 8) + 90` with `colors.bg2` bg, 18px radius, icon-in-tinted-circle on the left, optional Undo button on the right, all layered over a Moti one-shot spring (damping 18, stiffness 220). `showToast(msg, undoFn)` API is unchanged — existing callsites still work. New optional third arg `icon: 'success' | 'error' | 'info'` picks the glyph (default 'success' = green ✓). Multiple toasts stack gracefully: a new `show()` clears the previous one, waits 20ms, then mounts the new one — keeps the animation queue clean. Auto-dismiss at 4000ms if `undoFn` provided, 2500ms otherwise. Mount `<Toast toast={toast} dismiss={dismissToast} />` in every screen that uses `useToast()` (existing rule — unchanged).
+- **Form keyboard flow** (v1.2.5-dev rule): every multi-field Add/Edit modal MUST (a) auto-focus the first field (`autoFocus`), (b) pass `returnKeyType="next"` + `blurOnSubmit={false}` on all intermediate fields and route `onSubmitEditing` → `nextRef.current?.focus()`, (c) pass `returnKeyType="done"` on the last field and route its `onSubmitEditing` → primary submit handler. `Input` now `forwardRef`s to the underlying `TextInput` — refs use `useRef<TextInput | null>(null)` per field. Optional utility: `useFormRefs(count)` from `src/utils/formRefs.ts` returns `{ register, focusNext, focusAt, submit }` helpers if the screen wants to avoid a dozen `useRef` calls. Keyboard flow is wired on: Expenses edit modal, Reminders add form (3 branches), Vendors add/edit, Inventory add/edit, Recipes edit, Savings Goals, PrayerSettings manual-city. Any NEW multi-field form must follow the same pattern.
+- **BlurView only in the 3 approved spots** (v1.2.4-dev rule): bottom tab bar background, modal backdrops (QuickAdd, Expenses edit, PrayerSettings manual-location). Adding BlurView to list rows / cards / scrollables is a real battery hit — do not do it.
+- **Phosphor icons in chrome / emojis in content** (v1.2.4-dev rule): bottom tabs, hamburger, hero action buttons use Phosphor via `src/components/ui/ChromeIcon.tsx`. Category pickers, recipe names, reminder categories, drawer group emojis stay as emoji. Single weight across the app: `regular`.
+- **Lottie files rule** (v1.2.4-dev): every animation JSON MUST live under `assets/lottie/` and MUST be documented in `assets/lottie/README.md` with source URL + license. Max 50KB per file. Screens access animations only through `LottieBox` (`src/components/ui/LottieBox.tsx`) — never import `lottie-react-native` directly.
+- **PrayerTimesScreen countdown** (v1.2.4-dev rule): the 30s tick interval is registered via `useFocusEffect` so it pauses when the screen is not focused. Any other countdown/timer added to a screen must follow the same pattern.
 - No visible borders — use shadows and filled backgrounds
 - All colors must come from useTheme() — no hardcoded color values (exception: #fff on gradient surfaces)
 - Hero cards must use dark gradient variants in dark mode

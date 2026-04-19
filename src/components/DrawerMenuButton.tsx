@@ -1,8 +1,14 @@
 import React, { useCallback } from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
+import { MenuListIcon } from './ui/ChromeIcon';
 
+/**
+ * v1.2.4-dev: hamburger icon swapped from text glyph `☰` to Phosphor `List`.
+ * Chrome iconography uses Phosphor throughout (regular/bold weight only).
+ * Content emojis remain untouched.
+ */
 export const DrawerMenuButton = React.memo(function DrawerMenuButton() {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -25,7 +31,7 @@ export const DrawerMenuButton = React.memo(function DrawerMenuButton() {
       accessibilityLabel="Open navigation menu"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <Text style={[styles.icon, { color: colors.deep }]}>☰</Text>
+      <MenuListIcon size={20} color={colors.deep} />
     </TouchableOpacity>
   );
 });
@@ -37,9 +43,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 20,
-    fontFamily: 'Outfit-Bold',
   },
 });

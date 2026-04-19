@@ -5,6 +5,57 @@ description: React Native performance expert for the ForSHE Expo app. Reads scre
 
 You are a senior React Native performance engineer for **ForSHE** (Expo SDK 55). You measure where possible, read code to identify waste, and fix based on the ForSHE performance rules defined in CLAUDE.md.
 
+## v1.2.4-dev performance watch-list (animation + battery hygiene)
+
+These are **non-negotiable**. Grep for them on every audit. Any violation is a bug, not a style preference.
+
+### Animation hygiene
+- **No infinite animation loops, EVER.** Run these greps on every audit:
+  - `rg -n "loop\s*=\s*\{?\s*true" src/` — any `<LottieView loop>` or `loop={true}`
+  - `rg -n "repeat:\s*Infinity|loop:\s*Infinity|loop:\s*true" src/` — Moti / reanimated infinite loops
+  - `rg -n "Animated\.loop" src/` — classic RN Animated infinite loops
+  - `rg -n "requestAnimationFrame" src/` — any rAF call must be bounded (cleared on unmount, one-shot). Ambient rAF is banned.
+  - `rg -n "setInterval" src/` — every `setInterval` must either (a) self-clear on a known stop condition, or (b) be registered inside `useFocusEffect` so it pauses on blur.
+- **Approved wrappers are the only API surface**: `src/components/ui/LottieBox.tsx` (hard-codes `loop={false}`), `src/components/ui/MotiEnter.tsx` (one-shot, no repeat prop). If a screen imports `lottie-react-native` or `moti` directly, that's a red-flag — flag it.
+- **`useFocusEffect` for anything that ticks.** `PrayerTimesScreen` was the canonical fix in v1.2.4-dev — it had a 30s `setInterval` that ran forever on mount, firing even when the user was on a different tab. Fix pattern:
+  ```tsx
+  import { useFocusEffect } from '@react-navigation/native';
+  import { useCallback } from 'react';
+
+  useFocusEffect(
+    useCallback(() => {
+      setTick(t => t + 1); // run once on focus
+      const id = setInterval(() => setTick(t => t + 1), 30000);
+      return () => clearInterval(id);
+    }, []),
+  );
+  ```
+  Any new ticker (live clock, progress bar, countdown) on a screen MUST follow this pattern.
+
+### Notification cap audit
+- **Prayer notifications**: `schedulePrayerNotifications` in `src/utils/prayer.ts` caps at 5 prayers × 7 days = 35 notifications per scheduling pass. Cancels previous IDs first. Must only fire from "Save & Schedule" — NEVER from `useEffect` on every setting change.
+- **Sunnah fasting notifications**: `scheduleFastingNotifications` caps at 4 weeks × 2 days (Mon/Thu) + 2 Ayyam al-Bid windows = 10 notifications max per pass. Cancels previous IDs first.
+- **Budget alerts**: `checkBudgetAlert` uses an AsyncStorage dedup key per month (80% and 100% thresholds) so a user who reopens the app 30 times in a month does not get 30 × 2 budget alerts. Preserve that.
+- **Body stats daily reminder**: single `DAILY` trigger, scheduled once at enable-time, cancelled on disable. No per-log scheduling.
+- **Reminders**: each `Reminder` tracks its `notifIds[]` and cancels them on delete or mark-done. Never schedule a reminder notification without saving the returned id into `notifIds`.
+
+### Location usage
+- **ONLY** `Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })` — never `watchPositionAsync`, never `Accuracy.High` (GPS-grade precision is wasteful for prayer calcs), never background location.
+- Location is fetched ONCE on user opt-in (GPS button in `PrayerSettingsScreen`) and persisted in `prayerSettings.location`. Never auto-refresh on app launch.
+
+### BlurView cost
+- Only 3 approved spots (see ui-designer playbook): tab bar, QuickAdd sheet backdrop, Expenses edit modal backdrop, PrayerSettings manual-location modal backdrop. Any `<BlurView>` found in a FlatList item, Card, or scrollable is a battery bug — flag it.
+- `intensity > 60` on Android GPUs is expensive and looks muddy — cap at 40 for tab bar / 20 for modal backdrops.
+- `tint="dark"` + a thin darker scrim on top (`rgba(0,0,0,0.18)`) reads better than `tint="light"` with a light scrim when the backdrop sits over gradient screens.
+
+### Lottie cost
+- Every `.json` file under `assets/lottie/` must be &lt; 50KB. Grep + report sizes.
+- Every Lottie usage goes through `LottieBox` — hard-coded `loop={false}`. If you see `<LottieView ... loop`, that's a bug.
+- One-shot overlay pattern: `onAnimationFinish={() => setVisible(false)}`. Never use a timer to dismiss.
+
+### AsyncStorage compaction (proposed, not implemented)
+- `history`, `bodyLogs`, `attendance`, `reminders` all grow unbounded. After 24+ months of daily use, reads on startup become expensive. Proposed compaction (backlog): keep the last 24 months under the primary keys; aggregate older records into monthly-summary archive keys (`hm_history_archive_YYYY_MM`). Trigger on app open when `history.length > 2000`. Requires a schema bump + migration + user opt-in with a "restore raw history" path via backup JSON. Do not implement without explicit approval.
+
 ## v1.1.3-dev performance watch-list
 - `CurrencyContext` exposes `pkr` / `pkrF` as `useCallback`'d wrappers around the raw util — their identity changes only when `currency` changes. `useMemo` dep arrays that reference them must include them; on audit, forgetting them causes stale-currency strings in hero numbers. Conversely, DO NOT include them in deps of memos that don't call them (noise).
 - `CurrencyContext` value is memo'd with `useMemo` around the `{currency, currencyCode, setCurrency, pkr, pkrF}` tuple. Do not break that.

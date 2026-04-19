@@ -14,13 +14,14 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { MONTHS, CAT_KEYS, CAT_COLORS } from '../constants/data';
 import { parseDMY } from '../utils/dates';
+import { SkeletonChart } from '../components/ui/Skeleton';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function InsightsScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { history } = useData();
+  const { history, allLoaded } = useData();
   const { pkrF } = useCurrency();
 
   const now = useMemo(() => new Date(), []);
@@ -136,11 +137,16 @@ export default function InsightsScreen() {
           </View>
         </Card>
 
-        {!hasAnyExpenses ? (
+        {!allLoaded ? (
+          <>
+            <SkeletonChart />
+            <SkeletonChart />
+          </>
+        ) : !hasAnyExpenses ? (
           <EmptyState
             icon="📈"
-            text="No expense data to analyse yet."
-            hint="Log some expenses and come back to see your trends."
+            text="No expense data yet — log a few and your trends will appear here."
+            hint="Insights get sharper after a full month."
           />
         ) : (
           <>

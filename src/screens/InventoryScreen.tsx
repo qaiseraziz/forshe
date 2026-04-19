@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,11 +26,13 @@ import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { INVENTORY_CATS, UNIT_HINTS } from '../constants/data';
 import { InventoryItem, InventoryCategory } from '../types';
+import { SwipeableRow } from '../components/ui/SwipeableRow';
+import { SkeletonCardRow } from '../components/ui/Skeleton';
 
 export default function InventoryScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { inventory, setInventory } = useData();
+  const { inventory, setInventory, allLoaded } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const [search, setSearch] = useState('');
@@ -44,6 +47,13 @@ export default function InventoryScreen() {
   const [fCat, setFCat] = useState<InventoryCategory>('Grocery');
   const [fThresh, setFThresh] = useState('1');
   const [fNotes, setFNotes] = useState('');
+
+  // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
+  const iNameRef = useRef<TextInput | null>(null);
+  const iQtyRef = useRef<TextInput | null>(null);
+  const iUnitRef = useRef<TextInput | null>(null);
+  const iThreshRef = useRef<TextInput | null>(null);
+  const iNotesRef = useRef<TextInput | null>(null);
 
   const resetForm = useCallback(() => {
     setFName('');
@@ -219,17 +229,35 @@ export default function InventoryScreen() {
 
         <Divider label={`Items · ${filtered.length}`} />
 
-        {filtered.length === 0 ? (
+        {!allLoaded && (
+          <>
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+          </>
+        )}
+        {allLoaded && filtered.length === 0 ? (
           <EmptyState
             icon="📦"
-            text={inventory.length === 0 ? 'No items tracked yet.' : 'No items match this filter.'}
-            hint={inventory.length === 0 ? 'Tap "+ Add" to start building your kitchen inventory.' : undefined}
+            text={inventory.length === 0
+              ? 'Your pantry is empty. Add items to track what you have.'
+              : 'No items match this filter.'}
+            hint={inventory.length === 0 ? 'Tap + Add to log your first item.' : undefined}
           />
-        ) : filtered.map(item => {
+        ) : allLoaded ? filtered.map(item => {
           const isLow = item.qty <= item.lowStockThreshold;
           const catDef = INVENTORY_CATS.find(c => c.key === item.category);
           return (
-            <Card key={item.id}>
+            <SwipeableRow
+              key={item.id}
+              itemLabel={item.name}
+              actions={[
+                { kind: 'edit', onPress: () => openEdit(item) },
+                { kind: 'delete', onPress: () => deleteItem(item.id) },
+              ]}
+            >
+            <Card>
               <View style={styles.itemRow}>
                 <View style={styles.itemIconWrap}>
                   <Text style={styles.itemIcon}>{catDef?.icon || '📦'}</Text>
@@ -290,8 +318,9 @@ export default function InventoryScreen() {
                 </TouchableOpacity>
               </View>
             </Card>
+            </SwipeableRow>
           );
-        })}
+        }) : null}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -305,14 +334,44 @@ export default function InventoryScreen() {
                 {editingId !== null ? 'Edit Item' : 'Add to Inventory'}
               </Text>
 
-              <Input label="Name" placeholder="e.g. Basmati Rice" value={fName} onChangeText={setFName} style={{ marginBottom: 12 }} />
+              <Input
+                ref={iNameRef}
+                label="Name"
+                placeholder="e.g. Basmati Rice"
+                value={fName}
+                onChangeText={setFName}
+                style={{ marginBottom: 12 }}
+                autoFocus
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => iQtyRef.current?.focus()}
+              />
 
               <View style={styles.qtyRow}>
                 <View style={{ flex: 1 }}>
-                  <Input label="Quantity" placeholder="0" value={fQty} onChangeText={setFQty} keyboardType="numeric" />
+                  <Input
+                    ref={iQtyRef}
+                    label="Quantity"
+                    placeholder="0"
+                    value={fQty}
+                    onChangeText={setFQty}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => iUnitRef.current?.focus()}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Input label="Unit" placeholder="kg / pcs" value={fUnit} onChangeText={setFUnit} />
+                  <Input
+                    ref={iUnitRef}
+                    label="Unit"
+                    placeholder="kg / pcs"
+                    value={fUnit}
+                    onChangeText={setFUnit}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => iThreshRef.current?.focus()}
+                  />
                 </View>
               </View>
 
@@ -344,8 +403,28 @@ export default function InventoryScreen() {
                 </Picker>
               </View>
 
-              <Input label="Low-stock threshold" placeholder="1" value={fThresh} onChangeText={setFThresh} keyboardType="numeric" style={{ marginBottom: 12 }} />
-              <Input label="Notes (optional)" placeholder="e.g. expires next week" value={fNotes} onChangeText={setFNotes} multiline />
+              <Input
+                ref={iThreshRef}
+                label="Low-stock threshold"
+                placeholder="1"
+                value={fThresh}
+                onChangeText={setFThresh}
+                keyboardType="numeric"
+                style={{ marginBottom: 12 }}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => iNotesRef.current?.focus()}
+              />
+              <Input
+                ref={iNotesRef}
+                label="Notes (optional)"
+                placeholder="e.g. expires next week"
+                value={fNotes}
+                onChangeText={setFNotes}
+                multiline
+                returnKeyType="done"
+                onSubmitEditing={saveItem}
+              />
 
               <View style={styles.modalBtns}>
                 <Button title="Cancel" variant="outline" small onPress={closeModal} style={{ flex: 1 }} />

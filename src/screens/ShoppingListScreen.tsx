@@ -25,6 +25,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { ShoppingItem, ShoppingSession } from '../types';
+import { SwipeableRow } from '../components/ui/SwipeableRow';
 
 const QUICK_ADD = ['Milk', 'Bread', 'Eggs', 'Rice', 'Oil', 'Sugar', 'Atta', 'Chicken', 'Onions', 'Tomatoes'];
 
@@ -199,39 +200,46 @@ export default function ShoppingListScreen() {
 
   const keyExtractor = useCallback((item: ShoppingItem) => String(item.id), []);
 
-  // --- Render: Item row ---
+  // --- Render: Item row (v1.2.5-dev: swipe-left reveals Delete) ---
   const renderItem = useCallback(({ item }: { item: ShoppingItem }) => (
-    <Card>
-      <View style={styles.itemRow}>
-        <TouchableOpacity
-          style={[styles.checkbox, { backgroundColor: item.done ? colors.green : 'transparent', borderColor: item.done ? colors.green : colors.muted }]}
-          onPress={() => toggleItem(item.id)}
-          activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityLabel={`Toggle ${item.name}`}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: item.done }}
-        >
-          {item.done && <Text style={styles.checkmark}>✓</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.itemContent} onPress={() => toggleItem(item.id)} activeOpacity={0.7}>
-          <Text style={[styles.itemName, { color: item.done ? colors.muted : colors.deep }, item.done && styles.strikethrough]} numberOfLines={1}>
-            {item.name}
-          </Text>
-          {item.qty ? <Text style={[styles.itemQty, { color: item.done ? colors.muted : colors.sub }, item.done && styles.strikethrough]}>{item.qty}</Text> : null}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.deleteBtn, { backgroundColor: colors.redBg }]}
-          onPress={() => deleteItem(item.id)}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={`Remove ${item.name}`}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.deleteBtnText, { color: colors.red }]}>✕</Text>
-        </TouchableOpacity>
-      </View>
-    </Card>
+    <SwipeableRow
+      itemLabel={item.name}
+      actions={[
+        { kind: 'delete', onPress: () => deleteItem(item.id) },
+      ]}
+    >
+      <Card>
+        <View style={styles.itemRow}>
+          <TouchableOpacity
+            style={[styles.checkbox, { backgroundColor: item.done ? colors.green : 'transparent', borderColor: item.done ? colors.green : colors.muted }]}
+            onPress={() => toggleItem(item.id)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel={`Toggle ${item.name}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: item.done }}
+          >
+            {item.done && <Text style={styles.checkmark}>✓</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.itemContent} onPress={() => toggleItem(item.id)} activeOpacity={0.7}>
+            <Text style={[styles.itemName, { color: item.done ? colors.muted : colors.deep }, item.done && styles.strikethrough]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {item.qty ? <Text style={[styles.itemQty, { color: item.done ? colors.muted : colors.sub }, item.done && styles.strikethrough]}>{item.qty}</Text> : null}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.deleteBtn, { backgroundColor: colors.redBg }]}
+            onPress={() => deleteItem(item.id)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel={`Remove ${item.name}`}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.deleteBtnText, { color: colors.red }]}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      </Card>
+    </SwipeableRow>
   ), [colors, toggleItem, deleteItem]);
 
   // --- SESSION LIST VIEW ---
@@ -259,7 +267,11 @@ export default function ShoppingListScreen() {
 
           {/* Session cards */}
           {sortedSessions.length === 0 && (
-            <EmptyState icon="🛒" text="No shopping lists yet. Tap above to create one!" />
+            <EmptyState
+              icon="🛒"
+              text="Nothing on your list yet — tap + to start."
+              hint="Create a list for this trip, or copy from a previous one."
+            />
           )}
           {sortedSessions.map(s => {
             const done = s.items.filter(i => i.done).length;
@@ -435,7 +447,12 @@ export default function ShoppingListScreen() {
       </Card>
 
       <Divider label={`Items (${totalCount})`} />
-      {sortedItems.length === 0 && <EmptyState icon="🛒" text="Your list is empty. Add some items above!" />}
+      {sortedItems.length === 0 && (
+        <EmptyState
+          icon="🛒"
+          text="This list is empty. Add items above to get going."
+        />
+      )}
     </View>
   );
 

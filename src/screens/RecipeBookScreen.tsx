@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,8 +24,10 @@ import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import { LottieBox } from '../components/ui/LottieBox';
 import { Recipe, RecipeIngredient, ShoppingSession, ShoppingItem } from '../types';
 import { todayDay } from '../utils/dates';
+import { SkeletonCardRow } from '../components/ui/Skeleton';
 
 type Mode = 'list' | 'detail' | 'edit';
 
@@ -37,7 +40,7 @@ export default function RecipeBookScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { recipes, setRecipes, inventory, setInventory, setCooking, shoppingSessions, setShoppingSessions } = useData();
+  const { recipes, setRecipes, inventory, setInventory, setCooking, shoppingSessions, setShoppingSessions, allLoaded } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const pickForMeal: RouteParams['pickForMeal'] = route.params?.pickForMeal;
@@ -45,6 +48,10 @@ export default function RecipeBookScreen() {
   const [mode, setMode] = useState<Mode>('list');
   const [activeId, setActiveId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+
+  // v1.2.4-dev: one-shot sparkle overlay when the user taps "Cook this".
+  // LottieBox enforces loop={false}; auto-dismisses on animation finish.
+  const [cookSparkleVisible, setCookSparkleVisible] = useState(false);
 
   // Edit form state
   const [fName, setFName] = useState('');
@@ -57,6 +64,16 @@ export default function RecipeBookScreen() {
   const [ingName, setIngName] = useState('');
   const [ingQty, setIngQty] = useState('');
   const [ingUnit, setIngUnit] = useState('g');
+
+  // v1.2.5-dev: keyboard flow refs for the recipe edit form.
+  const rNameRef = useRef<TextInput | null>(null);
+  const rServingsRef = useRef<TextInput | null>(null);
+  const rPrepRef = useRef<TextInput | null>(null);
+  const rCookRef = useRef<TextInput | null>(null);
+  const rNotesRef = useRef<TextInput | null>(null);
+  const ingNameRef = useRef<TextInput | null>(null);
+  const ingQtyRef = useRef<TextInput | null>(null);
+  const ingUnitRef = useRef<TextInput | null>(null);
 
   // Shopping-target picker modal
   const [shoppingModal, setShoppingModal] = useState<{ visible: boolean; missing: RecipeIngredient[] }>({
@@ -239,6 +256,7 @@ export default function RecipeBookScreen() {
 
     showToast(`🍽️ Cooking ${r.name} — logged for ${meal}`);
     Haptics.selectionAsync();
+    setCookSparkleVisible(true);
   }, [setCooking, setInventory, showToast]);
 
   // --- Integration: Add missing ingredients to shopping list ---
@@ -471,6 +489,18 @@ export default function RecipeBookScreen() {
         </Modal>
 
         <Toast toast={toast} dismiss={dismissToast} />
+
+        {/* v1.2.4-dev: sparkle Lottie overlay fires once on "Cook this". */}
+        {cookSparkleVisible && (
+          <View style={styles.sparkleOverlay} pointerEvents="none">
+            <LottieBox
+              animation="sparkle"
+              size={180}
+              fallbackEmoji="🍽️"
+              onAnimationFinish={() => setCookSparkleVisible(false)}
+            />
+          </View>
+        )}
       </LinearGradient>
     );
   }
@@ -493,19 +523,71 @@ export default function RecipeBookScreen() {
           </Card>
 
           <Card>
-            <Input label="Name" placeholder="e.g. Chicken Biryani" value={fName} onChangeText={setFName} style={{ marginBottom: 10 }} />
+            <Input
+              ref={rNameRef}
+              label="Name"
+              placeholder="e.g. Chicken Biryani"
+              value={fName}
+              onChangeText={setFName}
+              style={{ marginBottom: 10 }}
+              autoFocus={activeId === null}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => rServingsRef.current?.focus()}
+            />
             <View style={styles.editRow3}>
               <View style={{ flex: 1 }}>
-                <Input label="Servings" placeholder="4" value={fServings} onChangeText={setFServings} keyboardType="numeric" />
+                <Input
+                  ref={rServingsRef}
+                  label="Servings"
+                  placeholder="4"
+                  value={fServings}
+                  onChangeText={setFServings}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => rPrepRef.current?.focus()}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Input label="Prep (min)" placeholder="0" value={fPrep} onChangeText={setFPrep} keyboardType="numeric" />
+                <Input
+                  ref={rPrepRef}
+                  label="Prep (min)"
+                  placeholder="0"
+                  value={fPrep}
+                  onChangeText={setFPrep}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => rCookRef.current?.focus()}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Input label="Cook (min)" placeholder="0" value={fCook} onChangeText={setFCook} keyboardType="numeric" />
+                <Input
+                  ref={rCookRef}
+                  label="Cook (min)"
+                  placeholder="0"
+                  value={fCook}
+                  onChangeText={setFCook}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => rNotesRef.current?.focus()}
+                />
               </View>
             </View>
-            <Input label="Notes (optional)" placeholder="tips / tricks" value={fNotes} onChangeText={setFNotes} multiline style={{ marginTop: 10 }} />
+            <Input
+              ref={rNotesRef}
+              label="Notes (optional)"
+              placeholder="tips / tricks"
+              value={fNotes}
+              onChangeText={setFNotes}
+              multiline
+              style={{ marginTop: 10 }}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => ingNameRef.current?.focus()}
+            />
           </Card>
 
           <Divider label={`Ingredients · ${fIngredients.length}`} />
@@ -536,13 +618,37 @@ export default function RecipeBookScreen() {
 
             <View style={styles.addIngRow}>
               <View style={{ flex: 2 }}>
-                <Input placeholder="Name" value={ingName} onChangeText={setIngName} />
+                <Input
+                  ref={ingNameRef}
+                  placeholder="Name"
+                  value={ingName}
+                  onChangeText={setIngName}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => ingQtyRef.current?.focus()}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Input placeholder="Qty" value={ingQty} onChangeText={setIngQty} keyboardType="numeric" />
+                <Input
+                  ref={ingQtyRef}
+                  placeholder="Qty"
+                  value={ingQty}
+                  onChangeText={setIngQty}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => ingUnitRef.current?.focus()}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Input placeholder="Unit" value={ingUnit} onChangeText={setIngUnit} />
+                <Input
+                  ref={ingUnitRef}
+                  placeholder="Unit"
+                  value={ingUnit}
+                  onChangeText={setIngUnit}
+                  returnKeyType="done"
+                  onSubmitEditing={addIngredientToForm}
+                />
               </View>
             </View>
             <Button title="+ Add Ingredient" variant="outline" small onPress={addIngredientToForm} style={{ alignSelf: 'flex-start', marginTop: 10 }} />
@@ -620,15 +726,25 @@ export default function RecipeBookScreen() {
           </Card>
         )}
 
-        {filtered.length === 0 && (
+        {!allLoaded && (
+          <>
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+          </>
+        )}
+
+        {allLoaded && filtered.length === 0 && (
           <EmptyState
             icon="📖"
-            text={recipes.length === 0 ? 'No recipes yet.' : 'Nothing matches that search.'}
-            hint={recipes.length === 0 ? 'Tap "+ New" to add your first recipe.' : undefined}
+            text={recipes.length === 0
+              ? "Let’s cook something. Tap + to save your first recipe."
+              : 'Nothing matches that search.'}
+            hint={recipes.length === 0 ? 'Or explore the 6 starters we included.' : undefined}
           />
         )}
 
-        {filtered.map(r => {
+        {allLoaded && filtered.map(r => {
           const totalTime = r.prepMinutes + r.cookMinutes;
           return (
             <Card key={r.id}>
@@ -672,6 +788,10 @@ const styles = StyleSheet.create({
   statBox: { flex: 1, borderRadius: 16, padding: 14, alignItems: 'center' },
   statVal: { fontSize: 22, fontFamily: 'Outfit-Bold' },
   statLbl: { fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
+  sparkleOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center', zIndex: 500,
+  },
   detailActions: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   ingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   ingName: { flex: 1, fontSize: 15, fontFamily: 'Outfit-SemiBold', minWidth: 0 },

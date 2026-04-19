@@ -1,25 +1,38 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import TodayScreen from '../screens/TodayScreen';
 import ExpensesScreen from '../screens/ExpensesScreen';
 import CookingScreen from '../screens/CookingScreen';
 import RemindersScreen from '../screens/RemindersScreen';
+import {
+  TabHouseIcon,
+  TabMoneyIcon,
+  TabForkKnifeIcon,
+  TabBellIcon,
+} from '../components/ui/ChromeIcon';
 
 const Tab = createBottomTabNavigator();
 
-const TABS = [
-  { name: 'Today', icon: '🏠', component: TodayScreen },
-  { name: 'Expenses', icon: '💰', component: ExpensesScreen },
-  { name: 'Cooking', icon: '🍳', component: CookingScreen },
-  { name: 'Remind', icon: '🔔', component: RemindersScreen },
+// v1.2.4-dev: chrome icons now come from `phosphor-react-native` (regular weight).
+// Emojis are reserved for *content* (category pickers, recipe names, reminder
+// category labels) — see CLAUDE.md "Phosphor icons in chrome / emojis in content".
+type TabIconComponent = React.ComponentType<{ size?: number; color?: string }>;
+type TabDef = { name: string; Icon: TabIconComponent; component: React.ComponentType<any> };
+
+const TABS: TabDef[] = [
+  { name: 'Today', Icon: TabHouseIcon, component: TodayScreen },
+  { name: 'Expenses', Icon: TabMoneyIcon, component: ExpensesScreen },
+  { name: 'Cooking', Icon: TabForkKnifeIcon, component: CookingScreen },
+  { name: 'Remind', Icon: TabBellIcon, component: RemindersScreen },
 ];
 
 const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const { reminders } = useData();
   const insets = useSafeAreaInsets();
   const activeReminders = useMemo(() => reminders.filter((r: any) => {
@@ -28,16 +41,26 @@ const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any
   }).length, [reminders]);
 
   return (
+    // v1.2.4-dev: BlurView replaces the solid tabBarBg fill. The container's
+    // borderRadius + overflow hidden keeps the frosted glass confined to the
+    // pill shape. A subtle theme-tint overlay keeps contrast on busy
+    // backgrounds (gradients, photos in Recipes).
     <View style={[styles.tabBar, {
-      backgroundColor: colors.tabBarBg,
-      borderColor: colors.border,
+      shadowColor: '#000',
       // Float above Android nav gestures with a single safe-area-aware margin.
       // Interior padding is fixed — no double-counting the inset (v1.1.2 fix).
       marginBottom: Math.max(insets.bottom, 8),
     }]}>
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 40 : 60}
+        tint={dark ? 'dark' : 'light'}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBarBlurTint }]} pointerEvents="none" />
       {state.routes.map((route: any, index: number) => {
         const focused = state.index === index;
         const tab = TABS[index];
+        const Icon = tab.Icon;
 
         return (
           <TouchableOpacity
@@ -46,10 +69,11 @@ const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any
             activeOpacity={0.8}
             style={[
               styles.tabBtn,
-              focused && styles.tabBtnActive,
+              focused && { backgroundColor: 'rgba(200,134,10,0.12)' },
+              focused && { borderWidth: 1, borderColor: colors.goldBorderActive },
             ]}
           >
-            <Text style={styles.tabIcon}>{tab.icon}</Text>
+            <Icon size={22} color={focused ? colors.gold : colors.muted} />
             <Text style={[
               styles.tabLabel,
               { color: focused ? colors.gold : colors.muted },
@@ -91,7 +115,7 @@ const styles = StyleSheet.create({
     gap: 2,
     marginHorizontal: 16,
     borderRadius: 28,
-    shadowColor: '#000',
+    overflow: 'hidden',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.12,
     shadowRadius: 32,
@@ -104,13 +128,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     position: 'relative',
-  },
-  tabBtnActive: {
-    backgroundColor: 'rgba(200,134,10,0.12)',
-  },
-  tabIcon: {
-    fontSize: 22,
-    lineHeight: 26,
+    // Default invisible border so focused state doesn't cause a layout shift
+    // when `borderWidth: 1` is added for active items.
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   tabLabel: {
     fontSize: 10,

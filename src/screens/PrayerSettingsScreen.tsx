@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Modal,
+  View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Modal, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
@@ -42,6 +43,11 @@ export default function PrayerSettingsScreen() {
   const [manualName, setManualName] = useState('');
   const [locating, setLocating] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+
+  // v1.2.5-dev: keyboard flow refs for the manual-city modal.
+  const manualNameRef = useRef<TextInput | null>(null);
+  const manualLatRef = useRef<TextInput | null>(null);
+  const manualLngRef = useRef<TextInput | null>(null);
 
   const useGPS = useCallback(async () => {
     setLocating(true);
@@ -394,9 +400,10 @@ export default function PrayerSettingsScreen() {
         />
       </ScrollView>
 
-      {/* Manual location modal */}
+      {/* Manual location modal — v1.2.4-dev: frosted-glass backdrop */}
       <Modal visible={manualModal} transparent animationType="slide" onRequestClose={() => setManualModal(false)}>
         <View style={styles.modalBackdrop}>
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
           <View style={[styles.modalSheet, { backgroundColor: colors.bg }]}>
             <ScrollView
               contentContainerStyle={[styles.modalScroll, { paddingBottom: insets.bottom + 20 }]}
@@ -422,28 +429,39 @@ export default function PrayerSettingsScreen() {
 
               <Text style={[styles.modalSubhead, { color: colors.deep }]}>Or enter manually</Text>
               <Input
+                ref={manualNameRef}
                 label="City name"
                 placeholder="e.g. Dubai"
                 value={manualName}
                 onChangeText={setManualName}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => manualLatRef.current?.focus()}
               />
               <View style={styles.modalRow}>
                 <View style={styles.modalFlex}>
                   <Input
+                    ref={manualLatRef}
                     label="Latitude"
                     placeholder="24.8607"
                     value={manualLat}
                     onChangeText={setManualLat}
                     keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => manualLngRef.current?.focus()}
                   />
                 </View>
                 <View style={styles.modalFlex}>
                   <Input
+                    ref={manualLngRef}
                     label="Longitude"
                     placeholder="67.0011"
                     value={manualLng}
                     onChangeText={setManualLng}
                     keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={saveManual}
                   />
                 </View>
               </View>
@@ -514,7 +532,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  // v1.2.4-dev: frosted-glass backdrop (BlurView added above), thinner dark tint
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.22)', justifyContent: 'flex-end' },
   modalSheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

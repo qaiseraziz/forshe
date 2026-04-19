@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,11 @@ import {
   Image,
   LayoutAnimation,
   UIManager,
+  TextInput,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -38,6 +40,8 @@ import { Transaction } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import * as ImagePicker from 'expo-image-picker';
 import { checkBudgetAlert } from '../utils/budgetAlerts';
+import { SwipeableRow } from '../components/ui/SwipeableRow';
+import { SkeletonCardRow } from '../components/ui/Skeleton';
 
 // Enable LayoutAnimation on Android (iOS has it on by default)
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -47,7 +51,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function ExpensesScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { history, setHistory, budget, setBudget } = useData();
+  const { history, setHistory, budget, setBudget, allLoaded } = useData();
   const { pkr, pkrF, currencyCode, currency } = useCurrency();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -80,6 +84,10 @@ export default function ExpensesScreen() {
 
   // Receipt photo
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+
+  // v1.2.5-dev: keyboard flow refs for the edit modal.
+  const editLabelRef = useRef<TextInput | null>(null);
+  const editAmtRef = useRef<TextInput | null>(null);
 
   // Search
   const [search, setSearch] = useState('');
@@ -334,70 +342,81 @@ export default function ExpensesScreen() {
         ? "Today's Transactions"
         : `${MONTHS[selMonth]} ${selYear}`;
 
-  // Render transaction item — no edit state dependencies
+  // v1.2.5-dev: Render transaction item — now wrapped in SwipeableRow.
+  // Left-swipe reveals Edit (outline) + Delete (red) actions. The tap area
+  // inside the Card still works for navigation / future drill-in. Delete
+  // preserves its undo toast (deleteEntry already fires one).
   const renderItem = useCallback(({ item: h }: { item: Transaction }) => {
     const isTopup = h.type === 'topup';
     const icon = isTopup ? '💵' : (h.cat?.split(' ')[0] || '🛒');
 
     return (
-      <Card>
-        {/* Main row */}
-        <View style={styles.txMain}>
-          <View
-            style={[
-              styles.txIcon,
-              {
-                backgroundColor: isTopup ? colors.greenBg : colors.redBg,
-                borderColor: isTopup ? colors.greenBorder : colors.redBorder,
-              },
-            ]}
-          >
-            <Text style={styles.txIconText}>{icon}</Text>
-          </View>
-          <View style={styles.txInfo}>
-            <Text style={[styles.txName, { color: colors.deep }]} numberOfLines={1}>
-              {h.label}
-            </Text>
-            <View style={styles.txMeta}>
-              <Badge
-                text={isTopup ? 'Received' : h.cat}
-                bg={isTopup ? colors.greenBg : colors.redBg}
-                color={isTopup ? colors.green : colors.red}
-                borderColor={isTopup ? colors.greenBorder : colors.redBorder}
-              />
-              <Text style={[styles.txDate, { color: colors.muted }]}>{h.date}</Text>
+      <SwipeableRow
+        itemLabel={h.label}
+        actions={[
+          { kind: 'edit', onPress: () => startEdit(h) },
+          { kind: 'delete', onPress: () => deleteEntry(h.id) },
+        ]}
+      >
+        <Card>
+          {/* Main row */}
+          <View style={styles.txMain}>
+            <View
+              style={[
+                styles.txIcon,
+                {
+                  backgroundColor: isTopup ? colors.greenBg : colors.redBg,
+                  borderColor: isTopup ? colors.greenBorder : colors.redBorder,
+                },
+              ]}
+            >
+              <Text style={styles.txIconText}>{icon}</Text>
             </View>
+            <View style={styles.txInfo}>
+              <Text style={[styles.txName, { color: colors.deep }]} numberOfLines={1}>
+                {h.label}
+              </Text>
+              <View style={styles.txMeta}>
+                <Badge
+                  text={isTopup ? 'Received' : h.cat}
+                  bg={isTopup ? colors.greenBg : colors.redBg}
+                  color={isTopup ? colors.green : colors.red}
+                  borderColor={isTopup ? colors.greenBorder : colors.redBorder}
+                />
+                <Text style={[styles.txDate, { color: colors.muted }]}>{h.date}</Text>
+              </View>
+            </View>
+            <Text style={[styles.txAmt, { color: isTopup ? colors.green : colors.red }]}>
+              {isTopup ? '+' : '-'}
+              {pkrF(h.amount)}
+            </Text>
           </View>
-          <Text style={[styles.txAmt, { color: isTopup ? colors.green : colors.red }]}>
-            {isTopup ? '+' : '-'}
-            {pkrF(h.amount)}
-          </Text>
-        </View>
 
-        {/* Receipt thumbnail */}
-        {h.receipt && (
-          <Image
-            source={{ uri: h.receipt }}
-            style={styles.receiptThumb}
-          />
-        )}
+          {/* Receipt thumbnail */}
+          {h.receipt && (
+            <Image
+              source={{ uri: h.receipt }}
+              style={styles.receiptThumb}
+            />
+          )}
 
-        {/* Action buttons */}
-        <View style={[styles.txActions, { borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.txActionBtn, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
-            onPress={() => startEdit(h)}
-          >
-            <Text style={[styles.txActionText, { color: colors.blue }]}>✏️ Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.txActionBtn, { backgroundColor: colors.redBg, borderColor: colors.redBorder }]}
-            onPress={() => deleteEntry(h.id)}
-          >
-            <Text style={[styles.txActionText, { color: colors.red }]}>🗑 Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </Card>
+          {/* Action buttons (kept for tap-users who don't discover the swipe) */}
+          <View style={[styles.txActions, { borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.txActionBtn, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
+              onPress={() => startEdit(h)}
+            >
+              <Text style={[styles.txActionText, { color: colors.blue }]}>✏️ Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.txActionBtn, { backgroundColor: colors.redBg, borderColor: colors.redBorder }]}
+              onPress={() => deleteEntry(h.id)}
+            >
+              <Text style={[styles.txActionText, { color: colors.red }]}>🗑 Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      </SwipeableRow>
     );
   }, [colors, startEdit, deleteEntry, pkrF]);
 
@@ -739,8 +758,22 @@ export default function ExpensesScreen() {
         />
       </View>
 
-      {filtered.length === 0 && (
-        <EmptyState icon="📋" text="No transactions found." />
+      {!allLoaded && (
+        <>
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+        </>
+      )}
+
+      {allLoaded && filtered.length === 0 && (
+        <EmptyState
+          icon="📋"
+          text="No expenses logged yet. Your balance is your own."
+          hint="Use the form above or the floating + to add your first entry."
+        />
       )}
     </View>
   ), [
@@ -751,7 +784,7 @@ export default function ExpensesScreen() {
     formMode, topupNote, topupAmt, addTopup,
     expItem, expAmt, expDate, showDatePicker, handleExpDateChange,
     expCat, addExpense, receiptUri, pickReceipt,
-    sectionTitle, filtered, search,
+    sectionTitle, filtered, search, allLoaded,
     pkr, pkrF, currencyCode,
   ]);
 
@@ -794,6 +827,13 @@ export default function ExpensesScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          {/* v1.2.4-dev: frosted-glass backdrop — matches Quick-Add sheet. */}
+          <BlurView
+            intensity={20}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -805,20 +845,28 @@ export default function ExpensesScreen() {
                 Edit {editingTransaction?.type === 'topup' ? 'Received' : 'Expense'}
               </Text>
               <Input
+                ref={editLabelRef}
                 label="What"
                 value={editLabel}
                 onChangeText={setEditLabel}
                 placeholder="e.g. Groceries"
                 style={styles.editInput}
+                returnKeyType="next"
+                autoFocus
+                blurOnSubmit={false}
+                onSubmitEditing={() => editAmtRef.current?.focus()}
               />
               <View style={styles.editRow}>
                 <Input
+                  ref={editAmtRef}
                   label="Amount"
                   value={editAmt}
                   onChangeText={setEditAmt}
                   placeholder={`Amount in ${currencyCode}`}
                   keyboardType="numeric"
                   style={[styles.editInput, { flex: 1 }]}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveEdit}
                 />
                 <TouchableOpacity
                   style={[styles.dateBtn, { backgroundColor: colors.bg2, borderColor: colors.border }]}
@@ -1214,7 +1262,8 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    // Transparent overlay — actual darkening is the BlurView behind it (v1.2.4-dev).
+    backgroundColor: 'rgba(0,0,0,0.18)',
   },
   modalContent: {
     borderTopLeftRadius: 24,

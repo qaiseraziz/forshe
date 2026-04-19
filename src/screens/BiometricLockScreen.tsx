@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/ui/Button';
+import { LottieBox } from '../components/ui/LottieBox';
 
 interface Props {
   onUnlock: () => void;
@@ -59,8 +60,14 @@ export default function BiometricLockScreen({ onUnlock, onFallbackToPin, hasPinF
         <Text style={[styles.title, { color: colors.deep }]}>ForSHE</Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>Biometric lock enabled</Text>
 
+        {/* v1.2.4-dev: while prompting, play the one-shot pulse Lottie;
+            otherwise show the static lock emoji. No loops, no ambient anim. */}
         <View style={styles.iconWrap}>
-          <Text style={styles.bigIcon}>🔒</Text>
+          {status === 'prompting' ? (
+            <LottieBox animation="pulse" size={120} fallbackEmoji="🔐" />
+          ) : (
+            <Text style={styles.bigIcon}>🔒</Text>
+          )}
         </View>
 
         <Text style={[styles.hint, { color: colors.sub }]}>

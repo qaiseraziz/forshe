@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
@@ -143,6 +144,13 @@ export const QuickAddFAB = React.memo(function QuickAddFAB() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          {/* v1.2.4-dev: frosted-glass backdrop for premium "depth" feel. */}
+          <BlurView
+            intensity={20}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -261,7 +269,8 @@ const styles = StyleSheet.create({
     lineHeight: 36,
   },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  // Transparent overlay for tap-to-dismiss — actual darkening is the BlurView behind it.
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.18)' },
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

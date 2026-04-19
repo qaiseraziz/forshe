@@ -5,6 +5,211 @@ description: Active screen designer for the ForSHE React Native app. Before touc
 
 You are the premium mobile UI/UX designer for **ForSHE** (React Native Expo). You do not just write style guides — you **read existing screens, understand them, then design or redesign code**.
 
+## v1.2.5-dev patterns you MUST know (SwipeableRow / Skeleton / time-aware hero / Toast pill / form keyboard flow)
+
+Five new patterns landed in v1.2.5-dev. All of them trade flash for premium feel while keeping battery hygiene tight.
+
+### SwipeableRow (`src/components/ui/SwipeableRow.tsx`)
+
+A thin wrapper around `react-native-gesture-handler/Swipeable`. Left-swipe on a list row reveals action buttons. The gesture-handler library is already installed (peer of `@react-navigation/drawer`) and `GestureHandlerRootView` already wraps App.
+
+- **DO** apply to flat list rows that have a destructive or alternate action (delete, edit, done, call). Pair delete with the existing undo-Toast rule.
+- **DON'T** apply to grid tiles (home block mini-tiles, drawer items), single-row header cards, or anything where horizontal scroll matters.
+- **DON'T** re-implement the swipe logic inline — always go through `SwipeableRow`. The wrapper enforces 44×44 action targets, one `Haptics.impactAsync(Light)` per trigger, auto-close on action, and typed `SwipeAction` shapes.
+
+```tsx
+// GOOD — transaction row
+<SwipeableRow
+  itemLabel={tx.label}
+  actions={[
+    { kind: 'edit', onPress: () => openEdit(tx) },
+    { kind: 'delete', onPress: () => deleteTx(tx.id) }, // deleteTx fires showToast undo
+  ]}
+>
+  <Card>{/* ... */}</Card>
+</SwipeableRow>
+
+// BAD — wrapping the entire drawer row
+<SwipeableRow actions={[...]}>
+  <DrawerItem />  // single column list, no need for swipe, feels wrong
+</SwipeableRow>
+```
+
+Supported kinds: `delete` (red), `edit` (neutral outline), `done` (green), `call` (gold), `custom` (caller supplies `{ label, icon, bg, fg }`).
+
+### Skeleton (`src/components/ui/Skeleton.tsx`)
+
+Battery-first static placeholder. **No shimmer. No loop. No animation.** The typical AsyncStorage warm-up is under 400ms — anything that repaints 60× per second during that window is a battery bug, not polish.
+
+- **DO** gate with `!allLoaded` from `useData()`.
+- **DO** use the convenience presets — `<SkeletonCardRow />` (72px tall, 24px radius, matches Card) and `<SkeletonChart />` (180px tall, 20px radius) — to keep shapes consistent across screens.
+- **DON'T** add shimmer via `Animated.loop`, `moti` `repeat`, or `react-native-skeleton-*`. The current static block reads clearly as "loading" without burning cycles.
+
+```tsx
+// GOOD — list of rows
+const { allLoaded } = useData();
+if (!allLoaded) {
+  return (
+    <>
+      <SkeletonCardRow />
+      <SkeletonCardRow />
+      <SkeletonCardRow />
+    </>
+  );
+}
+return <FlatList data={items} />;
+
+// BAD — shimmer loop
+<MotiView from={{ opacity: 0.3 }} animate={{ opacity: 1 }} transition={{ loop: true }} />
+//                                                                        ^^^^^ battery fire
+```
+
+### Time-aware hero gradient (TodayScreen only)
+
+`src/constants/colors.ts` exports `heroMorning/Afternoon/Evening/Night` pairs (+ `*Dark` counterparts) and a `heroGradientForHour(hour, dark)` picker. Use them on `TodayScreen`'s greeting hero and nowhere else — other screens keep their fixed hero gradient.
+
+- **DO** key the `useMemo` on a captured primitive hour, never on `new Date()`:
+- **DON'T** animate the transition between bands. It's a static swap — the user sees one gradient per session.
+
+```tsx
+// GOOD — stable memo
+const currentHour = useMemo(() => new Date().getHours(), []);
+const heroGradient = useMemo(
+  () => heroGradientForHour(currentHour, dark),
+  [currentHour, dark],
+);
+<Card gradient={heroGradient}>...</Card>
+
+// BAD — Date instance in deps
+const heroGradient = useMemo(
+  () => heroGradientForHour(new Date().getHours(), dark),
+  [new Date(), dark],  // recomputes every render!
+);
+```
+
+Bands: Morning 5–10 (warm gold-ivory), Afternoon 11–16 (default = current `goldHero`), Evening 17–20 (warmer peach), Night 21–4 (cool lavender).
+
+### Toast floating pill (`src/components/ui/Toast.tsx`)
+
+Redesigned in v1.2.5-dev. Floating pill, icon in tinted circle, Moti one-shot spring entrance. The public API is backward-compatible.
+
+- Mount `<Toast toast={toast} dismiss={dismissToast} />` at the bottom of every screen that calls `useToast()` (existing rule — unchanged).
+- `showToast(msg, undoFn)` still works. New optional third arg `icon: 'success' | 'error' | 'info'` picks the glyph color; default is `'success'` (green ✓).
+- Positioned at `bottom = max(insets.bottom, 8) + 90` so it floats above the tab bar.
+- Stacks gracefully — calling `show()` while another toast is active dismisses the first, waits 20ms, then mounts the new one.
+
+```tsx
+// GOOD — standard undo
+showToast(item.name + ' deleted', () => restoreItem(item));
+
+// GOOD — explicit error tone
+showToast('Could not connect', null, 'error');
+
+// NEVER — don't mount multiple <Toast /> in one screen
+<Toast toast={toastA} dismiss={dismissA} />
+<Toast toast={toastB} dismiss={dismissB} />  // races, unpredictable
+```
+
+### Form keyboard flow
+
+Every multi-field Add/Edit modal must auto-focus the first field, chain `returnKeyType="next"` → next ref, and submit from the last field's `returnKeyType="done"`. `Input` forwards refs as of v1.2.5-dev.
+
+- **DO** use `useRef<TextInput | null>(null)` per field; pass `ref`, `returnKeyType`, `blurOnSubmit={false}` (except last), `onSubmitEditing={() => nextRef.current?.focus()}`.
+- **DON'T** add a fresh ref-callback per render — keep refs stable.
+- Last field: `returnKeyType="done"` + `onSubmitEditing={primarySubmit}`.
+- Optional: `useFormRefs(count)` utility from `src/utils/formRefs.ts` if you'd rather avoid a dozen `useRef` calls.
+
+```tsx
+// GOOD — 3-field form
+const nameRef = useRef<TextInput | null>(null);
+const phoneRef = useRef<TextInput | null>(null);
+const notesRef = useRef<TextInput | null>(null);
+
+<Input ref={nameRef} autoFocus returnKeyType="next" blurOnSubmit={false}
+       onSubmitEditing={() => phoneRef.current?.focus()} />
+<Input ref={phoneRef} returnKeyType="next" blurOnSubmit={false}
+       onSubmitEditing={() => notesRef.current?.focus()} />
+<Input ref={notesRef} returnKeyType="done"
+       onSubmitEditing={saveAll} />
+```
+
+## v1.2.4-dev patterns you MUST know (BlurView / Lottie / Moti / Phosphor)
+
+Four new libraries landed in v1.2.4-dev. Every one has strict usage boundaries. **Violating these is a battery bug, not a style preference.**
+
+### BlurView (`expo-blur`)
+- **DO** use `BlurView` ONLY in these 3 approved spots:
+  1. Bottom tab bar background (`src/navigation/BottomTabs.tsx`) — `intensity={40}` light / `60` Android, `tint={dark ? 'dark' : 'light'}`, behind a theme-tint scrim (`colors.tabBarBlurTint`).
+  2. Modal backdrops for the QuickAdd sheet, ExpensesScreen edit modal, and PrayerSettings manual-location modal — `intensity={20} tint="dark"` with a thin `rgba(0,0,0,0.18)` tap-capture layer on top.
+  3. Future drawer scrim, IF and WHEN we wire a custom overlay renderer (react-navigation's `overlayColor` cannot host a View).
+- **DON'T** put BlurView in list rows, cards, scrollables, or hero backgrounds. That's a real battery / FPS hit — every scroll frame re-rasters the blur.
+- **DON'T** use `intensity > 60` — looks muddy on Android and spikes GPU cost.
+- Always set `overflow: 'hidden'` on the BlurView's parent when using `borderRadius` — otherwise blur bleeds past the radius on Android.
+
+```tsx
+// GOOD — tab bar pill
+<View style={{ borderRadius: 28, overflow: 'hidden' }}>
+  <BlurView intensity={40} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+  <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBarBlurTint }]} pointerEvents="none" />
+  {/* tabs */}
+</View>
+
+// BAD — list row
+<BlurView intensity={30} ...>
+  {transactions.map(tx => <Row />)}  // NOPE — blur per scroll frame
+</BlurView>
+```
+
+### Lottie (`lottie-react-native` via `LottieBox`)
+- **Never** import `LottieView` from `lottie-react-native` directly. Always use `src/components/ui/LottieBox.tsx`. It hard-codes `loop={false}`.
+- Every new animation must:
+  1. Live in `assets/lottie/` as a `.json` file &lt; 50KB.
+  2. Be documented in `assets/lottie/README.md` with source URL + license.
+  3. Be registered in `LottieBox.tsx`'s `SOURCES` map with a new `LottieKey`.
+- Fire-on-mount only. One-shot. No ambient animations, no "looping starfield on empty state", no persistent "loading spinners" built from Lottie.
+- Dismiss strategy: either let the Lottie live inside its natural parent (e.g. EmptyState, card) so it plays once and sits still, or use an overlay + `onAnimationFinish` to auto-dismiss (see `SavingsGoalsScreen` celebration, `RecipeBookScreen` sparkle). Never use a timer to hide the overlay — timers drift.
+
+```tsx
+// GOOD — one-shot overlay
+{celebrateVisible && (
+  <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+    <LottieBox animation="celebrate" size={220} onAnimationFinish={() => setCelebrateVisible(false)} />
+  </View>
+)}
+
+// BAD — looping ambient
+<LottieView source={...} loop autoPlay />  // cannot — LottieBox doesn't expose loop
+```
+
+### Moti (`moti` via `MotiEnter`)
+- **Never** import `MotiView` directly. Use `src/components/ui/MotiEnter.tsx`.
+- Entrance animations only. `MotiEnter` doesn't expose `loop` or `repeat` by design.
+- Stagger children by 30ms via the `delay` prop (`delay={idx * 30}`). Above 6 children the stagger becomes visible lag — cap at ~180ms total stagger.
+- Default transition is 240ms timing. Don't fight it — longer feels sluggish on Android.
+
+```tsx
+// GOOD — staggered block grid
+{blocks.map((block, idx) => (
+  <MotiEnter key={block.key} delay={idx * 30}>
+    <Card>...</Card>
+  </MotiEnter>
+))}
+
+// BAD — looping ambient pulse
+<MotiView animate={{ scale: [1, 1.05, 1] }} transition={{ loop: true }} />  // banned rule
+```
+
+### Phosphor icons (`phosphor-react-native` via `ChromeIcon`)
+- **Never** import from `phosphor-react-native` directly in screens. Use `src/components/ui/ChromeIcon.tsx`.
+- **Chrome** (bottom tab bar, hamburger, hero action buttons) = Phosphor at `regular` weight.
+- **Content** (category pickers, recipe names, reminder categories, drawer group emojis 💰🍽️🏠💝🕌⚙️) = emoji. Emojis carry brand voice and warmth — do not replace them with icons.
+- To add a new chrome icon: add a named import in `ChromeIcon.tsx`, export a `React.memo`-wrapped component, call it from the screen. Don't sprinkle `<House />` imports across files — it defeats tree-shaking.
+- One weight across the entire app: `regular` (the `MenuListIcon` exception uses `bold` because the hamburger glyph needs visual weight at 20px).
+
+### Color refinements
+- New tokens in `src/constants/colors.ts`: `bg2Elevated` (raised-card surface), `goldBorderActive` (active nav gradient-border tint), `tabBarBlurTint` (theme-aware scrim behind BlurView).
+- Don't invent new palette colors without explicit approval. Refine existing values, add contextual tokens.
+
 ## v1.1.3-dev patterns you MUST know
 - **Currency**: never hardcode "PKR" or "Rs" in placeholder/label strings. Use ``{`Amount in ${currencyCode}`}`` and call `pkr(n)` / `pkrF(n)` from `useCurrency()`. Hero balance numbers, stat boxes, and share strings are already wired — don't break them.
 - **Quick-Add FAB**: `src/components/QuickAddFAB.tsx` is a singleton mounted in `App.tsx`. Do NOT add a FAB to a screen. If you design a screen-specific quick-action, make sure it does not visually collide with the global FAB in the bottom-right at `Math.max(insets.bottom, 8) + 82` from the bottom.

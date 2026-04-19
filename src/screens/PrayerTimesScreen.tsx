@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import { LottieBox } from '../components/ui/LottieBox';
 import { gradients } from '../constants/colors';
 import {
   computePrayerTimes,
@@ -38,12 +39,18 @@ export default function PrayerTimesScreen() {
   const { prayerSettings } = useData();
   const { toast, dismiss: dismissToast } = useToast();
 
-  // Tick every 30s to keep the countdown fresh
+  // Tick every 30s to keep the countdown fresh — BUT only while the screen is
+  // focused. v1.2.4-dev battery fix: previously this interval ran forever once
+  // mounted, firing even when the user was on a different tab/drawer screen.
+  // `useFocusEffect` starts the interval on focus and clears it on blur.
   const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000);
-    return () => clearInterval(id);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      setTick(t => t + 1); // recompute `now` immediately on focus
+      const id = setInterval(() => setTick(t => t + 1), 30000);
+      return () => clearInterval(id);
+    }, []),
+  );
 
   const now = useMemo(() => new Date(), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
   const hijri = useMemo(() => hijriToday(now), [now]);
@@ -193,14 +200,18 @@ export default function PrayerTimesScreen() {
           </Card>
         )}
 
-        {/* Sunnah fasting status */}
+        {/* Sunnah fasting status — v1.2.4-dev: subtle tasbeeh/crescent
+            Lottie plays once when the user lands on a Sunnah day. */}
         <Card>
           <Text style={[styles.sectionLabel, { color: colors.muted }]}>SUNNAH FASTING</Text>
           {sunnahWeekday && (
-            <View style={[styles.fastingLine, { backgroundColor: colors.greenBg }]}>
-              <Text style={[styles.fastingText, { color: colors.green }]}>
-                ✨ Sunnah fasting day ({sunnahWeekday})
-              </Text>
+            <View style={styles.fastingRow}>
+              <LottieBox animation="tasbeeh" size={44} fallbackEmoji="🌙" />
+              <View style={[styles.fastingLine, { backgroundColor: colors.greenBg, flex: 1 }]}>
+                <Text style={[styles.fastingText, { color: colors.green }]}>
+                  ✨ Sunnah fasting day ({sunnahWeekday})
+                </Text>
+              </View>
             </View>
           )}
           {ayyamAlBidDay !== null && (
@@ -265,6 +276,7 @@ const styles = StyleSheet.create({
   prayerIcon: { fontSize: 20, width: 28, textAlign: 'center' },
   prayerName: { flex: 1, fontSize: 16, fontFamily: 'Outfit-SemiBold' },
   prayerTime: { fontSize: 16, fontFamily: 'Outfit-Bold' },
+  fastingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   fastingLine: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12 },
   fastingText: { fontFamily: 'Outfit-SemiBold', fontSize: 14 },
   fastingNeutral: { fontSize: 13, fontFamily: 'Outfit-Regular', lineHeight: 20 },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { TextInput, StyleSheet, TextInputProps, View, Text } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -6,12 +6,18 @@ interface Props extends TextInputProps {
   label?: string;
 }
 
-export const Input = React.memo(function Input({ label, style, ...props }: Props) {
+/**
+ * v1.2.5-dev: now forwards a ref to the underlying `TextInput` so form
+ * keyboard flow (see `src/utils/formRefs.ts`) can call `.focus()` on next
+ * fields. Still `React.memo`-wrapped for re-render discipline.
+ */
+const InputImpl = forwardRef<TextInput, Props>(function Input({ label, style, ...props }, ref) {
   const { colors } = useTheme();
   return (
     <View>
       {label && <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>}
       <TextInput
+        ref={ref}
         placeholderTextColor={colors.muted}
         style={[
           styles.input,
@@ -27,6 +33,8 @@ export const Input = React.memo(function Input({ label, style, ...props }: Props
     </View>
   );
 });
+
+export const Input = React.memo(InputImpl);
 
 const styles = StyleSheet.create({
   label: {

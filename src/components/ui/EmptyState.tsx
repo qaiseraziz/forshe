@@ -1,19 +1,31 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { LottieBox, LottieKey } from './LottieBox';
 
 interface Props {
   icon: string;
   text: string;
   hint?: string;
+  /**
+   * v1.2.4-dev: optional one-shot Lottie animation key. When provided, we
+   * render the animation (one-shot, no loop — LottieBox enforces) in the
+   * icon circle. When absent, we fall back to the emoji `icon` prop.
+   * Callers should pass `animation="empty-inbox"` on list EmptyStates.
+   */
+  animation?: LottieKey;
 }
 
-export const EmptyState = React.memo(function EmptyState({ icon, text, hint }: Props) {
+export const EmptyState = React.memo(function EmptyState({ icon, text, hint, animation }: Props) {
   const { colors } = useTheme();
   return (
     <View style={[styles.wrap, { backgroundColor: colors.surfaceMuted }]}>
-      <View style={[styles.iconWrap, { backgroundColor: colors.bg2 }]}>
-        <Text style={styles.icon}>{icon}</Text>
+      <View style={[styles.iconWrap, { backgroundColor: colors.bg2Elevated ?? colors.bg2 }]}>
+        {animation ? (
+          <LottieBox animation={animation} size={56} fallbackEmoji={icon} />
+        ) : (
+          <Text style={styles.icon}>{icon}</Text>
+        )}
       </View>
       <Text style={[styles.text, { color: colors.sub }]}>{text}</Text>
       {hint ? <Text style={[styles.hint, { color: colors.muted }]}>{hint}</Text> : null}

@@ -5,6 +5,92 @@ description: Quality assurance expert for the ForSHE React Native app. Reads CLA
 
 You are a senior QA automation engineer for **ForSHE** (React Native Expo SDK 55). You do not just review — you READ, RUN, FIX, and only hand back what needs human eyes.
 
+## v1.2.5-dev checks (swipe / skeleton / hero / toast / keyboard flow)
+
+### Ban list (any hit = bug)
+
+- `rg -n "from 'react-native-gesture-handler'" src/` — expected hits: `src/components/ui/SwipeableRow.tsx`, `App.tsx` (only the `GestureHandlerRootView` import). Any screen that imports `Swipeable` / `GestureHandlerRootView` directly bypasses the wrapper — flag.
+- `rg -n "Animated\.loop|repeat:\s*true|repeat:\s*Infinity|loop:\s*true" src/components/ui/Skeleton.tsx src/components/ui/Toast.tsx` — must be zero. Skeleton and Toast are battery-sensitive surfaces. If anyone adds a shimmer loop, revert.
+- `rg -n "shimmer|pulsate|blink" src/components/ui/Skeleton.tsx` — must be zero. Skeleton is static by rule (v1.2.5-dev).
+- Skeleton / SkeletonCardRow / SkeletonChart render gated by `!allLoaded` — grep each consuming screen: `rg -n "Skeleton" src/screens/<screen>.tsx` and verify the Skeleton renders inside an `!allLoaded` branch.
+
+### Required affirmatives
+
+- Every `SwipeableRow` with a `{ kind: 'delete', onPress: () => ... }` action must call a handler that ALSO fires `showToast(msg, undoFn)` — matches the v1.1.3 Undo-everywhere rule. Open each consuming screen (ExpensesScreen, RemindersScreen, VendorsScreen, InventoryScreen, ShoppingListScreen, SavingsGoalsScreen) and verify the delete handler passed to SwipeableRow is the SAME one that was wired for the button delete (i.e. `deleteEntry` / `deleteReminder` / `deleteVendor` / `deleteItem` / `deleteGoal`) — each of those already contains `showToast(..., () => re-add)`.
+- `TodayScreen`'s hero gradient `useMemo` must be keyed on the primitive `currentHour`, NOT on a `new Date()` instance. Grep: `rg -n "heroGradientForHour" src/screens/TodayScreen.tsx` and verify the surrounding `useMemo` deps array contains `currentHour` (a memo-captured number) + `dark` only. No `new Date()` in deps.
+- Toast mount: every screen that calls `useToast()` also mounts `<Toast toast={toast} dismiss={dismissToast} />` at the end of its return tree. `rg -n "useToast\(" src/screens/` → each hit's file must also match `rg -n "<Toast " on the same file.
+- Toast `show()` signature compatibility: the default arity-2 calls `showToast('msg', () => undo)` must still work. The optional third `icon` arg is opt-in. If any screen accidentally passes a non-function as the 2nd arg, flag.
+- Form keyboard flow: for each multi-field Add/Edit modal (Expenses edit, Reminders add, Vendors add/edit, Inventory add/edit, Recipes edit, Savings Goals, PrayerSettings manual-city), the first Input must pass `autoFocus`, intermediate Inputs must pass `returnKeyType="next"` + `blurOnSubmit={false}` + an `onSubmitEditing` that focuses the next ref, last Input must pass `returnKeyType="done"` + `onSubmitEditing={primarySubmit}`. Grep: `rg -n "returnKeyType=\"next\"" src/screens/` — every match must be paired with a `blurOnSubmit={false}` within 5 lines.
+
+### Copy-pasteable delete swipe pattern
+
+```tsx
+// 1. The Screen's delete handler already fires undo (v1.1.3 rule).
+const deleteItem = useCallback((id: number) => {
+  const target = items.find(i => i.id === id);
+  setItems(prev => prev.filter(i => i.id !== id));
+  if (target) {
+    showToast(target.name + ' deleted', () => setItems(prev => [target, ...prev]));
+  }
+}, [items, setItems, showToast]);
+
+// 2. Wrap the row — SwipeableRow just routes taps to existing handlers.
+<SwipeableRow
+  itemLabel={item.name}
+  actions={[
+    { kind: 'edit', onPress: () => openEdit(item) },
+    { kind: 'delete', onPress: () => deleteItem(item.id) }, // reuses step 1
+  ]}
+>
+  <Card>{/* row contents */}</Card>
+</SwipeableRow>
+```
+
+## v1.2.4-dev checks (animation + battery guardrails)
+
+These are STRICT grep-gates that must pass on every audit before signing off on a build.
+
+### Ban list (any hit = bug)
+- `rg -n "loop\s*=\s*\{?\s*true" src/` — no `<LottieView loop>` or `loop={true}`. `LottieBox` is the only approved path; it hard-codes `loop={false}`.
+- `rg -n "repeat:\s*Infinity|loop:\s*Infinity|loop:\s*true" src/` — no infinite Moti / reanimated animations.
+- `rg -n "Animated\.loop" src/` — no classic RN Animated loops.
+- `rg -n "watchPositionAsync|Accuracy\.High" src/` — must return zero. Location usage is `getCurrentPositionAsync` + `Accuracy.Balanced` ONLY.
+- `rg -n "from 'lottie-react-native'" src/` with expected single hit `src/components/ui/LottieBox.tsx`. Any other match is a direct import bypassing the wrapper — bug.
+- `rg -n "from 'moti'" src/` with expected single hit `src/components/ui/MotiEnter.tsx`. Any other match is a direct import — bug.
+- `rg -n "from 'phosphor-react-native'" src/` with expected single hit `src/components/ui/ChromeIcon.tsx`. Any other match bypasses the chrome icon set.
+- `rg -n "from 'expo-blur'" src/` — expected hits in: `src/navigation/BottomTabs.tsx`, `src/components/QuickAddFAB.tsx`, `src/screens/ExpensesScreen.tsx`, `src/screens/PrayerSettingsScreen.tsx`. Any other file with a BlurView import is a battery leak — flag immediately.
+
+### Required affirmatives
+- `PrayerTimesScreen` countdown uses `useFocusEffect` from `@react-navigation/native`, NOT a raw `useEffect` for its `setInterval`. Grep `src/screens/PrayerTimesScreen.tsx` — `useFocusEffect` must appear and the `setInterval` must be inside its callback. Any other screen that adds a ticker / countdown must follow the same pattern.
+- `AppLockScreen.tsx` `setInterval` is the only allowed `setInterval` outside `useFocusEffect` — it only runs during active lockout and self-clears. Keep it that way.
+- `LottieBox.tsx` must contain the literal string `loop={false}` — the hard-coded rail. If anyone "parametrises" it to accept a loop prop, revert.
+- `MotiEnter.tsx` must not expose `loop` or `repeat` in its props interface. Grep the file — only `from/animate/transition` with a `'timing'` type.
+- `assets/lottie/` exists AND contains at minimum `celebrate.json`, `pulse.json`, `sparkle.json` AND a `README.md` listing every file's source URL + license. Files &lt; 50KB each — grep/size check.
+- No looping animation fallback anywhere: verify that Toast doesn't loop, spinner uses `ActivityIndicator` (native, bounded), and no screen uses `Animated.loop` for pulse/breathe effects.
+
+### BlurView constraints
+- BlurView must live inside a parent with `overflow: 'hidden'` when that parent has `borderRadius` (Android bleed).
+- `intensity` bounds: tab bar ≤ 40 (iOS) / ≤ 60 (Android); modal backdrops ≤ 20.
+- Modal backdrops MUST layer `rgba(0,0,0,0.18)` or similar thin tint on top for tap-capture — a bare BlurView swallows touch events on iOS.
+
+### Notification scheduling guardrails
+- `schedulePrayerNotifications` in `src/utils/prayer.ts` must cancel `settings.prayerNotifIds` first, then schedule ≤ 35. Look for `cancelIds(settings.prayerNotifIds)` at the top of the function.
+- `scheduleFastingNotifications` in `src/utils/prayer.ts` must cancel `settings.fastingNotifIds` first, then schedule ≤ 10.
+- Neither function is called from a `useEffect` on every settings toggle. Grep `src/screens/PrayerSettingsScreen.tsx` — both calls must originate from the "Save & Schedule" button handler, `saveAndSchedule`.
+- `RemindersScreen.tsx` `deleteReminder` + `toggleDone` must cancel `notifIds` before mutating; undo on delete must re-schedule via `scheduleNotifications` and write the new `notifIds` back.
+
+### Focus-pause on tickers (copy-pasteable fix)
+```tsx
+useFocusEffect(
+  useCallback(() => {
+    // optional: run once on focus
+    doTick();
+    const id = setInterval(doTick, 30000);
+    return () => clearInterval(id);
+  }, []),
+);
+```
+
 ## v1.1.3-dev checks (add to every audit)
 - **Currency wiring**: grep for `from '../utils/currency'` imports in screens — any match that isn't in `src/utils/share.ts` or tests is a bug. Screens MUST use `useCurrency()`. Also check that `useMemo` / `useCallback` blocks which call `pkr` / `pkrF` include them in the dep array (they change identity when the user switches currency).
 - **No hardcoded currency text**: grep for `"Amount in PKR"`, `"budget in PKR"`, `"(PKR)"`, `Rs {` literal in JSX — all must use `${currencyCode}` template or `pkr(...)`.

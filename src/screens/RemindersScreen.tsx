@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Platform,
   StyleSheet,
   Switch,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +35,8 @@ import {
 import { fmtISO, dateToISO, addDays } from '../utils/dates';
 import { Reminder, ReminderRecurring } from '../types';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import { SwipeableRow } from '../components/ui/SwipeableRow';
+import { SkeletonCardRow } from '../components/ui/Skeleton';
 
 async function scheduleNotifications(rem: Reminder): Promise<string[]> {
   const ids: string[] = [];
@@ -109,7 +112,7 @@ type FilterKey = 'all' | 'bills' | 'medication' | 'other';
 export default function RemindersScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { reminders, setReminders } = useData();
+  const { reminders, setReminders, allLoaded } = useData();
   const { pkrF } = useCurrency();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -122,6 +125,12 @@ export default function RemindersScreen() {
   const [dosage, setDosage] = useState('');
   const [withFood, setWithFood] = useState(false);
   const [medDuration, setMedDuration] = useState('1');
+
+  // v1.2.5-dev: keyboard flow refs for the Add-reminder form.
+  const titleRef = useRef<TextInput | null>(null);
+  const amountRef = useRef<TextInput | null>(null);
+  const dosageRef = useRef<TextInput | null>(null);
+  const medDurationRef = useRef<TextInput | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -396,11 +405,19 @@ export default function RemindersScreen() {
         <Text style={[styles.formLabel, { color: colors.purple }]}>📝 New Reminder</Text>
 
         <Input
+          ref={titleRef}
           label="Reminder Title"
           placeholder={isMedCat ? 'e.g. Amoxicillin' : isBillCat ? 'e.g. Pay electricity bill' : 'e.g. Call plumber...'}
           value={title}
           onChangeText={setTitle}
           style={{ marginBottom: 10 }}
+          returnKeyType={isBillCat || isMedCat ? 'next' : 'done'}
+          blurOnSubmit={!(isBillCat || isMedCat)}
+          onSubmitEditing={() => {
+            if (isBillCat) amountRef.current?.focus();
+            else if (isMedCat) dosageRef.current?.focus();
+            else addReminder();
+          }}
         />
 
         <Text style={[styles.fieldLabel, { color: colors.muted }]}>DATE</Text>
@@ -482,12 +499,15 @@ export default function RemindersScreen() {
         {isBillCat && (
           <>
             <Input
+              ref={amountRef}
               label="Amount (optional)"
               placeholder="e.g. 2500"
               value={amount}
               onChangeText={setAmount}
               keyboardType="numeric"
               style={{ marginTop: 10 }}
+              returnKeyType="done"
+              onSubmitEditing={addReminder}
             />
             <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 10 }]}>RECURRING</Text>
             <View style={[styles.pickerWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
@@ -509,19 +529,26 @@ export default function RemindersScreen() {
         {isMedCat && (
           <>
             <Input
+              ref={dosageRef}
               label="Dosage (optional)"
               placeholder="e.g. 500mg, 1 tablet"
               value={dosage}
               onChangeText={setDosage}
               style={{ marginTop: 10 }}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => medDurationRef.current?.focus()}
             />
             <Input
+              ref={medDurationRef}
               label="Duration (days)"
               placeholder="7"
               value={medDuration}
               onChangeText={(t) => setMedDuration(t.replace(/[^0-9]/g, '').slice(0, 2))}
               keyboardType="numeric"
               style={{ marginTop: 10 }}
+              returnKeyType="done"
+              onSubmitEditing={addReminder}
             />
             <View style={[styles.switchRow, { marginTop: 12 }]}>
               <View style={{ flex: 1 }}>
@@ -550,11 +577,23 @@ export default function RemindersScreen() {
       {/* Reminders List */}
       <Divider label={`${filter === 'all' ? 'All Reminders' : filter === 'bills' ? 'Bills' : filter === 'medication' ? 'Medication' : 'Other'} · ${sorted.length} ${sorted.length === 1 ? 'item' : 'items'}`} />
 
-      {!sorted.length && (
-        <EmptyState icon="🔔" text={filter === 'all' ? 'No reminders yet. Add one above to get started!' : 'No reminders in this category.'} />
+      {!allLoaded && (
+        <>
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+        </>
       )}
 
-      {sorted.map(r => {
+      {allLoaded && !sorted.length && (
+        <EmptyState
+          icon="🔔"
+          text={filter === 'all' ? 'All caught up for now ✨' : 'No reminders in this category.'}
+          hint={filter === 'all' ? 'Add one above and we’ll nudge you in time.' : undefined}
+        />
+      )}
+
+      {allLoaded && sorted.map(r => {
         const st = remStatus(r);
         const until = daysUntil(r.date, r.time);
         const isPast = !until;
@@ -563,8 +602,15 @@ export default function RemindersScreen() {
         const isMed = r.cat === MEDICATION_CAT;
 
         return (
-          <Card
+          <SwipeableRow
             key={r.id}
+            itemLabel={r.title}
+            actions={[
+              { kind: 'done', onPress: () => toggleDone(r.id) },
+              { kind: 'delete', onPress: () => deleteReminder(r.id) },
+            ]}
+          >
+          <Card
             style={{
               ...styles.remCard,
               ...(isPast || r.isDone ? { opacity: 0.6 } : {}),
@@ -659,6 +705,7 @@ export default function RemindersScreen() {
               </View>
             )}
           </Card>
+          </SwipeableRow>
         );
       })}
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Switch,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,9 +27,11 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Toast, useToast } from '../components/ui/Toast';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import { LottieBox } from '../components/ui/LottieBox';
 import { SAVINGS_CAT } from '../constants/data';
 import { dateToISO, fmtISO, todayISO, todayStr } from '../utils/dates';
 import { SavingsGoal, Transaction } from '../types';
+import { SwipeableRow } from '../components/ui/SwipeableRow';
 
 function daysBetweenISO(aISO: string, bISO: string): number {
   const [ay, am, ad] = aISO.split('-').map(Number);
@@ -60,6 +63,17 @@ export default function SavingsGoalsScreen() {
   // Contribution state
   const [contribAmt, setContribAmt] = useState('');
   const [contribLogExpense, setContribLogExpense] = useState(true);
+
+  // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
+  const sNameRef = useRef<TextInput | null>(null);
+  const sTargetRef = useRef<TextInput | null>(null);
+  const sSavedRef = useRef<TextInput | null>(null);
+  const sNotesRef = useRef<TextInput | null>(null);
+
+  // v1.2.4-dev: one-shot Lottie celebration overlay when a goal hits 100%.
+  // `setTimeout` is a cleaned-up one-shot (not a long-lived interval) so it's
+  // battery-safe. Dismissed automatically once the animation finishes.
+  const [celebrateVisible, setCelebrateVisible] = useState(false);
 
   const resetForm = useCallback(() => {
     setFName('');
@@ -199,6 +213,8 @@ export default function SavingsGoalsScreen() {
     if (nowComplete) {
       showToast(`🎉 ${goalBefore.name} completed!`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // v1.2.4-dev: play the one-shot celebrate Lottie
+      setCelebrateVisible(true);
     } else {
       showToast(`+ ${pkrF(amt)} saved`);
       Haptics.selectionAsync();
@@ -251,15 +267,23 @@ export default function SavingsGoalsScreen() {
         {sortedGoals.length === 0 ? (
           <EmptyState
             icon="💰"
-            text="No savings goals yet."
-            hint="Tap + New Goal to start saving for something wonderful."
+            text="Dream big. Tap + to start your first savings goal."
+            hint="Set a target, a deadline, and a friendly nudge."
           />
         ) : sortedGoals.map(g => {
           const pct = Math.min(100, Math.round((g.savedAmount / g.targetAmount) * 100));
           const remaining = Math.max(0, g.targetAmount - g.savedAmount);
           const daysLeft = g.deadline ? daysBetweenISO(todayISO(), g.deadline) : null;
           return (
-            <Card key={g.id}>
+            <SwipeableRow
+              key={g.id}
+              itemLabel={g.name}
+              actions={[
+                { kind: 'edit', onPress: () => openEdit(g) },
+                { kind: 'delete', onPress: () => deleteGoal(g.id) },
+              ]}
+            >
+            <Card>
               <View style={styles.goalHeader}>
                 <Text style={[styles.goalName, { color: colors.deep }]} numberOfLines={1}>
                   {g.name}
@@ -312,6 +336,7 @@ export default function SavingsGoalsScreen() {
                 <Button title="🗑" variant="outline" small onPress={() => deleteGoal(g.id)} />
               </View>
             </Card>
+            </SwipeableRow>
           );
         })}
 
@@ -326,13 +351,44 @@ export default function SavingsGoalsScreen() {
               <Text style={[styles.modalTitle, { color: colors.deep }]}>
                 {editingId !== null ? 'Edit Goal' : 'New Savings Goal'}
               </Text>
-              <Input label="Name" placeholder="e.g. Umrah, Car, School Fees" value={fName} onChangeText={setFName} style={{ marginBottom: 10 }} />
+              <Input
+                ref={sNameRef}
+                label="Name"
+                placeholder="e.g. Umrah, Car, School Fees"
+                value={fName}
+                onChangeText={setFName}
+                style={{ marginBottom: 10 }}
+                autoFocus
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => sTargetRef.current?.focus()}
+              />
               <View style={styles.row2}>
                 <View style={{ flex: 1 }}>
-                  <Input label={`Target (${currencyCode})`} placeholder="50000" value={fTarget} onChangeText={setFTarget} keyboardType="numeric" />
+                  <Input
+                    ref={sTargetRef}
+                    label={`Target (${currencyCode})`}
+                    placeholder="50000"
+                    value={fTarget}
+                    onChangeText={setFTarget}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => sSavedRef.current?.focus()}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Input label={`Saved (${currencyCode})`} placeholder="0" value={fSaved} onChangeText={setFSaved} keyboardType="numeric" />
+                  <Input
+                    ref={sSavedRef}
+                    label={`Saved (${currencyCode})`}
+                    placeholder="0"
+                    value={fSaved}
+                    onChangeText={setFSaved}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => sNotesRef.current?.focus()}
+                  />
                 </View>
               </View>
 
@@ -365,7 +421,17 @@ export default function SavingsGoalsScreen() {
                 />
               )}
 
-              <Input label="Notes (optional)" placeholder="why this matters" value={fNotes} onChangeText={setFNotes} multiline style={{ marginTop: 12 }} />
+              <Input
+                ref={sNotesRef}
+                label="Notes (optional)"
+                placeholder="why this matters"
+                value={fNotes}
+                onChangeText={setFNotes}
+                multiline
+                style={{ marginTop: 12 }}
+                returnKeyType="done"
+                onSubmitEditing={saveGoal}
+              />
 
               <View style={styles.modalBtns}>
                 <Button title="Cancel" variant="outline" small onPress={closeEdit} style={{ flex: 1 }} />
@@ -405,6 +471,20 @@ export default function SavingsGoalsScreen() {
       </Modal>
 
       <Toast toast={toast} dismiss={dismissToast} />
+
+      {/* v1.2.4-dev: one-shot celebration overlay when a goal hits 100%.
+          LottieBox hard-codes loop={false}; the onAnimationFinish callback
+          auto-dismisses the overlay so there's no lingering render. */}
+      {celebrateVisible && (
+        <View style={styles.celebrateOverlay} pointerEvents="none">
+          <LottieBox
+            animation="celebrate"
+            size={220}
+            fallbackEmoji="🎉"
+            onAnimationFinish={() => setCelebrateVisible(false)}
+          />
+        </View>
+      )}
     </LinearGradient>
   );
 }
@@ -442,4 +522,14 @@ const styles = StyleSheet.create({
   switchSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 18 },
   bottomPad: { height: 40 },
+  celebrateOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 500,
+  },
 });
