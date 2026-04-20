@@ -6,14 +6,14 @@ import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, P
 
 // --- Encryption helpers ---
 
-const ENCRYPTED_PREFIX = 'FORSHE_ENC_V1:';
+export const ENCRYPTED_PREFIX = 'FORSHE_ENC_V1:';
 
-function encryptData(json: string, password: string): string {
+export function encryptData(json: string, password: string): string {
   const encrypted = CryptoJS.AES.encrypt(json, password).toString();
   return ENCRYPTED_PREFIX + encrypted;
 }
 
-function decryptData(payload: string, password: string): string | null {
+export function decryptData(payload: string, password: string): string | null {
   if (!payload.startsWith(ENCRYPTED_PREFIX)) return null;
   const ciphertext = payload.slice(ENCRYPTED_PREFIX.length);
   try {
@@ -26,13 +26,13 @@ function decryptData(payload: string, password: string): string | null {
   }
 }
 
-function isEncrypted(content: string): boolean {
+export function isEncrypted(content: string): boolean {
   return content.trimStart().startsWith(ENCRYPTED_PREFIX);
 }
 
 // --- Schema validation for backup imports ---
 
-function validateBackupData(data: unknown): { valid: true; data: BackupData } | { valid: false; error: string } {
+export function validateBackupData(data: unknown): { valid: true; data: BackupData } | { valid: false; error: string } {
   if (data === null || typeof data !== 'object' || Array.isArray(data)) {
     return { valid: false, error: 'Backup must be a JSON object, not an array or primitive.' };
   }
@@ -192,7 +192,7 @@ function validateBackupData(data: unknown): { valid: true; data: BackupData } | 
   return { valid: true, data: obj as BackupData };
 }
 
-interface AllData {
+export interface AllData {
   history: Transaction[];
   cooking: CookingData;
   maidData: MaidData;
@@ -216,7 +216,7 @@ interface AllData {
   prayerSettings?: PrayerSettings;
 }
 
-function buildBackupJSON(data: AllData): string {
+export function buildBackupJSON(data: AllData): string {
   const backup = {
     version: '2.5',
     exported: new Date().toISOString(),

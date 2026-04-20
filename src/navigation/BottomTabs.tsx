@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -31,7 +31,7 @@ const TABS: TabDef[] = [
 ];
 
 const CustomTabBar = React.memo(function CustomTabBar({ state, navigation }: any) {
-  const { colors, dark } = useTheme();
+  const { colors } = useTheme();
   const { reminders } = useData();
   const insets = useSafeAreaInsets();
   const activeReminders = useMemo(() => reminders.filter((r: any) => {

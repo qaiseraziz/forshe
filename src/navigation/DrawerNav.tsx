@@ -28,6 +28,7 @@ import InsightsScreen from '../screens/InsightsScreen';
 import VendorsScreen from '../screens/VendorsScreen';
 import PrayerTimesScreen from '../screens/PrayerTimesScreen';
 import PrayerSettingsScreen from '../screens/PrayerSettingsScreen';
+import CloudAuthScreen from '../screens/CloudAuthScreen';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -238,7 +239,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.7</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.8</Text>
       </View>
     </View>
   );
@@ -276,6 +277,7 @@ export function DrawerNav() {
       <Drawer.Screen name="BodyStats" component={BodyStatsScreen} />
       <Drawer.Screen name="MonthlyReport" component={MonthlyReportScreen} />
       <Drawer.Screen name="Backup" component={BackupScreen} />
+      <Drawer.Screen name="CloudAuth" component={CloudAuthScreen} />
       <Drawer.Screen name="Settings" component={SettingsScreen} />
     </Drawer.Navigator>
   );

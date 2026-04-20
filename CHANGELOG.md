@@ -2,6 +2,32 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.8 — 2026-04-20 "Cloud Backup"
+
+Tagged release. Supabase-backed cloud backup now live.
+
+### Added
+- **Cloud backup via Supabase.** Optional "Cloud Backup" section on the Backup screen. Users sign in to their own Supabase account, then upload encrypted `.forshe` backups to a private storage bucket, list them, restore from them, or delete them. Every cloud upload is encrypted on-device with the user's chosen backup password BEFORE leaving the phone — Supabase only stores ciphertext. Cloud account password and backup password are intentionally separate (cloud = Supabase auth, backup = AES key for the file).
+- `src/lib/supabase.ts` — singleton client using AsyncStorage for session persistence, `detectSessionInUrl: false` (mobile), `persistSession: true`, `autoRefreshToken: true`. Publishable key embedded in source (safe — new `sb_publishable_*` format, scoped by RLS policies).
+- `src/utils/cloudBackup.ts` — four helpers: `uploadBackup`, `listBackups`, `downloadBackup`, `deleteBackup`. All scoped to `${userId}/` path prefix.
+- `src/hooks/useCloudSession.ts` — subscribes to `supabase.auth.onAuthStateChange`; no polling (battery rule).
+- `src/screens/CloudAuthScreen.tsx` — new drawer-registered route (deep-linked from Backup only, not in drawer groups — same pattern as `PrayerSettings`). Sign In / Sign Up toggle pill, 6-char min password, "Forgot password" row, email-confirmation fallback message.
+- `src/screens/BackupScreen.tsx` — new Cloud Backup section with Upload / Restore / Manage cards and modal. Auth-gated; refreshes the cloud file list on focus via `useFocusEffect`, never on a timer.
+- `src/navigation/DrawerNav.tsx` — `CloudAuth` registered as a `Drawer.Screen` (not listed in `DRAWER_GROUPS`).
+- `supabase-setup.sql` at repo root — idempotent bucket + RLS policy script. Run once in the Supabase dashboard.
+
+### Deps
+- `@supabase/supabase-js` ^2.x — pure JS, NO native modules. `expo-doctor` confirmed no new native init surface.
+
+### Chore
+- `src/utils/backup.ts` — promoted `encryptData`, `decryptData`, `isEncrypted`, `buildBackupJSON`, `validateBackupData`, and the `AllData` interface to exports so cloud upload / restore can reuse the same encryption + schema validation path as local backups. No behaviour change to existing local backup flows.
+- `src/navigation/BottomTabs.tsx` — removed unused `Platform` import and unused `dark` destructure (pre-existing lint debt surfaced while running `tsc --noUnusedLocals --noUnusedParameters`).
+
+### Manual Supabase setup (one-time, user)
+1. Run `supabase-setup.sql` in Dashboard → SQL Editor (creates `backups` bucket + 4 RLS policies).
+2. Dashboard → Authentication → Providers → Email → toggle **Confirm email** OFF (smoother first-run).
+3. Open the app → Backup → Cloud Backup → Sign in → Sign Up → test upload + restore + delete.
+
 ## v1.2.7 — 2026-04-20 "Launch-Crash Root-Cause Fix"
 
 Third hotfix after v1.2.4. Root cause finally identified + resolved.
