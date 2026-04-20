@@ -5,6 +5,13 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
+## v1.2.10 status (shipped 2026-04-20, CLOUD BACKUP + TWO HOTFIXES)
+- Tagged as `v1.2.10` on commit `5dc6931`. Build `1531195c` queued.
+- v1.2.10 fixes: cloud restore crash (Blob.text() doesn't exist on RN → FileReader.readAsText), local import fragility (switched to expo-file-system File.text).
+- v1.2.9 fixes (rolled in): Supabase polyfills (`react-native-get-random-values` + `react-native-url-polyfill`) imported at top of `index.ts`.
+- v1.2.8 scope (rolled in): Supabase cloud backup — sign in, upload encrypted .forshe, list, restore, delete. Plaintext never leaves device. Manual setup: `supabase-setup.sql`.
+- `app.json` = 1.2.10 / `ios.buildNumber "17"` / `android.versionCode 17`; `package.json` = 1.2.10; SettingsScreen About = "1.2.10"; DrawerNav footer = "ForSHE v1.2.10".
+
 ## v1.2.7 status (shipped 2026-04-20, ROOT-CAUSE FIX)
 - Tagged locally as `v1.2.7` on commit `d09f53a`. NOT pushed.
 - APK: `519dc1ff-4a36-4756-a78c-8194f49fb942` (queued on EAS preview).
@@ -140,7 +147,10 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
-- `v1.2.7` — 2026-04-20, ROOT-CAUSE fix for launch crash (moti/reanimated version mismatch). APK `519dc1ff`. NOT pushed yet.
+- `v1.2.10` — 2026-04-20, restore hotfix (Blob.text + file read). APK `1531195c`.
+- `v1.2.9` — 2026-04-20, Supabase polyfill fix (crypto + URL). APK not kept in index (superseded within hours by v1.2.10).
+- `v1.2.8` — 2026-04-20, cloud backup via Supabase. APK `bdd317b9`.
+- `v1.2.7` — 2026-04-20, ROOT-CAUSE fix for launch crash (moti/reanimated version mismatch). APK `519dc1ff`.
 - `v1.2.6` — 2026-04-20, hotfix attempt (Phosphor disabled, svg added). APK `36423651` **BROKEN**. Superseded by v1.2.7.
 - `v1.2.5` — 2026-04-19, hotfix attempt (BlurView + Lottie disabled). APK `ed6cce5f` **BROKEN**. Superseded by v1.2.7.
 - `v1.2.4` — 2026-04-19, design polish + battery audit. APK `d718bd8a` **BROKEN**. Superseded by v1.2.7.

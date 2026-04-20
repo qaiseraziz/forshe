@@ -190,9 +190,14 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Build
-- **APK (queued)**: `519dc1ff-4a36-4756-a78c-8194f49fb942` (v1.2.7 root-cause fix, 2026-04-20)
-- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/519dc1ff-4a36-4756-a78c-8194f49fb942`
+- **APK (queued)**: `1531195c-0827-4dee-bbb1-cbfe89f2baf9` (v1.2.10 restore hotfix, 2026-04-20)
+- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/1531195c-0827-4dee-bbb1-cbfe89f2baf9`
 - Artifact URL: available once build status = FINISHED
+
+### Recent builds
+- `0f65a8a1` — v1.2.9 (Supabase polyfills). Superseded within hours by v1.2.10.
+- `bdd317b9` — v1.2.8 (cloud backup feature landing). Upload worked once polyfills were added in v1.2.9.
+- `519dc1ff` — v1.2.7 (`https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk`) — LAST STABLE APK before cloud backup.
 
 ### ⚠️ Known broken APKs — do NOT distribute
 - **`d718bd8a`** (v1.2.4) — launch crash (moti/reanimated mismatch).

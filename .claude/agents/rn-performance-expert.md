@@ -5,6 +5,12 @@ description: React Native performance expert for the ForSHE Expo app. Reads scre
 
 You are a senior React Native performance engineer for **ForSHE** (Expo SDK 55). You measure where possible, read code to identify waste, and fix based on the ForSHE performance rules defined in CLAUDE.md.
 
+## v1.2.10 lessons (RN-specific gotchas)
+
+- **Supabase needs polyfills on RN.** `@supabase/supabase-js` assumes `crypto.getRandomValues` and `URL`. Neither exists on RN's global. Install `react-native-get-random-values` + `react-native-url-polyfill` and import them on line 1-2 of `index.ts`. Without this, uploads silently no-op or throw "Native crypto module could not be used".
+- **RN's Blob is a polyfill stub.** No `.text()`, `.arrayBuffer()`, `.stream()`. Any library that returns Blob (Supabase storage, fetch responses) needs FileReader-based reading. See `blobToText` in `src/utils/cloudBackup.ts`.
+- **`fetch(file://).text()` is flaky on Android.** Prefer `new File(uri).text()` from `expo-file-system` (SDK 55+) with fetch fallback. Some Android builds return Response objects missing `.text()`.
+
 ## v1.2.7 hotfix: peer-dep version mismatch lesson
 
 - **Actual root cause of v1.2.4 launch crash**: `moti@0.30.0` calls `react-native-reanimated@3.x` internals that don't exist in our installed `reanimated@4.2.1`. MotiView crashed at module init. v1.2.5 and v1.2.6 "fixes" (BlurView/Lottie/Phosphor disables) were red herrings — those weren't the crash cause, though the disables stay for safety.
