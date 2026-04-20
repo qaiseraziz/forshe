@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Alert, StyleSheet, Modal, TextInput, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, ScrollView, Alert, StyleSheet, Modal, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -64,12 +64,9 @@ export default function BackupScreen() {
   const [confirmPw, setConfirmPw] = useState('');
   const [importPwResolver, setImportPwResolver] = useState<{ resolve: (pw: string | null) => void } | null>(null);
 
-  // Cloud UI state
-  const [manageOpen, setManageOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
+  // Cloud UI state (v1.2.11: simplified to single-file model)
   const [cloudFiles, setCloudFiles] = useState<CloudBackupMeta[]>([]);
   const [cloudBusy, setCloudBusy] = useState(false);
-  const [listingBackups, setListingBackups] = useState(false);
 
   const allData = useMemo(() => ({
     history, cooking, maidData, attendance, reminders, periods, budget, recurring, shopping, shoppingSessions, maidSalary, bodyProfile, bodyLogs, bodyStatsSettings,
@@ -131,14 +128,9 @@ export default function BackupScreen() {
 
   const refreshCloudList = useCallback(async () => {
     if (!user) return;
-    setListingBackups(true);
-    try {
-      const { files, error } = await listBackups(user.id);
-      if (error) showToast(error, null, 'error');
-      else setCloudFiles(files);
-    } finally {
-      setListingBackups(false);
-    }
+    const { files, error } = await listBackups(user.id);
+    if (error) showToast(error, null, 'error');
+    else setCloudFiles(files);
   }, [user, showToast]);
 
   // Refresh the cloud file list on screen focus (battery rule: no polling).
@@ -183,15 +175,24 @@ export default function BackupScreen() {
       // ALWAYS encrypt before upload. Supabase never sees plaintext.
       const json = buildBackupJSON(allData);
       const ciphertext = encryptData(json, pwCopy);
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `forshe-backup-${stamp}.forshe`;
+      // v1.2.11: ONE backup file per user. Fixed filename — upsert overwrites.
+      // No timestamp in the filename, no accumulating clutter in the bucket.
+      const fileName = 'forshe-backup.forshe';
       const { ok, error } = await uploadBackup(user.id, fileName, ciphertext);
       if (!ok) {
         showToast(error || 'Upload failed', null, 'error');
-      } else {
-        showToast('Uploaded ✓', null, 'success');
-        refreshCloudList();
+        return;
       }
+      // One-time cleanup: remove any old timestamped backups from before v1.2.11.
+      try {
+        const { files } = await listBackups(user.id);
+        const stale = files.filter(f => f.name !== fileName).map(f => f.name);
+        for (const old of stale) {
+          await deleteBackup(user.id, old);
+        }
+      } catch { /* best-effort — don't block the success path */ }
+      showToast('Backup updated ✓', null, 'success');
+      refreshCloudList();
     } catch (e: any) {
       showToast(e?.message || 'Upload failed', null, 'error');
     } finally {
@@ -201,16 +202,11 @@ export default function BackupScreen() {
 
   const onOpenRestore = useCallback(() => {
     if (!user) { onSignIn(); return; }
-    refreshCloudList();
-    setRestoreOpen(true);
-  }, [user, onSignIn, refreshCloudList]);
-
-  const onPickRestore = useCallback((fileName: string) => {
-    setRestoreOpen(false);
+    // v1.2.11: single-file model — skip the picker, go straight to password prompt.
     setPassword('');
     setConfirmPw('');
-    setPwModal({ kind: 'cloudRestore', fileName });
-  }, []);
+    setPwModal({ kind: 'cloudRestore', fileName: 'forshe-backup.forshe' });
+  }, [user, onSignIn]);
 
   const confirmCloudRestore = useCallback(async () => {
     if (!user || !pwModal || pwModal.kind !== 'cloudRestore') return;
@@ -266,25 +262,6 @@ export default function BackupScreen() {
       setCloudBusy(false);
     }
   }, [user, pwModal, password, handleImport, showToast]);
-
-  const onDeleteCloudFile = useCallback((fileName: string) => {
-    if (!user) return;
-    Alert.alert('Delete backup?', `Permanently delete ${fileName} from the cloud?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          const { ok, error } = await deleteBackup(user.id, fileName);
-          if (!ok) showToast(error || 'Delete failed', null, 'error');
-          else {
-            showToast('Backup deleted', null, 'success');
-            setCloudFiles(prev => prev.filter(f => f.name !== fileName));
-          }
-        },
-      },
-    ]);
-  }, [user, showToast]);
 
   const summaryItems = useMemo(() => [
     { value: String(history.length), label: 'Transactions', color: colors.deep },
@@ -452,8 +429,7 @@ export default function BackupScreen() {
                   {user.email || 'Signed in'}
                 </Text>
                 <Text style={[styles.optionSub, { color: colors.muted }]}>
-                  {cloudFiles.length} backup{cloudFiles.length === 1 ? '' : 's'} in cloud
-                  {listingBackups ? ' · refreshing…' : ''}
+                  {cloudFiles.length > 0 ? 'Backup available in cloud' : 'No backup yet'}
                 </Text>
               </View>
               <Button title="Sign out" variant="outline" small onPress={onSignOut} />
@@ -495,17 +471,11 @@ export default function BackupScreen() {
             </View>
           </Card>
 
-          <TouchableOpacity
-            onPress={() => setManageOpen(true)}
-            style={styles.manageLink}
-            accessibilityRole="button"
-            accessibilityLabel="Manage cloud backups"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={[styles.manageLinkText, { color: colors.purple }]}>
-              Manage backups ({cloudFiles.length}) ›
+          {cloudFiles.length > 0 && cloudFiles[0].createdAt && (
+            <Text style={[styles.lastBackupText, { color: colors.muted }]}>
+              Last updated: {new Date(cloudFiles[0].createdAt).toLocaleString()}
             </Text>
-          </TouchableOpacity>
+          )}
         </>
       )}
 
@@ -570,108 +540,6 @@ export default function BackupScreen() {
       </View>
     </Modal>
 
-    {/* Cloud restore picker modal */}
-    <Modal visible={restoreOpen} transparent animationType="slide" onRequestClose={() => setRestoreOpen(false)}>
-      <View style={styles.modalOverlay}>
-        <View style={[styles.sheetBox, { backgroundColor: colors.bg2 }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={[styles.modalTitle, { color: colors.deep }]}>Restore from Cloud</Text>
-            <TouchableOpacity
-              onPress={() => setRestoreOpen(false)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Text style={[styles.closeGlyph, { color: colors.muted }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.modalDesc, { color: colors.sub }]}>
-            Pick a backup to restore. You'll be asked for its backup password.
-          </Text>
-          {listingBackups ? (
-            <Text style={[styles.modalDesc, { color: colors.muted }]}>Loading…</Text>
-          ) : cloudFiles.length === 0 ? (
-            <Text style={[styles.modalDesc, { color: colors.muted }]}>
-              No cloud backups yet. Upload one first.
-            </Text>
-          ) : (
-            <FlatList
-              data={cloudFiles}
-              keyExtractor={f => f.name}
-              style={styles.cloudList}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.cloudRow, { backgroundColor: colors.bg3 }]}
-                  onPress={() => onPickRestore(item.name)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Restore ${item.name}`}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.cloudRowName, { color: colors.deep }]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.cloudRowMeta, { color: colors.muted }]}>
-                      {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Unknown date'}
-                      {item.size ? ` · ${(item.size / 1024).toFixed(1)} KB` : ''}
-                    </Text>
-                  </View>
-                  <Text style={[styles.cloudRowChevron, { color: colors.purple }]}>›</Text>
-                </TouchableOpacity>
-              )}
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
-
-    {/* Cloud manage modal */}
-    <Modal visible={manageOpen} transparent animationType="slide" onRequestClose={() => setManageOpen(false)}>
-      <View style={styles.modalOverlay}>
-        <View style={[styles.sheetBox, { backgroundColor: colors.bg2 }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={[styles.modalTitle, { color: colors.deep }]}>Manage Cloud Backups</Text>
-            <TouchableOpacity
-              onPress={() => setManageOpen(false)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Text style={[styles.closeGlyph, { color: colors.muted }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          {cloudFiles.length === 0 ? (
-            <Text style={[styles.modalDesc, { color: colors.muted }]}>No cloud backups yet.</Text>
-          ) : (
-            <FlatList
-              data={cloudFiles}
-              keyExtractor={f => f.name}
-              style={styles.cloudList}
-              renderItem={({ item }) => (
-                <View style={[styles.cloudRow, { backgroundColor: colors.bg3 }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.cloudRowName, { color: colors.deep }]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.cloudRowMeta, { color: colors.muted }]}>
-                      {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Unknown date'}
-                      {item.size ? ` · ${(item.size / 1024).toFixed(1)} KB` : ''}
-                    </Text>
-                  </View>
-                  <Button
-                    title="Delete"
-                    variant="outline"
-                    small
-                    onPress={() => onDeleteCloudFile(item.name)}
-                  />
-                </View>
-              )}
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
-
     <Toast toast={toast} dismiss={dismissToast} />
 
     </LinearGradient>
@@ -692,8 +560,7 @@ const styles = StyleSheet.create({
   optionContent: { flex: 1 },
   optionTitle: { fontFamily: 'Outfit-Bold', fontSize: 16, marginBottom: 3 },
   optionSub: { fontSize: 14, fontFamily: 'Outfit-Regular' },
-  manageLink: { alignItems: 'center', paddingVertical: 12, minHeight: 44, justifyContent: 'center', marginBottom: 8 },
-  manageLinkText: { fontFamily: 'Outfit-SemiBold', fontSize: 14 },
+  lastBackupText: { fontSize: 13, fontFamily: 'Outfit-Regular', textAlign: 'center', marginTop: -4, marginBottom: 8 },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   summaryItem: { width: '47%', flexGrow: 1, borderRadius: 16, paddingVertical: 16, paddingHorizontal: 14, alignItems: 'center' },
   summaryValue: { fontSize: 20, fontFamily: 'Outfit-Bold', marginBottom: 2 },
