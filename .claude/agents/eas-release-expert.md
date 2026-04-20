@@ -73,6 +73,20 @@ Should show exactly ONE entry, under `dependencies`.
 **Symptom**: iOS build fails with identifier error
 **Fix**: `ios.bundleIdentifier = "com.forshe.app"` must be in `app.json`
 
+### Failure 7 — Missing RN polyfills for JS-only libraries (v1.2.8→v1.2.9 postmortem)
+**Symptom**: Library works on web / in Expo Go but a production APK throws runtime errors like "Native crypto module could not be used", "URL is not defined", or silently no-ops network calls.
+**Root cause**: The library assumes browser globals (`crypto.getRandomValues`, `URL`, `TextEncoder`, etc.) that RN doesn't provide out of the box. JS-only doesn't mean RN-compatible.
+**Fix**:
+1. Search the library's GitHub README for "react native" or "polyfill". For Supabase: `react-native-get-random-values` + `react-native-url-polyfill/auto`.
+2. `npx expo install` the polyfills.
+3. Import them at the TOP of `index.ts` (line 1) BEFORE `registerRootComponent` — polyfills must be in place before any code that uses them imports.
+4. Rebuild.
+
+### Failure 8 — RN Blob missing `.text()` (v1.2.10 postmortem)
+**Symptom**: Supabase storage download, fetch response, or any code that calls `.text()` on a Blob in RN throws "undefined is not a function".
+**Root cause**: RN's Blob is a thin polyfill — no `.text()`, `.arrayBuffer()`, `.stream()`.
+**Fix**: Use `FileReader.readAsText()` (`blobToText` helper in `src/utils/cloudBackup.ts`) or read via `new File(uri).text()` from `expo-file-system` for file URIs.
+
 ### Failure 6 — Peer-dependency version mismatch on launch (v1.2.4→v1.2.7 postmortem)
 **Symptom**: APK builds cleanly and installs, the native Android splash frame shows briefly, then the app vanishes without an error dialog. EAS build logs are CLEAN — this is NOT a build failure, it's a runtime JS-bridge init failure at the first `import` that touches the broken peer.
 **Actual root cause (v1.2.7 lesson)**: `moti@0.30.0` was tested against `react-native-reanimated@3.11.0` (see `node_modules/moti/package.json` devDependency) but our project runs `reanimated@4.2.1` — a major breaking rewrite with the new Worklets architecture. Moti's top-level `MotiView` import calls reanimated-3 internals that don't exist in v4. The JS bridge throws before any screen renders.

@@ -2,6 +2,28 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.10 — 2026-04-20 "Restore Hotfix"
+
+### Fixed
+- **Cloud restore no longer crashes with "undefined is not a function".** `downloadBackup` was calling `Blob.text()` on the result from `supabase.storage.download`, but React Native's Blob implementation does not expose `.text()` / `.arrayBuffer()` / `.stream()`. Replaced with a `FileReader.readAsText()` wrapper (`blobToText`), which IS polyfilled by React Native.
+- **Local backup import hardened.** `importBackup` previously called `fetch(file://).text()` which can throw on some Android devices because `Response.text()` is not reliably polyfilled for file:// URIs. Now uses `new File(uri).text()` from `expo-file-system`'s new API, with a `fetch` fallback.
+
+### Chore
+- `app.json` → version `1.2.10`, `ios.buildNumber "17"`, `android.versionCode 17`.
+- `package.json` → version `1.2.10`; `SettingsScreen` About → `Version 1.2.10`; `DrawerNav` footer → `ForSHE v1.2.10`.
+
+### APK
+- Build ID: queued at tag time — see CLAUDE.md Latest APK line.
+
+## v1.2.9 — 2026-04-20 "Supabase Polyfill Hotfix"
+
+### Fixed
+- **Cloud upload now actually hits the server.** `@supabase/supabase-js` needs `crypto.getRandomValues()` and `URL` on the JS global — neither exists in React Native by default. Without them the client threw "Native crypto module could not be used" when signing requests and uploads silently failed.
+- Installed `react-native-get-random-values` + `react-native-url-polyfill` via `npx expo install`. Both are imported at the TOP of `index.ts` before any other code so the polyfills are in place before `@supabase/supabase-js` initializes.
+
+### Chore
+- `app.json` → version `1.2.9`, `ios.buildNumber "16"`, `android.versionCode 16`.
+
 ## v1.2.8 — 2026-04-20 "Cloud Backup"
 
 Tagged release. Supabase-backed cloud backup now live.

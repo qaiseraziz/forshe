@@ -52,6 +52,21 @@ export async function listBackups(
   return { files };
 }
 
+/** Read a Blob as UTF-8 text. React Native's Blob lacks `.text()` / `.arrayBuffer()`,
+ *  so we use FileReader which IS polyfilled by react-native. */
+function blobToText(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') resolve(result);
+      else reject(new Error('Unexpected FileReader result type.'));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed.'));
+    reader.readAsText(blob);
+  });
+}
+
 export async function downloadBackup(
   userId: string,
   fileName: string,
@@ -61,8 +76,7 @@ export async function downloadBackup(
   if (error) return { content: null, error: error.message };
   if (!data) return { content: null, error: 'Empty response from storage.' };
   try {
-    // supabase-js returns a Blob on web / RN. `.text()` reads it into a string.
-    const text = await data.text();
+    const text = await blobToText(data);
     return { content: text };
   } catch (e: any) {
     return { content: null, error: e?.message || 'Failed to read downloaded file.' };

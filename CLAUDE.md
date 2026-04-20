@@ -4,7 +4,9 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.2.8** (tagged 2026-04-20) — "Cloud Backup". Optional Supabase-backed cloud backup. Users sign in to their own Supabase account (email + password), then upload AES-256 encrypted `.forshe` backups to a private storage bucket. Supabase only stores ciphertext — plaintext never leaves the device. Cloud account password (Supabase auth) and backup password (AES key) are deliberately separate. Manual setup: run `supabase-setup.sql` in Supabase Dashboard SQL Editor. Project URL + publishable key hard-coded in `src/lib/supabase.ts`.
+**v1.2.10** (tagged 2026-04-20) — "Restore Hotfix". Two cloud-backup correctness bugs fixed. (1) `downloadBackup` now reads the Blob via `FileReader.readAsText` — RN's Blob has no `.text()` method, which crashed cloud restore with "undefined is not a function". (2) `importBackup` reads the picked file via `new File(uri).text()` (expo-file-system) instead of the flaky `fetch(file://).text()` path.
+- v1.2.9 release theme: "Supabase Polyfill Hotfix" — installed `react-native-get-random-values` + `react-native-url-polyfill`, imported at the top of `index.ts` so Supabase's crypto + URL needs are satisfied before any Supabase code runs.
+- v1.2.8 release theme: "Cloud Backup" — optional Supabase-backed encrypted `.forshe` upload/restore/delete. Plaintext never leaves the device. Cloud password (Supabase auth) ≠ backup password (AES key). Manual setup: run `supabase-setup.sql` once.
 - v1.2.7 release theme: "Launch-Crash Root-Cause Fix" — `moti@0.30.0` incompatible with `reanimated@4.2.1`. Fixed by rendering plain `View` in `MotiEnter` + `Toast`. All four disables (moti, expo-blur, lottie, phosphor) stay for safety until cautiously re-enabled.
 - **Known-broken APKs** (do not distribute): `d718bd8a` (v1.2.4), `ed6cce5f` (v1.2.5), `36423651` (v1.2.6) — all crash on launch.
 - **Last confirmed-working prior APK**: `2218683b` (v1.2.3) · https://expo.dev/artifacts/eas/5dceXqTVYSAxAvVjmx5Eo5.apk
@@ -12,9 +14,9 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 - v1.2.3 release theme: "Inline-Expand Home + Spiritual Group" — TodayScreen home blocks switch from "tap = jump to default screen" to an inline single-open accordion that reveals the group's sub-modules as 2-column mini-tiles inside the block. New 🕌 Spiritual drawer group split out of Personal (Prayer Times moves there; Personal returns to wellness-only = Cycle Tracker + Body Stats). Drawer now has 6 groups.
 - v1.2.2 release theme: "Block Grid Home + Prayer Times" — TodayScreen redesigned from stacked tile strips to a 2-column block grid (Money/Kitchen/Household/Personal) with themed gradient backgrounds + a full-width System tile. New Prayer Times + Sunnah Fasting feature (adhan library, GPS or manual city, 5 prayer notifications + Monday/Thursday + Ayyam al-Bid reminders).
 - v1.2.1 release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
-- `app.json`: version `1.2.8`, `ios.buildNumber "15"`, `android.versionCode 15`.
-- `package.json`: name `forshe`, version `1.2.8`.
-- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.8 APK section for build ID.
+- `app.json`: version `1.2.10`, `ios.buildNumber "17"`, `android.versionCode 17`.
+- `package.json`: name `forshe`, version `1.2.10`.
+- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.10 APK section.
 - Last confirmed-working APK: v1.2.7 (`519dc1ff`, https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk).
 - Orchestration: every task routes through `project-manager` (see Agents section).
 
@@ -322,6 +324,8 @@ The global Claude Code agent types available are `ui-designer`, `qa-expert`, `pe
 - **Moti DISABLED in v1.2.7** (hotfix rule — ACTUAL root cause of v1.2.4→v1.2.6 launch crashes): `moti@0.30.0` was built against `react-native-reanimated@3.11.0` and is incompatible with our `reanimated@4.2.1`. Importing `MotiView` throws at module init because it calls reanimated-3 internals that don't exist in v4's Worklets rewrite. `MotiEnter` and `Toast` now render plain `View`. Do NOT import `moti` anywhere. Package stays in package.json; to re-enable, upgrade to a Moti release that declares `react-native-reanimated: ^4` as a peer (Moti 0.32+ or a canary). Before re-enabling: `cat node_modules/moti/package.json | grep reanimated` must show `>=4` or compatible.
 - **Native / peer-dep version check before adding any animation/graphics library**: run `cat node_modules/<lib>/package.json | grep -E '"react-native-reanimated"|"react-native-svg"'` and verify major versions match our installed ones (reanimated 4.x, svg 15.x). v1.2.4 shipped 4 libraries without this check — 3 ended up partially broken (moti/reanimated mismatch, phosphor/svg transitive-only), costing 4 broken builds.
 - **PrayerTimesScreen countdown** (v1.2.4-dev rule): the 30s tick interval is registered via `useFocusEffect` so it pauses when the screen is not focused. Any other countdown/timer added to a screen must follow the same pattern.
+- **Supabase polyfill order** (v1.2.9 rule — non-negotiable): `index.ts` MUST import `react-native-get-random-values` and `react-native-url-polyfill/auto` BEFORE any other import. Moving either import below `registerRootComponent` / `./App` will cause Supabase to throw "Native crypto module could not be used" when it tries to sign requests. Do not add more code above those two lines.
+- **Blob handling on RN** (v1.2.10 rule): React Native's `Blob` does not implement `.text()` / `.arrayBuffer()` / `.stream()`. When reading a Blob (e.g. from `supabase.storage.download`), use `FileReader.readAsText()` (see `blobToText` in `src/utils/cloudBackup.ts`). When reading a picked file URI, prefer `new File(uri).text()` from `expo-file-system`'s new API; `fetch(file://).text()` is fragile.
 - No visible borders — use shadows and filled backgrounds
 - All colors must come from useTheme() — no hardcoded color values (exception: #fff on gradient surfaces)
 - Hero cards must use dark gradient variants in dark mode

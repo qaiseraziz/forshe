@@ -303,8 +303,18 @@ export async function importBackup(onImport: (data: BackupData) => void, promptP
     if (result.canceled) return;
 
     const pickedFile = result.assets[0];
-    const response = await fetch(pickedFile.uri);
-    let content = await response.text();
+    // v1.2.10 fix: read via expo-file-system's File API — `fetch(file:// ).text()`
+    // can throw "undefined is not a function" on some Android devices because
+    // Response.text() isn't reliably polyfilled on RN's file:// fetch path.
+    const pickedFileHandle = new File(pickedFile.uri);
+    let content: string;
+    try {
+      content = await pickedFileHandle.text();
+    } catch {
+      // Fallback to fetch for older SDKs / unusual URIs.
+      const response = await fetch(pickedFile.uri);
+      content = await response.text();
+    }
 
     // Handle encrypted backup
     if (isEncrypted(content)) {
