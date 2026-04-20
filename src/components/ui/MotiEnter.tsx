@@ -1,16 +1,20 @@
 import React from 'react';
-import { MotiView } from 'moti';
+import { View } from 'react-native';
 import type { ViewStyle } from 'react-native';
 
 /**
- * MotiEnter — centralised entrance animation used for hero cards, list rows,
- * and any premium "fade + slide up" mount behaviour.
+ * MotiEnter — v1.2.7 hotfix: moti disabled.
  *
- * Battery rule (enforced here — cannot be overridden by callers):
- *   - One-shot `timing` only. There is no `loop` or `repeat` prop.
- *   - Pure CSS-equivalent transform + opacity, no layout thrash.
+ * Root cause of the v1.2.4 → v1.2.6 launch crashes: `moti@0.30.0` was built
+ * against `react-native-reanimated@3.11.0` (see its package.json). This
+ * project uses `reanimated@4.2.1` — a major breaking rewrite. Importing
+ * `MotiView` crashes the JS bridge at module init because Moti calls
+ * reanimated 3 internals that don't exist in v4.
  *
- * Use a `delay` to stagger children by ~30ms for a premium feel.
+ * This wrapper now renders children inside a plain `View` (no animation).
+ * The app launches reliably and every caller keeps working. When we adopt
+ * a Moti version compatible with reanimated 4, restore the animated variant
+ * here without touching any screen.
  */
 
 interface MotiEnterProps {
@@ -21,23 +25,8 @@ interface MotiEnterProps {
   style?: ViewStyle;
 }
 
-function MotiEnterImpl({
-  children,
-  delay = 0,
-  duration = 240,
-  translateY = 12,
-  style,
-}: MotiEnterProps) {
-  return (
-    <MotiView
-      from={{ opacity: 0, translateY }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', duration, delay }}
-      style={style}
-    >
-      {children}
-    </MotiView>
-  );
+function MotiEnterImpl({ children, style }: MotiEnterProps) {
+  return <View style={style}>{children}</View>;
 }
 
 export const MotiEnter = React.memo(MotiEnterImpl);

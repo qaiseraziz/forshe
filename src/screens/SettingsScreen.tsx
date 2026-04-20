@@ -483,7 +483,7 @@ export default function SettingsScreen() {
         <Card>
           <View style={styles.aboutSection}>
             <Text style={[styles.aboutName, { color: colors.deep }]}>ForSHE</Text>
-            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.2.6</Text>
+            <Text style={[styles.aboutVersion, { color: colors.muted }]}>Version 1.2.7</Text>
             <Text style={[styles.aboutDesc, { color: colors.sub }]}>
               Your complete home management companion. Track expenses, plan meals, manage maid tasks, set reminders, and more — all in one beautiful app.
             </Text>

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
-import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -88,12 +87,8 @@ function ToastImpl({ toast, dismiss }: { toast: ToastData | null; dismiss: () =>
   if (!toast) return null;
 
   return (
-    <MotiView
+    <View
       key={toast.msg + String(toast.undoFn ? 'u' : '')}
-      from={{ opacity: 0, translateY: 24 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      // One-shot spring. No repeat. No loop. v1.2.4-dev battery rule.
-      transition={{ type: 'spring', damping: 18, stiffness: 220, mass: 0.9 }}
       style={[
         styles.container,
         {
@@ -121,7 +116,7 @@ function ToastImpl({ toast, dismiss }: { toast: ToastData | null; dismiss: () =>
           <Text style={[styles.undoText, { color: colors.gold }]}>Undo</Text>
         </TouchableOpacity>
       )}
-    </MotiView>
+    </View>
   );
 }
 
