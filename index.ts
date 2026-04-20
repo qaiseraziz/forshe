@@ -1,3 +1,9 @@
+// v1.2.9 hotfix — polyfills MUST load before anything else (especially before
+// @supabase/supabase-js is imported) so crypto.getRandomValues + URL are
+// available on the RN global.
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

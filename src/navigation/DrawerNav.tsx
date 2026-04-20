@@ -239,7 +239,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.8</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.9</Text>
       </View>
     </View>
   );
