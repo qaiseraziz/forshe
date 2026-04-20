@@ -2,6 +2,25 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.7 — 2026-04-20 "Launch-Crash Root-Cause Fix"
+
+Third hotfix after v1.2.4. Root cause finally identified + resolved.
+
+### Fixed
+- **App launches reliably.** Actual root cause of the v1.2.4 / v1.2.5 / v1.2.6 launch crashes: **`moti@0.30.0` is incompatible with `react-native-reanimated@4.2.1`**. Moti 0.30 was tested against reanimated 3.11 (see its package.json devDependency) — it calls reanimated-3 internals that don't exist in v4's new Worklets architecture. Importing `MotiView` crashed the JS bridge at module init before anything rendered. Both call sites (`MotiEnter` wrapper and `Toast` redesign) now render inside plain `View` — no animation, no crash. `moti` stays in `package.json` for a future upgrade to a reanimated-4-compatible Moti release.
+- BlurView (v1.2.5), LottieView (v1.2.5), Phosphor icons + react-native-svg (v1.2.6) were red herrings I chased while bisecting the crash. Those stay in their disabled-at-call-site state.
+
+### Chore
+- `app.json` → version `1.2.7`, `ios.buildNumber "14"`, `android.versionCode 14`.
+- `package.json` → version `1.2.7`.
+- `SettingsScreen` About → `Version 1.2.7`; `DrawerNav` footer → `ForSHE v1.2.7`.
+- Lesson documented in `rn-performance-expert.md` + `eas-release-expert.md`: when adding a JS-only animation library, verify its `react-native-reanimated` peer version matches the installed major.
+
+### APK
+- Build ID: `519dc1ff-4a36-4756-a78c-8194f49fb942` · https://expo.dev/accounts/smartbzss/projects/forshe/builds/519dc1ff-4a36-4756-a78c-8194f49fb942
+- Superseded broken APKs: `d718bd8a` (v1.2.4), `ed6cce5f` (v1.2.5), `36423651`/`7GB6CZXguVbLXPDgLS7XJf` (v1.2.6) — ALL crash on launch. Do not distribute.
+- Last confirmed-working prior APK: `2218683b` (v1.2.3, https://expo.dev/artifacts/eas/5dceXqTVYSAxAvVjmx5Eo5.apk).
+
 ## v1.2.5 — 2026-04-19 "Launch-Crash Hotfix"
 
 Emergency patch on top of v1.2.4. The v1.2.4 APK crashed on launch on some devices — suspected native-module init failure for `expo-blur` and/or `lottie-react-native`.

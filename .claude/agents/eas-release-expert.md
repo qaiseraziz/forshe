@@ -73,15 +73,15 @@ Should show exactly ONE entry, under `dependencies`.
 **Symptom**: iOS build fails with identifier error
 **Fix**: `ios.bundleIdentifier = "com.forshe.app"` must be in `app.json`
 
-### Failure 6 — Native module init crash on launch (v1.2.4 → v1.2.5 hotfix lesson)
-**Symptom**: APK builds cleanly and installs, app loads a splash frame, then vanishes immediately without an error dialog on the device. EAS build logs are CLEAN — this is NOT a build failure, it's a runtime init failure.
-**Root cause seen**: `expo-blur` + `lottie-react-native` added together in v1.2.4. One of the two native modules fails to link at RN module-registration time on some devices (specifically lower-RAM Android phones / certain vendor ROMs). The whole JS bridge crashes during module init before our App component renders.
-**Fix (both short term and long term)**:
-1. Before shipping any new native module, confirm it installed via `npx expo install` (not `npm install`) so the SDK-matching version is chosen.
-2. Remove the native module's import at call sites (NOT from package.json) and replace with a pure-JS fallback. Ship the hotfix. Keep the dep in package.json so the next build can try again.
-3. When re-enabling, add ONE native module at a time, queue a build, and install on a real low-RAM device before combining with another new native module.
-4. Specifically for `expo-blur`: the Android side needs `android.windowSoftInputMode` and a supported OS level — verify on Android 10+ devices.
-5. Specifically for `lottie-react-native`: keep Lottie JSONs small (<50KB), avoid heavy bodymovin features like text layers, and wrap `LottieView` in a try/catch boundary.
+### Failure 6 — Peer-dependency version mismatch on launch (v1.2.4→v1.2.7 postmortem)
+**Symptom**: APK builds cleanly and installs, the native Android splash frame shows briefly, then the app vanishes without an error dialog. EAS build logs are CLEAN — this is NOT a build failure, it's a runtime JS-bridge init failure at the first `import` that touches the broken peer.
+**Actual root cause (v1.2.7 lesson)**: `moti@0.30.0` was tested against `react-native-reanimated@3.11.0` (see `node_modules/moti/package.json` devDependency) but our project runs `reanimated@4.2.1` — a major breaking rewrite with the new Worklets architecture. Moti's top-level `MotiView` import calls reanimated-3 internals that don't exist in v4. The JS bridge throws before any screen renders.
+**Red herrings**: v1.2.5 disabled BlurView + Lottie (blamed native-module init); v1.2.6 disabled Phosphor and added react-native-svg (blamed transitive peer). Both didn't fix it because none of those were the real issue. Disables stay for safety.
+**Fix checklist before adding ANY animation/graphics library**:
+1. Use `npx expo install`, never `npm install` — picks SDK-matching versions.
+2. After install, `cat node_modules/<lib>/package.json | grep -E '"react-native-reanimated"|"react-native-svg"'`. Major versions MUST match our installed ones (reanimated 4.x, svg 15.x). If the lib's devDependency is a different major, DO NOT ship.
+3. Add ONE new library at a time. Queue a build. Install the APK on a real Android device. Only then add the next.
+4. If the app vanishes on launch: check the peer-dep version of the most recently added animation/graphics lib FIRST, before blaming native modules.
 
 ## Build Readiness Checklist
 
@@ -176,15 +176,18 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Build
-- **APK (queued)**: `ed6cce5f-5f15-49f3-8971-7aaa603c0bb6` (v1.2.5 hotfix, 2026-04-19)
-- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/ed6cce5f-5f15-49f3-8971-7aaa603c0bb6`
+- **APK (queued)**: `519dc1ff-4a36-4756-a78c-8194f49fb942` (v1.2.7 root-cause fix, 2026-04-20)
+- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/519dc1ff-4a36-4756-a78c-8194f49fb942`
 - Artifact URL: available once build status = FINISHED
 
-### ⚠️ Known broken APK
-- **`d718bd8a-ab12-4135-af31-f028aa200103`** — v1.2.4, 2026-04-19. **Crashes on launch** on some devices. Do NOT distribute. Replaced by v1.2.5 hotfix above.
+### ⚠️ Known broken APKs — do NOT distribute
+- **`d718bd8a`** (v1.2.4) — launch crash (moti/reanimated mismatch).
+- **`ed6cce5f`** (v1.2.5) — BlurView + Lottie disabled; didn't fix it.
+- **`36423651`** (v1.2.6) — Phosphor disabled + svg added; didn't fix it.
+- All three crashed because `moti@0.30.0` is incompatible with `reanimated@4.2.1`. Root cause finally identified + fixed in v1.2.7.
 
 ### Previous builds
-- `2218683b-51d8-4db2-9f49-9a3d559a8068` — v1.2.3, 2026-04-19 (last confirmed-working APK)
+- `2218683b-51d8-4db2-9f49-9a3d559a8068` — v1.2.3, 2026-04-19 (**last confirmed-working APK before v1.2.7**, `https://expo.dev/artifacts/eas/5dceXqTVYSAxAvVjmx5Eo5.apk`)
 - `8e74a970-8e4d-4bbb-a0c5-402dee135cc4` — v1.2.2, 2026-04-19
 - `507b9347-1bb5-49bc-b26e-6e4af1000009` — v1.2.1, 2026-04-18
 - `2181a3b8-3611-4882-ba41-b33cc9ba18b4` — v1.2.0, 2026-04-18

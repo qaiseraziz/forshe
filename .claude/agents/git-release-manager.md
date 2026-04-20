@@ -5,14 +5,17 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
-## v1.2.5 status (shipped 2026-04-19, EMERGENCY HOTFIX)
-- Tagged locally as `v1.2.5` on commit `9390e0a`. Remote `origin` = `github.com/qaiseraziz/forshe.git` — NOT pushed yet.
-- APK: `ed6cce5f-5f15-49f3-8971-7aaa603c0bb6` (queued on EAS preview).
-- Why: v1.2.4 APK `d718bd8a` crashes on launch on some devices (expo-blur + lottie-react-native native init failure). v1.2.5 disables both at call sites; packages remain in package.json.
-- `app.json` = 1.2.5 / `ios.buildNumber "12"` / `android.versionCode 12`; `package.json` = 1.2.5; SettingsScreen About = "1.2.5"; DrawerNav footer = "ForSHE v1.2.5".
+## v1.2.7 status (shipped 2026-04-20, ROOT-CAUSE FIX)
+- Tagged locally as `v1.2.7` on commit `d09f53a`. NOT pushed.
+- APK: `519dc1ff-4a36-4756-a78c-8194f49fb942` (queued on EAS preview).
+- Why: v1.2.4 / v1.2.5 / v1.2.6 APKs all crashed on launch. Actual root cause = `moti@0.30.0` incompatible with `reanimated@4.2.1` (Moti 0.30 was tested against reanimated 3.11). Fix: `MotiEnter` + `Toast` render plain `View`.
+- `app.json` = 1.2.7 / `ios.buildNumber "14"` / `android.versionCode 14`; `package.json` = 1.2.7; SettingsScreen About = "1.2.7"; DrawerNav footer = "ForSHE v1.2.7".
 
-## v1.2.4 status (tagged 2026-04-19, BROKEN APK — do not distribute)
-- Tagged as `v1.2.4`, APK `d718bd8a` crashes on launch. Superseded by v1.2.5.
+## v1.2.4 / v1.2.5 / v1.2.6 (tagged 2026-04-19/20, BROKEN APKs — do not distribute)
+- `v1.2.4` APK `d718bd8a` — launch crash.
+- `v1.2.5` APK `ed6cce5f` — launch crash (BlurView/Lottie disable didn't fix it).
+- `v1.2.6` APK `36423651` — launch crash (Phosphor disable + svg direct dep didn't fix it).
+- All superseded by v1.2.7. The tags remain in history for postmortem.
 
 ## v1.2.0 status (shipped 2026-04-18)
 - **Tagged locally** on commit `2ceda86` as `v1.2.0`. Docs-stamp follow-up is `09e309d`. Remote `origin` is `github.com/qaiseraziz/forshe.git` — NOT pushed yet (user pushes manually).
@@ -137,8 +140,10 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
-- `v1.2.5` — 2026-04-19, launch-crash hotfix (BlurView + LottieView disabled). APK `ed6cce5f`. NOT pushed yet.
-- `v1.2.4` — 2026-04-19, design polish + battery audit. APK `d718bd8a` **BROKEN — crashes on launch**. Superseded by v1.2.5.
+- `v1.2.7` — 2026-04-20, ROOT-CAUSE fix for launch crash (moti/reanimated version mismatch). APK `519dc1ff`. NOT pushed yet.
+- `v1.2.6` — 2026-04-20, hotfix attempt (Phosphor disabled, svg added). APK `36423651` **BROKEN**. Superseded by v1.2.7.
+- `v1.2.5` — 2026-04-19, hotfix attempt (BlurView + Lottie disabled). APK `ed6cce5f` **BROKEN**. Superseded by v1.2.7.
+- `v1.2.4` — 2026-04-19, design polish + battery audit. APK `d718bd8a` **BROKEN**. Superseded by v1.2.7.
 - `v1.2.3` — 2026-04-19, inline-expand home + spiritual group. APK `2218683b` (last confirmed-working APK before the v1.2.4 regression).
 - `v1.2.2` — 2026-04-19, block grid home + prayer times + sunnah fasting. APK `8e74a970`.
 - `v1.2.1` — 2026-04-18, drawer grouping + home tiles + vendor directory. APK `507b9347`.

@@ -188,8 +188,13 @@ Four new libraries landed in v1.2.4-dev. Every one has strict usage boundaries. 
 <LottieView source={...} loop autoPlay />  // cannot — LottieBox doesn't expose loop
 ```
 
-### Moti (`moti` via `MotiEnter`)
-- **Never** import `MotiView` directly. Use `src/components/ui/MotiEnter.tsx`.
+### Moti (`moti` via `MotiEnter`) — v1.2.7 DISABLED (root cause of launch crashes)
+- **`moti@0.30.0` is incompatible with `reanimated@4.2.1`** (we run reanimated 4; moti 0.30 was tested against reanimated 3.11). MotiView throws at module init before anything renders.
+- `MotiEnter` now renders plain `View` — every `<MotiEnter>` call site keeps working with zero animation.
+- DO NOT import `moti` anywhere. Package stays in package.json for a future upgrade.
+- Re-enable: upgrade Moti to a release that declares `react-native-reanimated: ^4` as peer (Moti 0.32+ or a canary). Verify with `cat node_modules/moti/package.json | grep reanimated` — must show `4.x`.
+- The patterns below describe intended usage when we re-enable.
+- **Never** import `MotiView` directly even after re-enable. Use `src/components/ui/MotiEnter.tsx`.
 - Entrance animations only. `MotiEnter` doesn't expose `loop` or `repeat` by design.
 - Stagger children by 30ms via the `delay` prop (`delay={idx * 30}`). Above 6 children the stagger becomes visible lag — cap at ~180ms total stagger.
 - Default transition is 240ms timing. Don't fight it — longer feels sluggish on Android.
