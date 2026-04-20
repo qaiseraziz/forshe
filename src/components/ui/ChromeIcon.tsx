@@ -1,49 +1,51 @@
 import React from 'react';
-import {
-  House,
-  CurrencyCircleDollar,
-  ForkKnife,
-  Bell,
-  List,
-} from 'phosphor-react-native';
+import { Text, StyleSheet } from 'react-native';
 
 /**
- * ChromeIcon — ONE consistent Phosphor icon weight across all ForSHE chrome.
+ * ChromeIcon — v1.2.5 hotfix: Phosphor icons disabled.
  *
- * Rules (enforced via qa-expert):
- *   - Chrome = hamburger / bottom tab bar / hero headers / action buttons
- *   - Content = category pickers, recipe / reminder names, drawer group
- *     emojis — those stay as emoji for warmth and personality.
- *   - We ship ONLY the icons we actually use (no barrel imports of the whole
- *     phosphor set) so the bundle stays small.
- *   - Weight: `regular` — do not mix weights across the app.
+ * `phosphor-react-native` depends on `react-native-svg` (a native module)
+ * as a peer dep. It's only present transitively, not declared in package.json,
+ * which means its native side may not be linked — contributing to the launch
+ * crash alongside expo-blur / lottie-react-native.
  *
- * If a new chrome icon is needed, add a named export below — do NOT import
- * Phosphor directly in screens/components.
+ * This file now renders simple emoji glyphs in the same footprint. Every
+ * screen that imports from here keeps working unchanged. When we verify
+ * react-native-svg is linked correctly on-device, we can restore the Phosphor
+ * icons here without touching any screen.
  */
-
-const DEFAULT_WEIGHT = 'regular' as const;
 
 type Props = { size?: number; color?: string };
 
 const defaultSize = 22;
 
-export const TabHouseIcon = React.memo(function TabHouseIcon({ size = defaultSize, color }: Props) {
-  return <House size={size} color={color ?? '#000'} weight={DEFAULT_WEIGHT} />;
+function EmojiIcon({ emoji, size = defaultSize, color }: Props & { emoji: string }) {
+  return <Text style={[styles.icon, { fontSize: size, color: color ?? '#000' }]}>{emoji}</Text>;
+}
+
+export const TabHouseIcon = React.memo(function TabHouseIcon(props: Props) {
+  return <EmojiIcon emoji="🏠" {...props} />;
 });
 
-export const TabMoneyIcon = React.memo(function TabMoneyIcon({ size = defaultSize, color }: Props) {
-  return <CurrencyCircleDollar size={size} color={color ?? '#000'} weight={DEFAULT_WEIGHT} />;
+export const TabMoneyIcon = React.memo(function TabMoneyIcon(props: Props) {
+  return <EmojiIcon emoji="💰" {...props} />;
 });
 
-export const TabForkKnifeIcon = React.memo(function TabForkKnifeIcon({ size = defaultSize, color }: Props) {
-  return <ForkKnife size={size} color={color ?? '#000'} weight={DEFAULT_WEIGHT} />;
+export const TabForkKnifeIcon = React.memo(function TabForkKnifeIcon(props: Props) {
+  return <EmojiIcon emoji="🍽️" {...props} />;
 });
 
-export const TabBellIcon = React.memo(function TabBellIcon({ size = defaultSize, color }: Props) {
-  return <Bell size={size} color={color ?? '#000'} weight={DEFAULT_WEIGHT} />;
+export const TabBellIcon = React.memo(function TabBellIcon(props: Props) {
+  return <EmojiIcon emoji="🔔" {...props} />;
 });
 
-export const MenuListIcon = React.memo(function MenuListIcon({ size = 20, color }: Props) {
-  return <List size={size} color={color ?? '#000'} weight="bold" />;
+export const MenuListIcon = React.memo(function MenuListIcon(props: Props) {
+  return <EmojiIcon emoji="☰" size={props.size ?? 20} color={props.color} />;
+});
+
+const styles = StyleSheet.create({
+  icon: {
+    textAlign: 'center',
+    lineHeight: undefined,
+  },
 });
