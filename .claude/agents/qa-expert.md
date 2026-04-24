@@ -5,6 +5,39 @@ description: Quality assurance expert for the ForSHE React Native app. Reads CLA
 
 You are a senior QA automation engineer for **ForSHE** (React Native Expo SDK 55). You do not just review — you READ, RUN, FIX, and only hand back what needs human eyes.
 
+## v1.2.12-dev rules (Fasting Calendar + Hijri offset)
+
+### Ban list (any hit = bug)
+
+- `rg -n "from 'adhan'" src/screens/ src/components/` — must return zero. `FastingCalendarScreen.tsx` in particular MUST NOT import `adhan` directly; Hijri math comes from `src/utils/prayer.ts`.
+- `rg -n "Intl\\.DateTimeFormat" src/screens/` — must return zero. Any inline Hijri calculation inside `FastingCalendarScreen.tsx` (or any other screen) is a bug. Use `hijriForDate(date, offset)` or `hijriToday(offset)` from `src/utils/prayer.ts`.
+- `rg -n "hijriOffset" src/screens/FastingCalendarScreen.tsx` must resolve to the value coming from `prayerSettings.hijriOffset ?? 0`. Any local `hijriOffset` useState is a bug — the setting lives on `PrayerSettings`.
+- `rg -n "fastingLogs" src/lib/ src/components/` — must return zero. `fastingLogs` is screen + context + backup only.
+
+### Required affirmatives
+
+- `src/types.ts` — must export `HijriOffset` (union `-2|-1|0|1|2`), `FastingType`, `FastingLog`. `PrayerSettings` must include the `hijriOffset: HijriOffset` field. `BackupData` must include the optional `fastingLogs?: FastingLog[]`.
+- `src/constants/data.ts` — `STORAGE_KEYS.fastingLogs === 'hm_fasting_logs'`.
+- `src/context/DataContext.tsx` — `DEFAULT_PRAYER_SETTINGS.hijriOffset === 0`. `fastingLogs` + `setFastingLogs` wired via `useStorage`, included in `allLoaded` (`l20`), in the context value memo + deps, and in `handleImport` (`if (data.fastingLogs) setFastingLogs(data.fastingLogs)` + setFastingLogs in deps).
+- `src/utils/prayer.ts` — exports `hijriForDate(date, offset)`, `hijriToday(offset)` (NOTE: signature changed — no longer `hijriToday(date)`), `isAyyamAlBid(hijriDay: number): boolean`, `isMondayOrThursday(date: Date): boolean`, `ayyamAlBidPositionForDate(date, offset)` (for legacy callers), and `countryToHijriOffset(country)`. The offset is applied via `baseDate.setDate(baseDate.getDate() + offset)` BEFORE calling the Intl converter (month/year rollover is handled by the Date object, never by hand-rolled modulo math).
+- `src/utils/backup.ts` — `buildBackupJSON` version is `'2.6'`. `validateBackupData` includes a `fastingLogs` branch that validates array + per-entry `date: string`, `types: array`, `observed: boolean`. `AllData` includes `fastingLogs?: FastingLog[]`.
+- `src/screens/BackupScreen.tsx` — destructures `fastingLogs` from `useData()` and includes it in the `allData` `useMemo` value + dep array. Otherwise cloud uploads miss the observed-fasts list.
+- `src/screens/FastingCalendarScreen.tsx` — file exists. Uses the prayer.ts helpers (`hijriForDate`, `isAyyamAlBid`, `isMondayOrThursday`) — grep for each, all must be referenced. `DayCell` is wrapped in `React.memo`. `fastingDaysForMonth` / `cells` computation is in a `useMemo` keyed on `{ year, month, hijriOffset }` (grep for `useMemo` with deps including `viewMonth` + `hijriOffset`). Modal uses a solid scrim (`rgba(0,0,0,0.45)`) — no `BlurView` (still banned at v1.2.5). Mounts `<Toast toast={toast} dismiss={dismissToast} />` at the end of its return tree.
+- Drawer registration: `src/navigation/DrawerNav.tsx` must contain `<Drawer.Screen name="Fasting" component={FastingCalendarScreen} />` AND `FastingCalendarScreen` must be imported from `../screens/FastingCalendarScreen`.
+- **Spiritual group is now 2 items**: `DRAWER_GROUPS.find(g => g.title === 'Spiritual')?.items.length === 2`. Items in order: `PrayerTimes`, `Fasting`. Icons: `🕌` and `🌙`. This supersedes the v1.2.3-dev "Spiritual = 1" rule. Adding a 3rd item still requires user approval + a `spiritualHero` gradient pair revisit.
+- `PrayerSettingsScreen.tsx` — must contain a "Hijri Calendar Adjustment" Card section that renders the 5 offset options (-2, -1, 0, +1, +2) as tappable rows, each showing the resulting Hijri date for TODAY under the label. `useGPS` must auto-apply `countryToHijriOffset(country)` WHEN the user's current `hijriOffset` is 0 (i.e. untouched). Never clobber a non-zero user-tuned offset.
+- `TodayScreen.tsx` — `spiritualBadge` memo: when `prayerSettings.enabled`, today Mon/Thu AND/OR in Ayyam al-Bid → `"Fasting day ✨"` / `"Fasting day 🌙"` / `"Fasting day ✨🌙"` (gold). Uses `isMondayOrThursday(now)` + `isAyyamAlBid(hijriForDate(now, offset).day)` — grep the memo for both calls. The Spiritual block submodules must be `[PrayerTimes, Fasting]` in that order.
+- **No new npm deps**: `package.json` dependency count must be unchanged from v1.2.11. Any new dep (a calendar library, a Hijri library, moment-hijri, etc.) is a bug — the calendar grid is hand-rolled in pure JS.
+
+### Typecheck gates
+
+- `npx tsc --noEmit` MUST exit 0.
+- `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` MUST exit 0.
+
+### Version stay-put
+
+- `app.json` `"version"` and `package.json` `"version"` stay at `1.2.11` during the v1.2.12-dev window. Do NOT bump. DrawerNav footer copy stays `v1.2.11`. CHANGELOG gets the `v1.2.12-dev` section.
+
 ## v1.2.10 rules (Blob handling + file read)
 
 - `rg -n "\.text\(\)" src/` — any `.text()` call on a Blob returned from `supabase.storage.download` is a bug. React Native's Blob has no `.text()` method. Use `blobToText()` from `src/utils/cloudBackup.ts` (FileReader-based).
@@ -170,7 +203,7 @@ useFocusEffect(
 
 ## v1.2.3-dev checks (inline-expand home + Spiritual group)
 - **Drawer has EXACTLY 6 groups**: `DRAWER_GROUPS.length === 6`. Titles in exact order: `Money`, `Kitchen`, `Household`, `Personal`, `Spiritual`, `System`. Any other count or ordering is a bug. (Supersedes the v1.2.1 / v1.2.2 "5 groups" rule.)
-- **Spiritual group shape**: `DRAWER_GROUPS.find(g => g.title === 'Spiritual')` must have `icon === '🕌'` and `items.length === 1` with the single item `{ name: 'PrayerTimes', label: 'Prayer Times', icon: '🕌' }`. Adding a 2nd item is fine without escalation; growing to 3+ should trigger a design revisit (block needs its own `spiritualHero` gradient pair then).
+- **Spiritual group shape** (SUPERSEDED by v1.2.12-dev: Spiritual = 2 items). Original v1.2.3 rule: `items.length === 1` with `{ name: 'PrayerTimes', label: 'Prayer Times', icon: '🕌' }`. Current: `items.length === 2` — PrayerTimes + Fasting (🌙). Growing to 3+ should trigger a design revisit (needs its own `spiritualHero` gradient pair).
 - **Personal group is wellness-only**: `DRAWER_GROUPS.find(g => g.title === 'Personal').items.length === 2`. Items in order: `CycleTracker`, `BodyStats`. PrayerTimes must NOT appear here. (Reverts to the pre-v1.2.2 Personal shape.) Household stays at 3 items (MaidTasks, Remind, Vendors).
 - **PrayerSettings still registered but not grouped**: `<Drawer.Screen name="PrayerSettings" component={PrayerSettingsScreen} />` must still exist in `DrawerNav.tsx`. It is NOT in any `DRAWER_GROUPS` entry — it's a deep-link-only route (tapped from PrayerTimes hero gear or from SettingsScreen). Same pattern as v1.2.2.
 - **TodayScreen is an accordion stack, NOT a 2×2 grid**: grep `src/screens/TodayScreen.tsx` — `gridWrap`, `blockWrapper`, and `aspectRatio` must return ZERO matches. The file must contain `expandedGroup`, `toggleBlock`, `submoduleGrid`, `submoduleTile`, `blockChevron`. The v1.2.2 grid pattern is superseded.

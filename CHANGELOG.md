@@ -2,6 +2,40 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.12 — 2026-04-24 "Fasting Calendar"
+
+Tagged release — Fasting Calendar under the 🕌 Spiritual drawer group, with location-aware Hijri offset so the astronomical Umm al-Qura calendar matches what the user's local mosque announces. Pure JS, no new native deps.
+
+### Added
+- **Fasting Calendar** (`src/screens/FastingCalendarScreen.tsx`). Hand-rolled 7-column Gregorian calendar grid — no calendar library. Highlights every Monday + Thursday (weekly Sunnah) and 13/14/15 of every Hijri month (Ayyam al-Bid). Filter pills: All / Mon–Thu ✨ / Ayyam al-Bid 🌙. Tap any cell → detail modal with Gregorian date, Hijri date, weekday, which fasts apply, and a "Mark as observed" Switch for past/today dates. Gold border on today, green ✓ dot when observed, 60% opacity on past dates that weren't observed. `DayCell` is `React.memo`-wrapped; the `cells` computation is a single `useMemo` keyed on `{ year, month, hijriOffset }`. Mounted `Toast` at the bottom. Solid-scrim modal (no BlurView, v1.2.5 rule).
+- **`PrayerSettings.hijriOffset`** (`-2 | -1 | 0 | 1 | 2`) — a per-user adjustment to the Hijri calendar. Default 0. On GPS-set location, `countryToHijriOffset(country)` auto-applies `+1` for Pakistan / India / Bangladesh / Afghanistan (all plausibly behind Umm al-Qura by a day in local moon-sighting practice). Never clobbers a non-zero user-tuned value. `PrayerSettingsScreen` gains a "🌙 Hijri Calendar Adjustment" Card with 5 tappable rows, each showing the resulting Hijri date for TODAY under its offset label.
+- **`FastingLog`** type + `hm_fasting_logs` storage key. Round-tripped through DataContext + backup.
+- **`hijriForDate(date, offset)`, `isMondayOrThursday(date)`, `countryToHijriOffset(country)`** in `src/utils/prayer.ts`. `isAyyamAlBid` signature changes from `(date?: Date): number | null` to `(hijriDay: number): boolean` — the legacy 1-of-3 position is available via the new `ayyamAlBidPositionForDate(date, offset)` helper. `hijriToday` now takes an `offset: number` instead of a `Date` — `hijriForDate(new Date(), offset)` is the new equivalent when you need today's Hijri. The offset is applied by shifting the underlying Date BEFORE the Intl converter so month/year rollover is handled correctly.
+- **Backup schema bumps 2.5 → 2.6** — adds `fastingLogs` field. Validator enforces array + per-entry `date: string`, `types: array`, `observed: boolean`.
+- **TodayScreen Spiritual badge** — now shows "Fasting day ✨" (Mon/Thu), "Fasting day 🌙" (Ayyam al-Bid), or "Fasting day ✨🌙" (both). Uses `isMondayOrThursday` + `isAyyamAlBid(hijriForDate(now, offset).day)`.
+
+### Changed
+- **Spiritual drawer group grows to 2 items**: Prayer Times + Fasting. TodayScreen's Spiritual block submodules match. Still uses `greenHero` / `greenHeroDark` (shared with Kitchen) — they never sit adjacent in the accordion.
+- `scheduleFastingNotifications` passes the user's `hijriOffset` through `hijriForDate` so Ayyam al-Bid reminders fire the correct night.
+- `DataContext` `allLoaded` now includes `l20` for the fasting-logs slice.
+
+### No new deps
+- Package count unchanged. The calendar grid is pure React + theme tokens.
+- `Intl.DateTimeFormat('en-u-ca-islamic-umalqura', …)` remains the single source of Hijri math.
+
+### Version
+- `app.json` → `1.2.12`, `ios.buildNumber "19"`, `android.versionCode 19`.
+- `package.json` → `1.2.12`; `SettingsScreen` About → `Version 1.2.12`; `DrawerNav` footer → `ForSHE v1.2.12`.
+
+### APK
+- Build ID: queued at tag time — see CLAUDE.md Latest APK line.
+
+## v1.2.11 — 2026-04-20 "Single Cloud Backup File"
+
+### Fixed
+- Cloud backup now uses a single fixed filename per user (`forshe-backup.forshe`) with Supabase `upsert: true`, instead of accumulating timestamped files. First upload on v1.2.11 cleans up any old timestamped leftovers. Restore simplified: no more file-picker modal — just the password prompt. "Last updated" timestamp on the cloud card.
+- `app.json` → `1.2.11`, `ios.buildNumber "18"`, `android.versionCode 18`.
+
 ## v1.2.10 — 2026-04-20 "Restore Hotfix"
 
 ### Fixed

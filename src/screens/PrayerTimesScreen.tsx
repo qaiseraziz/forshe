@@ -17,9 +17,9 @@ import {
   getNextPrayer,
   formatPrayerTime,
   formatCountdown,
-  hijriToday,
+  hijriForDate,
   isSunnahWeekday,
-  isAyyamAlBid,
+  ayyamAlBidPositionForDate,
   PrayerName,
 } from '../utils/prayer';
 
@@ -53,7 +53,8 @@ export default function PrayerTimesScreen() {
   );
 
   const now = useMemo(() => new Date(), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hijri = useMemo(() => hijriToday(now), [now]);
+  const hijriOffset = prayerSettings.hijriOffset ?? 0;
+  const hijri = useMemo(() => hijriForDate(now, hijriOffset), [now, hijriOffset]);
 
   const times = useMemo(
     () => computePrayerTimes(now, prayerSettings),
@@ -66,7 +67,7 @@ export default function PrayerTimesScreen() {
   );
 
   const sunnahWeekday = useMemo(() => isSunnahWeekday(now), [now]);
-  const ayyamAlBidDay = useMemo(() => isAyyamAlBid(now), [now]);
+  const ayyamAlBidDay = useMemo(() => ayyamAlBidPositionForDate(now, hijriOffset), [now, hijriOffset]);
 
   const tmrWeekday = useMemo(() => isSunnahWeekday(new Date(now.getTime() + 86400000)), [now]);
 

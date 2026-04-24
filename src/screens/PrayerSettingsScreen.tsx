@@ -21,6 +21,8 @@ import {
   PAKISTAN_CITIES,
   schedulePrayerNotifications,
   scheduleFastingNotifications,
+  countryToHijriOffset,
+  hijriForDate,
 } from '../utils/prayer';
 import type {
   CalculationMethodKey,
@@ -28,7 +30,16 @@ import type {
   AsrJuristicMethod,
   PrayerLocation,
   PrayerSettings,
+  HijriOffset,
 } from '../types';
+
+const HIJRI_OFFSET_OPTIONS: { key: HijriOffset; label: string }[] = [
+  { key: -2, label: '-2 days' },
+  { key: -1, label: '-1 day' },
+  { key: 0, label: 'Astronomical (Umm al-Qura)' },
+  { key: 1, label: '+1 day' },
+  { key: 2, label: '+2 days' },
+];
 
 export default function PrayerSettingsScreen() {
   const { colors, dark } = useTheme();
@@ -62,6 +73,8 @@ export default function PrayerSettingsScreen() {
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       let name = 'My Location';
+      let countryName: string | undefined;
+      let countryCode: string | undefined;
       try {
         const rev = await Location.reverseGeocodeAsync({
           latitude: pos.coords.latitude,
@@ -70,16 +83,24 @@ export default function PrayerSettingsScreen() {
         if (rev.length > 0) {
           const r = rev[0];
           name = r.city || r.subregion || r.region || r.country || 'My Location';
+          countryName = r.country ?? undefined;
+          countryCode = (r as { isoCountryCode?: string }).isoCountryCode ?? undefined;
         }
       } catch {
         /* ignore */
       }
       const location: PrayerLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, name };
+      // v1.2.12-dev: auto-apply a default Hijri offset based on country. We
+      // only override when the user hasn't explicitly set an offset (i.e.
+      // it's still 0) so a returning user's tuned value is never clobbered.
+      const resolvedCountry = countryCode || countryName || null;
+      const suggestedOffset = countryToHijriOffset(resolvedCountry);
       setPrayerSettings(s => ({
         ...s,
         enabled: true,
         location,
         locationSource: 'gps',
+        hijriOffset: (s.hijriOffset ?? 0) === 0 ? suggestedOffset : s.hijriOffset,
       }));
       showToast(`Location set to ${name}`);
     } catch (e: any) {
@@ -145,6 +166,11 @@ export default function PrayerSettingsScreen() {
   );
   const setHighLat = useCallback(
     (h: HighLatitudeRule) => setPrayerSettings(s => ({ ...s, highLatitudeRule: h })),
+    [setPrayerSettings],
+  );
+
+  const setHijriOffset = useCallback(
+    (o: HijriOffset) => setPrayerSettings(s => ({ ...s, hijriOffset: o })),
     [setPrayerSettings],
   );
 
@@ -251,6 +277,49 @@ export default function PrayerSettingsScreen() {
               onPress={openManual}
               style={styles.btnFlex}
             />
+          </View>
+        </Card>
+
+        {/* Hijri calendar adjustment (v1.2.12-dev) */}
+        <Card>
+          <Text style={[styles.sectionLabel, { color: colors.deep }]}>🌙 Hijri Calendar Adjustment</Text>
+          <Text style={[styles.desc, { color: colors.muted }]}>
+            Local moon sighting can differ from astronomical calculation by a day or two. Your local mosque's announcement is the authority.
+          </Text>
+          <View style={styles.hijriStack}>
+            {HIJRI_OFFSET_OPTIONS.map(opt => {
+              const active = (prayerSettings.hijriOffset ?? 0) === opt.key;
+              const preview = hijriForDate(new Date(), opt.key);
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  onPress={() => setHijriOffset(opt.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set Hijri offset to ${opt.label}, today would be ${preview.day} ${preview.monthName}`}
+                  accessibilityState={{ selected: active }}
+                  style={[
+                    styles.hijriRow,
+                    { backgroundColor: active ? colors.goldBg : colors.bg3 },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: active ? colors.gold : colors.deep,
+                        fontFamily: 'Outfit-SemiBold',
+                        fontSize: 14,
+                      }}
+                    >
+                      {opt.label}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontFamily: 'Outfit-Regular', fontSize: 12, marginTop: 2 }}>
+                      Today → {preview.day} {preview.monthName} {preview.year}
+                    </Text>
+                  </View>
+                  {active && <Text style={{ color: colors.gold, fontSize: 16 }}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Card>
 
@@ -545,6 +614,17 @@ const styles = StyleSheet.create({
   },
   modalRow: { flexDirection: 'row', gap: 10 },
   modalFlex: { flex: 1 },
+
+  hijriStack: { gap: 8 },
+  hijriRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    minHeight: 44,
+  },
 
   citiesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   cityChip: {

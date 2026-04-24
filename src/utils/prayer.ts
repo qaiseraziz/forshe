@@ -20,6 +20,7 @@ import type {
   CalculationMethodKey,
   AsrJuristicMethod,
   HighLatitudeRule,
+  HijriOffset,
 } from '../types';
 
 export type PrayerName = 'Fajr' | 'Sunrise' | 'Dhuhr' | 'Asr' | 'Maghrib' | 'Isha';
@@ -241,11 +242,21 @@ export async function schedulePrayerNotifications(settings: PrayerSettings): Pro
 }
 
 /**
- * Very small Hijri-date helper using Intl.DateTimeFormat with the Islamic
- * calendar. Returns { day, month, monthName, year } for `date` (default today).
- * Falls back gracefully if Intl is not available on the device.
+ * v1.2.12-dev: Hijri date for an arbitrary Gregorian `date`, with an optional
+ * per-country `offset` (days) applied BEFORE the conversion so month/year
+ * rollovers are handled correctly by the Date object. Uses
+ * `Intl.DateTimeFormat('en-u-ca-islamic-umalqura', …)` and falls back to a
+ * coarse arithmetic calculation if the Intl Islamic calendar isn't available
+ * on the device.
  */
-export function hijriToday(date: Date = new Date()): { day: number; month: number; monthName: string; year: number } {
+export function hijriForDate(
+  gregorianDate: Date,
+  offset: number = 0,
+): { day: number; month: number; monthName: string; year: number } {
+  // Apply the offset by shifting the underlying Date. JS Date correctly rolls
+  // months/years; the Intl converter then produces the right Hijri values.
+  const baseDate = new Date(gregorianDate);
+  if (offset !== 0) baseDate.setDate(baseDate.getDate() + offset);
   try {
     const fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', {
       day: 'numeric',
@@ -253,18 +264,18 @@ export function hijriToday(date: Date = new Date()): { day: number; month: numbe
       year: 'numeric',
     });
     const nameFmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { month: 'long' });
-    const parts = fmt.formatToParts(date);
+    const parts = fmt.formatToParts(baseDate);
     const pick = (t: string) => parts.find(p => p.type === t)?.value ?? '';
     const year = parseInt(pick('year'), 10);
     const month = parseInt(pick('month'), 10);
     const day = parseInt(pick('day'), 10);
-    const monthName = nameFmt.format(date).replace(/\sAH$/, '').trim();
+    const monthName = nameFmt.format(baseDate).replace(/\sAH$/, '').trim();
     if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) throw new Error('bad parse');
     return { day, month, monthName, year };
   } catch {
     // Coarse fallback based on a fixed anchor (2024-07-07 Gregorian ≈ 1 Muharram 1446 AH).
     const anchorGregorian = new Date(2024, 6, 7).getTime();
-    const days = Math.floor((date.getTime() - anchorGregorian) / 86400000);
+    const days = Math.floor((baseDate.getTime() - anchorGregorian) / 86400000);
     const hijriDaysSinceAnchor = days;
     // Approx 354.37 days per Hijri year, 29.53 per month — rough only.
     const year = 1446 + Math.floor(hijriDaysSinceAnchor / 354.37);
@@ -279,7 +290,18 @@ export function hijriToday(date: Date = new Date()): { day: number; month: numbe
   }
 }
 
-/** Is today (optionally for a given date) Monday or Thursday? */
+/**
+ * Today's Hijri date. Pass the user's `offset` from `PrayerSettings.hijriOffset`
+ * so the returned value matches local moon sighting. `offset` defaults to 0.
+ */
+export function hijriToday(
+  offset: number = 0,
+): { day: number; month: number; monthName: string; year: number } {
+  return hijriForDate(new Date(), offset);
+}
+
+/** Is today (optionally for a given date) Monday or Thursday? Returns the
+ * weekday label or null — mirrors the v1.2.2-dev API used by PrayerTimesScreen. */
 export function isSunnahWeekday(date: Date = new Date()): 'Monday' | 'Thursday' | null {
   const d = date.getDay();
   if (d === 1) return 'Monday';
@@ -287,11 +309,77 @@ export function isSunnahWeekday(date: Date = new Date()): 'Monday' | 'Thursday' 
   return null;
 }
 
-/** Is today in Ayyam al-Bid (Hijri 13, 14 or 15)? */
-export function isAyyamAlBid(date: Date = new Date()): number | null {
-  const h = hijriToday(date);
-  if (h.day >= 13 && h.day <= 15) return h.day - 12; // 1 / 2 / 3
+/** v1.2.12-dev: simple boolean variant — day-of-week 1 (Mon) or 4 (Thu). */
+export function isMondayOrThursday(gregorianDate: Date): boolean {
+  const dow = gregorianDate.getDay();
+  return dow === 1 || dow === 4;
+}
+
+/**
+ * v1.2.12-dev: takes a Hijri day-of-month number and returns whether it falls
+ * within Ayyam al-Bid (the 13th, 14th, or 15th — the "white days"). This is the
+ * primitive form used by the calendar grid.
+ */
+export function isAyyamAlBid(hijriDay: number): boolean {
+  return hijriDay === 13 || hijriDay === 14 || hijriDay === 15;
+}
+
+/**
+ * Convenience: same idea as `isAyyamAlBid` but keyed on a Gregorian `date` so
+ * legacy callers (PrayerTimesScreen, TodayScreen spiritualBadge) keep working.
+ * Returns 1/2/3 for the position within the 3-day window, or null.
+ */
+export function ayyamAlBidPositionForDate(
+  date: Date = new Date(),
+  offset: number = 0,
+): number | null {
+  const h = hijriForDate(date, offset);
+  if (h.day >= 13 && h.day <= 15) return h.day - 12;
   return null;
+}
+
+/**
+ * v1.2.12-dev: maps a reverse-geocoded country name/code to the recommended
+ * default `hijriOffset`. Pakistan / India / Bangladesh / Afghanistan typically
+ * run a day behind the Umm al-Qura astronomical calendar due to the local
+ * moon-sighting convention — defaulting new users to +1 gets them closer to
+ * what their local mosque announces. If the country can't be determined, the
+ * caller should leave the existing offset unchanged.
+ */
+export function countryToHijriOffset(rawCountry: string | null | undefined): HijriOffset {
+  if (!rawCountry) return 0;
+  const c = rawCountry.trim().toLowerCase();
+  // Local moon-sighting typically runs a day AFTER Umm al-Qura's astronomical date,
+  // so ADDING 1 day to the base Hijri calculation aligns with the local announcement.
+  const plusOne = [
+    'pakistan', 'pk',
+    'india', 'in',
+    'bangladesh', 'bd',
+    'afghanistan', 'af',
+  ];
+  if (plusOne.includes(c)) return 1;
+  // Most Gulf / Arab / SE Asia / Western countries follow (or closely track)
+  // Saudi Arabia's Umm al-Qura — the library's base value — so the default
+  // offset of 0 is correct. Listed here for clarity / future tuning.
+  const zero = [
+    'saudi arabia', 'sa',
+    'united arab emirates', 'uae', 'ae',
+    'qatar', 'qa',
+    'kuwait', 'kw',
+    'oman', 'om',
+    'bahrain', 'bh',
+    'egypt', 'eg',
+    'morocco', 'ma',
+    'tunisia', 'tn',
+    'indonesia', 'id',
+    'malaysia', 'my',
+    'singapore', 'sg',
+    'united kingdom', 'uk', 'gb',
+    'united states', 'usa', 'us',
+    'canada', 'ca',
+  ];
+  if (zero.includes(c)) return 0;
+  return 0;
 }
 
 /**
@@ -336,10 +424,11 @@ export async function scheduleFastingNotifications(settings: PrayerSettings): Pr
   // Ayyam al-Bid — reminder the night before the 13th of each of the next 2 Hijri months
   if (settings.ayyamAlBidFasting) {
     let found = 0;
+    const hijriOffset = settings.hijriOffset ?? 0;
     for (let offset = 0; offset < 90 && found < 2; offset++) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
       const nextDay = new Date(d.getTime() + 86400000);
-      const h = hijriToday(nextDay);
+      const h = hijriForDate(nextDay, hijriOffset);
       if (h.day !== 13) continue;
       const when = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 20, 0, 0, 0);
       if (when.getTime() <= now.getTime()) continue;

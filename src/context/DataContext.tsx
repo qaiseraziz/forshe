@@ -7,7 +7,7 @@ import {
   Transaction, CookingData, MaidData, Attendance, Reminder, PeriodLog,
   BackupData, RecurringExpense, ShoppingItem, ShoppingSession, MaidSalary,
   BodyProfile, BodyLog, BodyStatsSettings,
-  InventoryItem, Recipe, SavingsGoal, Vendor, PrayerSettings,
+  InventoryItem, Recipe, SavingsGoal, Vendor, PrayerSettings, FastingLog,
 } from '../types';
 
 const DEFAULT_BODY_PROFILE: BodyProfile = { height: 0, heightUnit: 'cm' };
@@ -25,6 +25,9 @@ export const DEFAULT_PRAYER_SETTINGS: PrayerSettings = {
   method: 'Karachi',
   asrMethod: 'Hanafi',
   highLatitudeRule: 'MiddleOfTheNight',
+  // v1.2.12-dev: starts at 0. When location is first set, PrayerSettingsScreen
+  // auto-adjusts this based on the resolved country (e.g. +1 for Pakistan).
+  hijriOffset: 0,
   prayerNotifyFajr: true,
   prayerNotifyDhuhr: true,
   prayerNotifyAsr: true,
@@ -77,6 +80,9 @@ interface DataCtx {
   setVendors: (v: Vendor[] | ((p: Vendor[]) => Vendor[])) => void;
   prayerSettings: PrayerSettings;
   setPrayerSettings: (v: PrayerSettings | ((p: PrayerSettings) => PrayerSettings)) => void;
+  // v1.2.12-dev — Fasting Calendar observed-fast log
+  fastingLogs: FastingLog[];
+  setFastingLogs: (v: FastingLog[] | ((p: FastingLog[]) => FastingLog[])) => void;
   allLoaded: boolean;
   handleImport: (data: BackupData) => void;
 }
@@ -103,7 +109,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [savingsGoals, setSavingsGoals, l17] = useStorage<SavingsGoal[]>(STORAGE_KEYS.savingsGoals, []);
   const [vendors, setVendors, l18] = useStorage<Vendor[]>(STORAGE_KEYS.vendors, []);
   const [prayerSettings, setPrayerSettings, l19] = useStorage<PrayerSettings>(STORAGE_KEYS.prayerSettings, DEFAULT_PRAYER_SETTINGS);
-  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17 && l18 && l19;
+  const [fastingLogs, setFastingLogs, l20] = useStorage<FastingLog[]>(STORAGE_KEYS.fastingLogs, []);
+  const allLoaded = l1 && l2 && l3 && l4 && l5 && l6 && l7 && l8 && l9 && l10 && l11 && l12 && l13 && l14 && l15 && l16 && l17 && l18 && l19 && l20;
 
   // Migrate old flat shopping list → session (one-time)
   const shoppingMigrated = useRef(false);
@@ -198,7 +205,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.savingsGoals) setSavingsGoals(data.savingsGoals);
     if (data.vendors) setVendors(data.vendors);
     if (data.prayerSettings) setPrayerSettings(data.prayerSettings);
-  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals, setVendors, setPrayerSettings]);
+    if (data.fastingLogs) setFastingLogs(data.fastingLogs);
+  }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals, setVendors, setPrayerSettings, setFastingLogs]);
 
   const value = useMemo(() => ({
     history, setHistory,
@@ -220,6 +228,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     savingsGoals, setSavingsGoals,
     vendors, setVendors,
     prayerSettings, setPrayerSettings,
+    fastingLogs, setFastingLogs,
     allLoaded,
     handleImport,
   }), [
@@ -232,6 +241,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     inventory, setInventory, recipes, setRecipes, savingsGoals, setSavingsGoals,
     vendors, setVendors,
     prayerSettings, setPrayerSettings,
+    fastingLogs, setFastingLogs,
     allLoaded, handleImport,
   ]);
 

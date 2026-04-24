@@ -5,6 +5,12 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
+## v1.2.12 status (shipped 2026-04-24, FASTING CALENDAR)
+- Tagged as `v1.2.12`. Pure-JS feature release — no new native deps.
+- v1.2.12: Fasting Calendar under Spiritual group, Hijri offset auto-adjusts per country, observed-fast tracking, backup schema 2.6.
+- v1.2.11 (rolled in already): single cloud backup file per user (upsert), restore simplified.
+- `app.json` = 1.2.12 / `ios.buildNumber "19"` / `android.versionCode 19`; `package.json` = 1.2.12; SettingsScreen About = "1.2.12"; DrawerNav footer = "ForSHE v1.2.12".
+
 ## v1.2.10 status (shipped 2026-04-20, CLOUD BACKUP + TWO HOTFIXES)
 - Tagged as `v1.2.10` on commit `5dc6931`. Build `1531195c` queued.
 - v1.2.10 fixes: cloud restore crash (Blob.text() doesn't exist on RN → FileReader.readAsText), local import fragility (switched to expo-file-system File.text).
@@ -147,6 +153,8 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
+- `v1.2.12` — 2026-04-24, Fasting Calendar + Hijri offset + Spiritual group = 2 items. Pure-JS, no native deps.
+- `v1.2.11` — 2026-04-20, single cloud backup file per user (upsert), restore simplified.
 - `v1.2.10` — 2026-04-20, restore hotfix (Blob.text + file read). APK `1531195c`.
 - `v1.2.9` — 2026-04-20, Supabase polyfill fix (crypto + URL). APK not kept in index (superseded within hours by v1.2.10).
 - `v1.2.8` — 2026-04-20, cloud backup via Supabase. APK `bdd317b9`.

@@ -188,6 +188,8 @@ export interface PrayerLocation {
   name: string;
 }
 
+export type HijriOffset = -2 | -1 | 0 | 1 | 2;
+
 export interface PrayerSettings {
   enabled: boolean;                         // master switch, default false until first configuration
   location: PrayerLocation | null;
@@ -195,6 +197,11 @@ export interface PrayerSettings {
   method: CalculationMethodKey;             // default 'Karachi'
   asrMethod: AsrJuristicMethod;             // default 'Hanafi'
   highLatitudeRule: HighLatitudeRule;       // default 'MiddleOfTheNight'
+  // v1.2.12-dev — per-country Hijri calendar offset. Local moon sighting can
+  // differ from the astronomical Umm al-Qura calendar by ±1-2 days. Defaults
+  // to 0, auto-adjusted to +1 when GPS/manual location resolves to
+  // Pakistan / India / Bangladesh / Afghanistan.
+  hijriOffset: HijriOffset;
   // Per-prayer notification toggles
   prayerNotifyFajr: boolean;
   prayerNotifyDhuhr: boolean;
@@ -207,6 +214,16 @@ export interface PrayerSettings {
   // Scheduled notif IDs for cleanup
   fastingNotifIds?: string[];
   prayerNotifIds?: string[];
+}
+
+// v1.2.12-dev — Fasting Calendar observed log
+export type FastingType = 'monday' | 'thursday' | 'ayyam_al_bid';
+
+export interface FastingLog {
+  date: string;             // YYYY-MM-DD (Gregorian)
+  types: FastingType[];     // why it qualified as a fasting day
+  observed: boolean;        // true = fasted, false = intentionally skipped, absent = not logged
+  notes?: string;
 }
 
 // --- v1.2.2-dev — Vendor & Services Directory ---
@@ -263,4 +280,6 @@ export interface BackupData {
   // v1.2.2-dev
   vendors?: Vendor[];
   prayerSettings?: PrayerSettings;
+  // v1.2.12-dev
+  fastingLogs?: FastingLog[];
 }

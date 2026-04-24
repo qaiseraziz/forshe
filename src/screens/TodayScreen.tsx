@@ -29,7 +29,8 @@ import {
   computePrayerTimes,
   getNextPrayer,
   formatPrayerTime,
-  isSunnahWeekday,
+  isMondayOrThursday,
+  hijriForDate,
   isAyyamAlBid,
 } from '../utils/prayer';
 
@@ -170,15 +171,22 @@ export default function TodayScreen() {
       : { label: 'no log today', tone: 'muted' };
   }, [loggedToday]);
 
-  // v1.2.3-dev: Spiritual block badge — prayer-aware
+  // v1.2.3-dev: Spiritual block badge — prayer-aware.
+  // v1.2.12-dev: when today is a Mon/Thu AND/OR a white-day, the badge spells
+  // that out ("Fasting day ✨", "Fasting day 🌙", or "Fasting day ✨🌙") so
+  // the user sees the Sunnah call straight from the home screen.
   const spiritualBadge = useMemo<{ label: string; tone: Tone }>(() => {
     if (!prayerSettings.enabled) {
       return { label: 'Setup', tone: 'gold' };
     }
     const now = new Date();
-    const sun = isSunnahWeekday(now);
-    const bid = isAyyamAlBid(now);
-    if (sun || bid !== null) return { label: 'Sunnah day 🌙', tone: 'gold' };
+    const offset = prayerSettings.hijriOffset ?? 0;
+    const isMonThu = isMondayOrThursday(now);
+    const hDay = hijriForDate(now, offset).day;
+    const isWhite = isAyyamAlBid(hDay);
+    if (isMonThu && isWhite) return { label: 'Fasting day ✨🌙', tone: 'gold' };
+    if (isMonThu) return { label: 'Fasting day ✨', tone: 'gold' };
+    if (isWhite) return { label: 'Fasting day 🌙', tone: 'gold' };
     const times = prayerSettings.location ? computePrayerTimes(now, prayerSettings) : null;
     if (times) {
       const next = getNextPrayer(times, now);
@@ -268,6 +276,7 @@ export default function TodayScreen() {
         badge: spiritualBadge,
         submodules: [
           { key: 'PrayerTimes', label: 'Prayer Times', icon: '🕌', target: 'PrayerTimes', targetIsTab: false },
+          { key: 'Fasting', label: 'Fasting', icon: '🌙', target: 'Fasting', targetIsTab: false },
         ],
       },
       {

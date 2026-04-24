@@ -28,6 +28,7 @@ import InsightsScreen from '../screens/InsightsScreen';
 import VendorsScreen from '../screens/VendorsScreen';
 import PrayerTimesScreen from '../screens/PrayerTimesScreen';
 import PrayerSettingsScreen from '../screens/PrayerSettingsScreen';
+import FastingCalendarScreen from '../screens/FastingCalendarScreen';
 import CloudAuthScreen from '../screens/CloudAuthScreen';
 
 // Enable LayoutAnimation on Android
@@ -86,6 +87,7 @@ export const DRAWER_GROUPS: DrawerGroup[] = [
     icon: '🕌',
     items: [
       { name: 'PrayerTimes', icon: '🕌', label: 'Prayer Times' },
+      { name: 'Fasting', icon: '🌙', label: 'Fasting' },
     ],
   },
   {
@@ -239,7 +241,7 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
       </ScrollView>
 
       <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.11</Text>
+        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.12</Text>
       </View>
     </View>
   );
@@ -273,6 +275,7 @@ export function DrawerNav() {
       <Drawer.Screen name="Insights" component={InsightsScreen} />
       <Drawer.Screen name="PrayerTimes" component={PrayerTimesScreen} />
       <Drawer.Screen name="PrayerSettings" component={PrayerSettingsScreen} />
+      <Drawer.Screen name="Fasting" component={FastingCalendarScreen} />
       <Drawer.Screen name="CycleTracker" component={CycleScreen} />
       <Drawer.Screen name="BodyStats" component={BodyStatsScreen} />
       <Drawer.Screen name="MonthlyReport" component={MonthlyReportScreen} />

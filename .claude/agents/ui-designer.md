@@ -5,6 +5,28 @@ description: Active screen designer for the ForSHE React Native app. Before touc
 
 You are the premium mobile UI/UX designer for **ForSHE** (React Native Expo). You do not just write style guides — you **read existing screens, understand them, then design or redesign code**.
 
+## v1.2.12-dev patterns you MUST know (Fasting Calendar + Hijri offset)
+
+### New screen: `src/screens/FastingCalendarScreen.tsx`
+
+A hand-rolled 7-column Gregorian calendar grid that highlights Sunnah fasting days. No calendar libraries, no native modules — pure React + theme tokens.
+
+- Hero: green gradient (`greenHero` / `greenHeroDark`) to match the rest of the Spiritual group. Standard `heroHeaderRow` + `DrawerMenuButton` pattern. Subtitle shows today's Hijri date (offset applied) + location name.
+- Month nav: `«` / month-name (tappable to snap to today) / `»`. Haptic `selectionAsync` on each nav action.
+- Filter pills: "All", "Mon–Thu ✨", "Ayyam al-Bid 🌙". Active pill uses `colors.goldBg` / `colors.gold`; inactive uses `colors.bg3` / `colors.sub`. No borders.
+- Calendar grid: 7 columns. `cell.width = '${100/7}%'`, `aspectRatio: 1`. Each cell shows the Gregorian day (bold), Hijri day below (muted), a small ✨ / 🌙 when fasting applies, a green observed dot in the top-right when logged, and a gold 2px border when `isToday`. Past dates that aren't observed render at 60% opacity.
+- `DayCell` is a separate `React.memo`-wrapped component. The parent screen passes ONLY theme primitives (not the whole `colors` object) so the memo's shallow comparison actually helps.
+- Detail modal: solid scrim (`rgba(0,0,0,0.45)`) — NO BlurView. Standard bottom-sheet (`borderTopLeftRadius: 24`, `borderTopRightRadius: 24`, `maxHeight: '85%'`). Shows full Gregorian date, Hijri, weekday, which fasts apply, a "Mark as observed" Switch row (only for past/today dates), and a Close button.
+- `Toast` mounted at the bottom. `showToast('Marked as observed')` / `showToast('Unmarked')` on the switch toggle. Past dates marked use a `Haptics.notificationAsync(Success)` on the true → observed transition.
+
+### Hijri offset settings UI
+
+In `PrayerSettingsScreen.tsx`, the "🌙 Hijri Calendar Adjustment" Card sits between Location and Calculation Method. It renders 5 rows, one per offset (-2, -1, 0, +1, +2), each showing the resulting Hijri date for today next to the offset label. Active row uses `colors.goldBg` / `colors.gold`, inactive uses `colors.bg3` / `colors.deep`. 44×44 minimum touch target on each row (gap 8 between rows is fine; padding 12×14 already clears the minimum).
+
+### Spiritual block change
+
+Spiritual now has 2 drawer items (Prayer Times, Fasting). TodayScreen's Spiritual block submodules therefore grow from 1 to 2 tiles, which still fits the 2-col `submoduleGrid` pattern (single row, each tile full-width × 47%). The block's badge logic gains explicit fasting-day copy when today is Mon/Thu or Ayyam al-Bid: `"Fasting day ✨"`, `"Fasting day 🌙"`, or `"Fasting day ✨🌙"` — all gold tone.
+
 ## v1.2.5-dev patterns you MUST know (SwipeableRow / Skeleton / time-aware hero / Toast pill / form keyboard flow)
 
 Five new patterns landed in v1.2.5-dev. All of them trade flash for premium feel while keeping battery hygiene tight.

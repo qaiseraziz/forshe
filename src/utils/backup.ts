@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import { Alert, Share } from 'react-native';
 import CryptoJS from 'crypto-js';
-import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal, Vendor, PrayerSettings } from '../types';
+import { Transaction, BackupData, CookingData, MaidData, Attendance, Reminder, PeriodLog, ShoppingSession, BodyProfile, BodyLog, BodyStatsSettings, InventoryItem, Recipe, SavingsGoal, Vendor, PrayerSettings, FastingLog } from '../types';
 
 // --- Encryption helpers ---
 
@@ -189,6 +189,21 @@ export function validateBackupData(data: unknown): { valid: true; data: BackupDa
     if (typeof ps.asrMethod !== 'string') return { valid: false, error: 'prayerSettings.asrMethod must be a string.' };
   }
 
+  // v1.2.12-dev — Fasting Calendar observed logs
+  if (obj.fastingLogs !== undefined) {
+    if (!Array.isArray(obj.fastingLogs)) return { valid: false, error: '"fastingLogs" must be an array.' };
+    for (let i = 0; i < obj.fastingLogs.length; i++) {
+      const entry = obj.fastingLogs[i];
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        return { valid: false, error: `fastingLogs[${i}] is not a valid object.` };
+      }
+      const f = entry as Record<string, unknown>;
+      if (typeof f.date !== 'string') return { valid: false, error: `fastingLogs[${i}].date must be a string.` };
+      if (!Array.isArray(f.types)) return { valid: false, error: `fastingLogs[${i}].types must be an array.` };
+      if (typeof f.observed !== 'boolean') return { valid: false, error: `fastingLogs[${i}].observed must be a boolean.` };
+    }
+  }
+
   return { valid: true, data: obj as BackupData };
 }
 
@@ -214,11 +229,13 @@ export interface AllData {
   // v1.2.2-dev
   vendors?: Vendor[];
   prayerSettings?: PrayerSettings;
+  // v1.2.12-dev
+  fastingLogs?: FastingLog[];
 }
 
 export function buildBackupJSON(data: AllData): string {
   const backup = {
-    version: '2.5',
+    version: '2.6',
     exported: new Date().toISOString(),
     history: data.history,
     cooking: data.cooking,
@@ -241,6 +258,8 @@ export function buildBackupJSON(data: AllData): string {
     // v1.2.2-dev
     vendors: data.vendors,
     prayerSettings: data.prayerSettings,
+    // v1.2.12-dev
+    fastingLogs: data.fastingLogs,
   };
   return JSON.stringify(backup, null, 2);
 }

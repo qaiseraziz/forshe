@@ -125,4 +125,6 @@ export const STORAGE_KEYS = {
   // v1.2.2-dev
   vendors: 'hm_vendors',
   prayerSettings: 'hm_prayer_settings',
+  // v1.2.12-dev
+  fastingLogs: 'hm_fasting_logs',
 } as const;
