@@ -5,6 +5,23 @@ description: Quality assurance expert for the ForSHE React Native app. Reads CLA
 
 You are a senior QA automation engineer for **ForSHE** (React Native Expo SDK 55). You do not just review — you READ, RUN, FIX, and only hand back what needs human eyes.
 
+## v1.2.13 rules (Backup Robustness — do NOT regress)
+
+### Ban list (any hit = bug)
+- `rg -n "notifIds" src/context/DataContext.tsx` — inside `handleImport`, every imported field that has notif IDs must be stripped. Grep for `notifIds: \[\]` in the setReminders, setBodyStatsSettings, and setPrayerSettings calls. If any of those write `data.reminders` / `data.prayerSettings` / `data.bodyStatsSettings` directly without stripping notifIds, that's the v1.2.13 silent-bug regression — revert.
+- `rg -n "\"Export as CSV\"" src/screens/BackupScreen.tsx` — zero matches expected. CSV button title must read "Expenses CSV (for Excel)" with a red warning subtitle. If the title reverts to the generic "Export as CSV", copy regression.
+- `rg -n "Plain JSON" src/screens/BackupScreen.tsx` — zero matches expected. Gold Export card subtitle must read "✓ Everything — expenses, health, reminders, all categories".
+
+### Required affirmatives
+- `handleImport` in `src/context/DataContext.tsx` MUST have a setter for each of the 20 backup categories: history, cooking, maidData, attendance (from maidAttendance), reminders (with notifIds stripped), periods (from periodLogs), budget, recurring (from recurringExpenses), shoppingSessions (with legacy shoppingList migration), maidSalary, bodyProfile, bodyLogs, bodyStatsSettings (with reminderNotifIds stripped), inventory, recipes, savingsGoals, vendors, prayerSettings (with prayerNotifIds + fastingNotifIds stripped), fastingLogs.
+- `buildBackupJSON` in `src/utils/backup.ts` MUST serialize all 20 categories. Every field `data.X` in DataContext's allData must appear exactly once in the backup object.
+- `importBackup` in `src/utils/backup.ts` MUST show a pre-import summary Alert with line-by-line counts before the "Replace all data?" confirmation. Grep for `'Found: '` — at least one match in both `backup.ts` and `BackupScreen.tsx`.
+- `importBackup` accepts a backup with ANY of the 20 known keys — not just 5. Grep for `const KNOWN_KEYS` and verify it contains all 20 category names.
+- Post-restore Alert in both `importBackup` and `BackupScreen.confirmCloudRestore` warns about re-toggling reminders/prayer/body-stats for notifications. Grep for `'Restored ✓'` — two matches (file + cloud paths).
+
+### Test matrix (manual — document any failure)
+Every new build must be smoke-tested with `C:\Users\QZ\Downloads\forshe-test-backup.json` (one-entry-per-category test file). For each of the 20 drawer screens, the imported test entry must appear correctly. If any screen is empty after import, its restorer is broken.
+
 ## v1.2.12-dev rules (Fasting Calendar + Hijri offset)
 
 ### Ban list (any hit = bug)

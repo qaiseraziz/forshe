@@ -5,6 +5,14 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
+## v1.2.13 status (shipped 2026-04-24, BACKUP ROBUSTNESS + QA AUDIT)
+- Tagged as `v1.2.13`. Pushed to GitHub. APK build `f585a3b3-e2ee-4820-99ac-13e9f4b3fbc8` on smartbzsss-organization.
+- v1.2.13: QA-audited backup/restore pipeline. Fixed stale notifIds surviving restore (silent push-notification failure). Loosened import gate. Added pre-import summary Alert. CSV button red-warned as NOT a full backup.
+- v1.2.12 (rolled in already): Fasting Calendar + Hijri offset.
+- v1.2.11 (rolled in already): single cloud backup file per user (upsert).
+- `app.json` = 1.2.13 / `ios.buildNumber "20"` / `android.versionCode 20`; `package.json` = 1.2.13; SettingsScreen About = "1.2.13"; DrawerNav footer = "ForSHE v1.2.13".
+- **Owner switched** from `smartbzss` to `smartbzsss-organization` (project ID `dc6a60ae-938e-4194-8ae8-a8c811759a40`) to work around smartbzss's exhausted free-tier build quota. Fresh keystore means users must uninstall old ForSHE before installing v1.2.12+.
+
 ## v1.2.12 status (shipped 2026-04-24, FASTING CALENDAR)
 - Tagged as `v1.2.12`. Pure-JS feature release — no new native deps.
 - v1.2.12: Fasting Calendar under Spiritual group, Hijri offset auto-adjusts per country, observed-fast tracking, backup schema 2.6.
@@ -153,6 +161,7 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
+- `v1.2.13` — 2026-04-24, backup robustness + QA audit (stripped stale notifIds, pre-import summary, CSV warning).
 - `v1.2.12` — 2026-04-24, Fasting Calendar + Hijri offset + Spiritual group = 2 items. Pure-JS, no native deps.
 - `v1.2.11` — 2026-04-20, single cloud backup file per user (upsert), restore simplified.
 - `v1.2.10` — 2026-04-20, restore hotfix (Blob.text + file read). APK `1531195c`.

@@ -190,14 +190,16 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Build
-- **APK (queued)**: `1531195c-0827-4dee-bbb1-cbfe89f2baf9` (v1.2.10 restore hotfix, 2026-04-20)
-- Build page: `https://expo.dev/accounts/smartbzss/projects/forshe/builds/1531195c-0827-4dee-bbb1-cbfe89f2baf9`
+- **APK (queued)**: `f585a3b3-e2ee-4820-99ac-13e9f4b3fbc8` (v1.2.13 Backup Robustness, 2026-04-24)
+- Build page: `https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/f585a3b3-e2ee-4820-99ac-13e9f4b3fbc8`
 - Artifact URL: available once build status = FINISHED
+- **Account switched to `smartbzsss-organization`** (project `dc6a60ae-938e-4194-8ae8-a8c811759a40`) due to smartbzss free-tier quota exhaustion. Fresh keystore — users must uninstall old ForSHE before installing.
 
 ### Recent builds
-- `0f65a8a1` — v1.2.9 (Supabase polyfills). Superseded within hours by v1.2.10.
-- `bdd317b9` — v1.2.8 (cloud backup feature landing). Upload worked once polyfills were added in v1.2.9.
-- `519dc1ff` — v1.2.7 (`https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk`) — LAST STABLE APK before cloud backup.
+- `f19165d7` — v1.2.12 (Fasting Calendar). First build on smartbzsss-organization.
+- smartbzss builds up to v1.2.11 — quota exhausted until 2026-05-01.
+- `1531195c` — v1.2.10 (restore hotfix).
+- `519dc1ff` — v1.2.7 (`https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk`) — last smartbzss stable.
 
 ### ⚠️ Known broken APKs — do NOT distribute
 - **`d718bd8a`** (v1.2.4) — launch crash (moti/reanimated mismatch).
