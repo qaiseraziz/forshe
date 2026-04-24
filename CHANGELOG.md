@@ -2,6 +2,37 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.13 — 2026-04-24 "Backup Robustness"
+
+QA audit of the full backup ↔ restore pipeline. Pipeline verified correct for all 20 categories; 1 silent bug fixed + UI clarity improvements to prevent category confusion.
+
+### Fixed
+- **Stale notification IDs survived restore** (silent bug): restoring a backup carried over `reminders[].notifIds`, `prayerSettings.prayerNotifIds`, `prayerSettings.fastingNotifIds`, `bodyStatsSettings.reminderNotifIds` from the OLD device. Those IDs don't exist on the NEW device, so cancellation would silently no-op and push notifications would never fire. Reminders and settings looked correct in the UI — users would only notice when a reminder failed to alert them. Fixed in `handleImport` by stripping all notifId arrays on restore + showing an explicit "Restored ✓" Alert listing the screens that need a manual toggle-off/on to re-schedule notifications.
+- **Import gate too strict**: the old rule required the backup to contain at least one of history/periodLogs/reminders/cooking/bodyLogs or it was rejected as "not ForSHE data". A user with only inventory + vendors + body stats (but no history) couldn't import their own backup. Loosened to accept ANY of the 20 known ForSHE categories.
+
+### Added
+- **Pre-import summary** — both local `.json` import and cloud restore now show a concrete list before the "Replace all data?" confirmation: *"Found: 52 transactions, 12 reminders, 8 cycle logs, 5 body logs, 23 inventory, 6 recipes, 2 savings goals, 4 vendors, 3 fasting logs, 1 shopping lists, 2 salary, 7 meals planned — Replace ALL your current data?"* Users see exactly what will be restored before confirming.
+
+### Changed
+- **BackupScreen card copy** reworded to prevent the CSV ↔ full backup confusion that caused data loss earlier:
+  - Gold "Export" card → *"Full Backup (JSON)"* / *"✓ Everything — expenses, health, reminders, all categories"*.
+  - Purple "Encrypt" card → *"Encrypted Backup (recommended)"* / *"✓ Everything, password-protected AES-256 .forshe file"*.
+  - Blue "CSV" card → *"Expenses CSV (for Excel)"* / red warning *"⚠️ Only expenses — NOT a full backup. Use Export above instead."*
+
+### QA Audit (verified)
+- All 20 DataContext categories round-trip correctly (state → JSON → state).
+- Field-name translations between state vars and JSON (attendance↔maidAttendance, periods↔periodLogs, recurring↔recurringExpenses, shopping↔shoppingList) are symmetric.
+- Validator correctly rejects malformed backups but never rejects valid ones.
+- Cloud upload uses identical `buildBackupJSON(allData)` as local export.
+- Legacy pre-v1.1.3 `shoppingList` → single `shoppingSessions` entry migration intact.
+
+### Chore
+- `app.json` → version `1.2.13`, `ios.buildNumber "20"`, `android.versionCode 20`.
+- `package.json` → version `1.2.13`; `SettingsScreen` About → `Version 1.2.13`; `DrawerNav` footer → `ForSHE v1.2.13`.
+
+### APK
+- Build ID: queued at tag time — see CLAUDE.md Latest APK line.
+
 ## v1.2.12 — 2026-04-24 "Fasting Calendar"
 
 Tagged release — Fasting Calendar under the 🕌 Spiritual drawer group, with location-aware Hijri offset so the astronomical Umm al-Qura calendar matches what the user's local mosque announces. Pure JS, no new native deps.

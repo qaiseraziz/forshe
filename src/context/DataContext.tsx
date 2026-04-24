@@ -179,7 +179,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.cooking) setCooking(data.cooking);
     if (data.maidData) setMaidData(data.maidData);
     if (data.maidAttendance) setAttendance(data.maidAttendance);
-    if (data.reminders) setReminders(data.reminders);
+    // v1.2.13: strip stale notifIds from reminders on restore. Those IDs
+    // belonged to the old device; they don't exist on the new one, so
+    // cancel-on-done / cancel-on-delete would silently no-op and the UI
+    // would look right while push notifications never fire.
+    if (data.reminders) {
+      setReminders(data.reminders.map(r => ({ ...r, notifIds: [] })));
+    }
     if (data.periodLogs) setPeriods(data.periodLogs);
     if (typeof data.budget === 'number') setBudget(data.budget);
     if (data.recurringExpenses) setRecurring(data.recurringExpenses);
@@ -199,12 +205,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data.maidSalary) setMaidSalary(data.maidSalary);
     if (data.bodyProfile) setBodyProfile(data.bodyProfile);
     if (data.bodyLogs) setBodyLogs(data.bodyLogs);
-    if (data.bodyStatsSettings) setBodyStatsSettings(data.bodyStatsSettings);
+    // v1.2.13: strip stale body-stats reminder notif IDs on restore.
+    if (data.bodyStatsSettings) {
+      setBodyStatsSettings({ ...data.bodyStatsSettings, reminderNotifIds: [] });
+    }
     if (data.inventory) setInventory(data.inventory);
     if (data.recipes) setRecipes(data.recipes);
     if (data.savingsGoals) setSavingsGoals(data.savingsGoals);
     if (data.vendors) setVendors(data.vendors);
-    if (data.prayerSettings) setPrayerSettings(data.prayerSettings);
+    // v1.2.13: strip stale prayer + fasting notif IDs on restore.
+    if (data.prayerSettings) {
+      setPrayerSettings({
+        ...data.prayerSettings,
+        prayerNotifIds: [],
+        fastingNotifIds: [],
+      });
+    }
     if (data.fastingLogs) setFastingLogs(data.fastingLogs);
   }, [setHistory, setCooking, setMaidData, setAttendance, setReminders, setPeriods, setBudget, setRecurring, setShopping, setShoppingSessions, setMaidSalary, setBodyProfile, setBodyLogs, setBodyStatsSettings, setInventory, setRecipes, setSavingsGoals, setVendors, setPrayerSettings, setFastingLogs]);
 

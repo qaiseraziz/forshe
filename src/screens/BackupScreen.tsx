@@ -242,9 +242,23 @@ export default function BackupScreen() {
         return;
       }
       const data: BackupData = validation.data;
+      // v1.2.13: show a concrete summary so the user sees what's coming back.
+      const counts: string[] = [];
+      if (Array.isArray(data.history) && data.history.length) counts.push(`${data.history.length} transactions`);
+      if (Array.isArray(data.reminders) && data.reminders.length) counts.push(`${data.reminders.length} reminders`);
+      if (Array.isArray(data.periodLogs) && data.periodLogs.length) counts.push(`${data.periodLogs.length} cycle logs`);
+      if (Array.isArray(data.bodyLogs) && data.bodyLogs.length) counts.push(`${data.bodyLogs.length} body logs`);
+      if (Array.isArray(data.inventory) && data.inventory.length) counts.push(`${data.inventory.length} inventory`);
+      if (Array.isArray(data.recipes) && data.recipes.length) counts.push(`${data.recipes.length} recipes`);
+      if (Array.isArray(data.savingsGoals) && data.savingsGoals.length) counts.push(`${data.savingsGoals.length} goals`);
+      if (Array.isArray(data.vendors) && data.vendors.length) counts.push(`${data.vendors.length} vendors`);
+      if (Array.isArray(data.fastingLogs) && data.fastingLogs.length) counts.push(`${data.fastingLogs.length} fasting logs`);
+      if (Array.isArray(data.shoppingSessions) && data.shoppingSessions.length) counts.push(`${data.shoppingSessions.length} shopping lists`);
+      if (Array.isArray(data.maidSalary) && data.maidSalary.length) counts.push(`${data.maidSalary.length} salary`);
+      const summary = counts.length ? counts.join(', ') : 'the backup';
       Alert.alert(
         'Restore from cloud',
-        `Replace ALL your current data with the backup from ${fileName}?`,
+        `Found: ${summary}.\n\nReplace ALL your current data?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -252,7 +266,23 @@ export default function BackupScreen() {
             style: 'destructive',
             onPress: () => {
               handleImport(data);
-              showToast('Restored from cloud ✓', null, 'success');
+              // v1.2.13: notif IDs were stripped on restore. Tell the user to
+              // re-toggle so push notifications actually re-schedule.
+              const hasReminders = Array.isArray(data.reminders) && data.reminders.length > 0;
+              const hasPrayer = data.prayerSettings && data.prayerSettings.enabled;
+              const hasBodyReminder = data.bodyStatsSettings && data.bodyStatsSettings.reminderEnabled;
+              if (hasReminders || hasPrayer || hasBodyReminder) {
+                Alert.alert(
+                  'Restored ✓',
+                  'Everything is back. To re-enable push notifications:\n\n' +
+                  (hasReminders ? '• Open Reminders and toggle each reminder off → on\n' : '') +
+                  (hasPrayer ? '• Open Prayer Settings and tap "Save & Schedule"\n' : '') +
+                  (hasBodyReminder ? '• Open Settings → Body Stats and toggle the reminder off → on\n' : '') +
+                  '\nData is safe; only notifications need re-scheduling.',
+                );
+              } else {
+                showToast('Restored from cloud ✓', null, 'success');
+              }
             },
           },
         ],
@@ -343,9 +373,9 @@ export default function BackupScreen() {
             <Text style={styles.optionIcon}>📤</Text>
           </View>
           <View style={styles.optionContent}>
-            <Text style={[styles.optionTitle, { color: colors.deep }]}>Export Backup</Text>
+            <Text style={[styles.optionTitle, { color: colors.deep }]}>Full Backup (JSON)</Text>
             <Text style={[styles.optionSub, { color: colors.muted }]}>
-              Plain JSON — share to Gmail, Drive, etc.
+              ✓ Everything — expenses, health, reminders, all categories
             </Text>
           </View>
           <Button title="Export" variant="gold" small onPress={handleExportJSON} />
@@ -359,9 +389,9 @@ export default function BackupScreen() {
             <Text style={styles.optionIcon}>🔒</Text>
           </View>
           <View style={styles.optionContent}>
-            <Text style={[styles.optionTitle, { color: colors.deep }]}>Encrypted Backup</Text>
+            <Text style={[styles.optionTitle, { color: colors.deep }]}>Encrypted Backup (recommended)</Text>
             <Text style={[styles.optionSub, { color: colors.muted }]}>
-              AES-256 password-protected .forshe file
+              ✓ Everything, password-protected AES-256 .forshe file
             </Text>
           </View>
           <Button title="Encrypt" variant="purple" small onPress={handleExportEncrypted} />
@@ -375,9 +405,9 @@ export default function BackupScreen() {
             <Text style={styles.optionIcon}>💾</Text>
           </View>
           <View style={styles.optionContent}>
-            <Text style={[styles.optionTitle, { color: colors.deep }]}>Export as CSV</Text>
-            <Text style={[styles.optionSub, { color: colors.muted }]}>
-              Export expenses as a spreadsheet
+            <Text style={[styles.optionTitle, { color: colors.deep }]}>Expenses CSV (for Excel)</Text>
+            <Text style={[styles.optionSub, { color: colors.red }]}>
+              ⚠️ Only expenses — NOT a full backup. Use Export above instead.
             </Text>
           </View>
           <Button title="CSV" variant="blue" small onPress={handleExportCSV} />

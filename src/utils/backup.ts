@@ -376,17 +376,72 @@ export async function importBackup(onImport: (data: BackupData) => void, promptP
       return;
     }
 
-    if (!data.history && !data.periodLogs && !data.reminders && !data.cooking && !data.bodyLogs) {
+    // v1.2.13: accept a backup if it contains ANY known ForSHE category —
+    // not just the original five. A user's backup might be (e.g.) inventory +
+    // vendors + body stats + recipes + fasting logs without any transactions;
+    // that's still valid and must be importable.
+    const KNOWN_KEYS = [
+      'history', 'cooking', 'maidData', 'maidAttendance', 'reminders',
+      'periodLogs', 'budget', 'recurringExpenses', 'shoppingList',
+      'shoppingSessions', 'maidSalary', 'bodyProfile', 'bodyLogs',
+      'bodyStatsSettings', 'inventory', 'recipes', 'savingsGoals', 'vendors',
+      'prayerSettings', 'fastingLogs',
+    ] as const;
+    const hasAny = KNOWN_KEYS.some(k => data[k] !== undefined);
+    if (!hasAny) {
       Alert.alert('Error', 'This file does not contain any ForSHE data to import.');
       return;
     }
 
+    // Build a "what will be restored" summary so the user sees exactly what's coming back.
+    const counts: string[] = [];
+    if (Array.isArray(data.history) && data.history.length) counts.push(`${data.history.length} transactions`);
+    if (Array.isArray(data.reminders) && data.reminders.length) counts.push(`${data.reminders.length} reminders`);
+    if (Array.isArray(data.periodLogs) && data.periodLogs.length) counts.push(`${data.periodLogs.length} cycle logs`);
+    if (Array.isArray(data.bodyLogs) && data.bodyLogs.length) counts.push(`${data.bodyLogs.length} body logs`);
+    if (Array.isArray(data.inventory) && data.inventory.length) counts.push(`${data.inventory.length} inventory items`);
+    if (Array.isArray(data.recipes) && data.recipes.length) counts.push(`${data.recipes.length} recipes`);
+    if (Array.isArray(data.savingsGoals) && data.savingsGoals.length) counts.push(`${data.savingsGoals.length} savings goals`);
+    if (Array.isArray(data.vendors) && data.vendors.length) counts.push(`${data.vendors.length} vendors`);
+    if (Array.isArray(data.fastingLogs) && data.fastingLogs.length) counts.push(`${data.fastingLogs.length} fasting logs`);
+    if (Array.isArray(data.shoppingSessions) && data.shoppingSessions.length) counts.push(`${data.shoppingSessions.length} shopping lists`);
+    if (Array.isArray(data.maidSalary) && data.maidSalary.length) counts.push(`${data.maidSalary.length} salary records`);
+    if (data.cooking && Object.keys(data.cooking).length) counts.push(`${Object.keys(data.cooking).length} meals planned`);
+    if (data.maidData && Object.values(data.maidData).some(t => Array.isArray(t) && t.length)) counts.push('maid tasks');
+    if (data.maidAttendance && Object.keys(data.maidAttendance).length) counts.push(`${Object.keys(data.maidAttendance).length} attendance records`);
+    if (typeof data.budget === 'number' && data.budget > 0) counts.push('budget');
+    if (data.bodyProfile && typeof data.bodyProfile === 'object') counts.push('body profile');
+    if (data.prayerSettings && typeof data.prayerSettings === 'object') counts.push('prayer settings');
+    if (data.bodyStatsSettings && typeof data.bodyStatsSettings === 'object') counts.push('body stats settings');
+    const summary = counts.length ? counts.join(', ') : 'no categories with data';
+
     Alert.alert(
       'Import Backup',
-      'This will replace all your current data. Are you sure?',
+      `Found: ${summary}.\n\nThis will replace all your current data. Are you sure?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Import', style: 'destructive', onPress: () => onImport(validation.data) },
+        {
+          text: 'Import',
+          style: 'destructive',
+          onPress: () => {
+            onImport(validation.data);
+            // v1.2.13: tell the user to re-toggle reminders so push
+            // notifications actually re-schedule on this device.
+            const hasReminders = Array.isArray(data.reminders) && data.reminders.length > 0;
+            const hasPrayer = data.prayerSettings && data.prayerSettings.enabled;
+            const hasBodyReminder = data.bodyStatsSettings && data.bodyStatsSettings.reminderEnabled;
+            if (hasReminders || hasPrayer || hasBodyReminder) {
+              Alert.alert(
+                'Restored ✓',
+                'Everything is back. To re-enable push notifications:\n\n' +
+                (hasReminders ? '• Open Reminders and toggle each reminder off → on\n' : '') +
+                (hasPrayer ? '• Open Prayer Settings and tap "Save & Schedule"\n' : '') +
+                (hasBodyReminder ? '• Open Settings → Body Stats and toggle the reminder off → on\n' : '') +
+                '\nData is safe; only notifications need re-scheduling.',
+              );
+            }
+          },
+        },
       ]
     );
   } catch (e: any) {
