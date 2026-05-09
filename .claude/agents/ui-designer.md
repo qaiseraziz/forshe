@@ -5,7 +5,268 @@ description: Active screen designer for the ForSHE React Native app. Before touc
 
 You are the premium mobile UI/UX designer for **ForSHE** (React Native Expo). You do not just write style guides — you **read existing screens, understand them, then design or redesign code**.
 
-## v1.2.12-dev patterns you MUST know (Fasting Calendar + Hijri offset)
+## Compact Screen Pattern (v1.2.14-dev)
+
+User feedback (verbatim, v1.2.13): *"month budget on expenses is not working quick add is taking too much space i mean whole page is not smartly desinged too much big headers cant see what needs to be done."*
+
+The hero on most screens consumed ~700px before the first content row. ExpensesScreen pioneered the fix in v1.2.14-dev. From now on, EVERY new or redesigned screen MUST follow these six rules. Apply ONE screen per release.
+
+### 1. Compact hero typography (defaults for ALL screens)
+
+| Token | Old | New |
+|-------|-----|-----|
+| Hero balance / primary number `balNum` | 42 / lh 48 | **36 / lh 42** |
+| Hero label `balLabel` letter-spacing | 1.5 | **1.0** |
+| Stat box value `balStatVal` | 16 | **15** |
+| Stat box label `balStatLbl` | 11 | **10** |
+| Card padding for compact rails | 20 | **12** |
+
+Drop low-signal hero ornamentation: income-vs-spent bars, "Available to spend" subtext, standalone over-budget badges. Convey overspend by tinting the primary number `colors.red`.
+
+```tsx
+// ✅ DO — compact hero (ExpensesScreen v1.2.14)
+<Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+  <View style={styles.heroHeaderRow}>
+    <DrawerMenuButton />
+    <View style={styles.heroHeaderText}>
+      <Text style={[styles.balLabel, { color: colors.gold }]}>💼 Remaining Balance</Text>
+      <Text style={[styles.balNum, { color: bal < 0 ? colors.red : colors.green }]}>{pkrF(bal)}</Text>
+    </View>
+  </View>
+  <View style={styles.balStats}>{/* 3 stat boxes */}</View>
+  {/* inline single-setting block — see rule 2 */}
+</Card>
+
+// ❌ DON'T — verbose hero (ExpensesScreen v1.2.13)
+<Card>
+  <Text>💼 Remaining Balance</Text>
+  <Text style={{ fontSize: 42 }}>{pkrF(bal)}</Text>
+  {balOver && <View style={overBudgetBadge}><Text>⚠️ Over budget</Text></View>}
+  <Text>✨ Available to spend</Text>
+  <ProgressBar percent={pct} />          {/* income vs spent — low signal */}
+  <View style={statRow}>{/* 3 stats */}</View>
+  <View style={budgetWrap}>{/* full budget editor */}</View>
+</Card>
+```
+
+Saved per screen: ~80-120px of vertical chrome.
+
+### 2. Inline single-setting editor inside hero
+
+When a screen has exactly ONE primary setting (Expenses → monthly budget; SavingsGoals → default contribution amount; CycleScreen → cycle length), put it INSIDE the hero — never in its own Card.
+
+Three states, all same slot:
+- **Set** → "Setting · Value · usage%" line + thin 4px progress bar + ✎ pencil button (44×44 hitSlop)
+- **Unset** → tappable "Set X →" full-width row
+- **Editing** → `<Input>` + Save (small green) + Cancel (small outline), animated via `LayoutAnimation.Presets.easeInEaseOut`
+
+```tsx
+// ✅ DO — three states, single slot
+<View style={[styles.budgetWrap, { borderTopColor: colors.border }]}>
+  {budgetEditing ? (
+    <View style={styles.budgetEditRow}>
+      <Input value={budgetInput} onChangeText={setBudgetInput} keyboardType="numeric" autoFocus />
+      <Button title="Save" variant="green" small onPress={handleSetBudget} />
+      <Button title="Cancel" variant="outline" small onPress={handleCancelBudget} />
+    </View>
+  ) : budget > 0 ? (
+    <View>
+      <View style={styles.budgetRow}>
+        <Text>Budget · {pkrF(budget)} set · {budgetPct}% used</Text>
+        <TouchableOpacity onPress={toggleBudgetEditing} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button" accessibilityLabel="Edit monthly budget"
+          accessibilityState={{ expanded: budgetEditing }}>
+          <Text>✎</Text>
+        </TouchableOpacity>
+      </View>
+      <ProgressBar percent={budgetPct} fillColor={budgetColor} height={4} />
+    </View>
+  ) : (
+    <TouchableOpacity onPress={toggleBudgetEditing} accessibilityRole="button" accessibilityLabel="Set monthly budget">
+      <Text style={{ color: colors.gold }}>Set monthly budget →</Text>
+    </TouchableOpacity>
+  )}
+</View>
+
+// ❌ DON'T — separate Card hidden behind a chevron
+<Card><TouchableOpacity onPress={toggleCollapsed}><Text>🎯 Monthly Budget ▾</Text></TouchableOpacity>
+  {!collapsed && <View><Input /><Button title="Set" /><Button title="Clear" /></View>}
+</Card>
+```
+
+When NOT to use this: screens with multiple settings (SettingsScreen itself), screens where the "primary setting" requires its own preset list (PrayerSettings).
+
+Saved per screen: ~140px (one entire collapsed Card + its always-shown header row).
+
+### 3. Default-collapsed Add form (chevron + LayoutAnimation)
+
+The QuickAddFAB is global. Inline Add forms below the hero are mostly skipped. Make them collapsed-by-default with a clear chevron header.
+
+```tsx
+// ✅ DO
+const [addFormOpen, setAddFormOpen] = useState(false);
+const toggleAddForm = useCallback(() => {
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  Haptics.selectionAsync();
+  setAddFormOpen(o => !o);
+}, []);
+
+<Card>
+  <TouchableOpacity onPress={toggleAddForm}
+    accessibilityRole="button"
+    accessibilityLabel={addFormOpen ? 'Collapse add form' : 'Expand add form'}
+    accessibilityState={{ expanded: addFormOpen }}
+    style={styles.addFormHeader}
+  >
+    <Text style={styles.addFormTitle}>+ Add transaction</Text>
+    <Text style={styles.addFormChevron}>{addFormOpen ? '▾' : '▸'}</Text>
+  </TouchableOpacity>
+  {!addFormOpen && (
+    <Text style={styles.optionSub}>Or use the floating + button for quick entry</Text>
+  )}
+  {addFormOpen && <View style={styles.addFormBody}>{/* existing fields */}</View>}
+</Card>
+
+// ❌ DON'T — always-expanded form with toggle bar
+<Card>
+  <View style={formToggle}>{/* Received/Expense pills */}</View>
+  <Input /> <Input /> <Picker /> <Button title="+ Add" />
+</Card>
+```
+
+Apply to: Inventory, Recipes, Vendors, Reminders, SavingsGoals, ShoppingList, BodyStats add-log forms. Saved per screen: ~280-380px when collapsed (typical add form).
+
+### 4. Section header with combined icons
+
+The "section title + items badge + share + search" pattern collapses three rows into one.
+
+```tsx
+// ✅ DO — single row, share + search as 18px icon buttons
+<View style={styles.secHeader}>
+  <Text style={styles.secTitle} numberOfLines={1}>{sectionTitle}</Text>
+  <View style={styles.secHeaderRight}>
+    <Badge text={`${filtered.length}`} bg={colors.goldBg} color={colors.gold} borderColor={colors.goldBorder} />
+    <TouchableOpacity onPress={handleShare} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      accessibilityRole="button" accessibilityLabel="Share stats">
+      <Text style={styles.iconBtnText}>📤</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={toggleSearch} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      accessibilityRole="button" accessibilityLabel={searchOpen ? 'Hide search' : 'Show search'}
+      accessibilityState={{ expanded: searchOpen }}>
+      <Text style={[styles.iconBtnText, { color: searchOpen ? colors.gold : colors.sub }]}>🔍</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+
+// ❌ DON'T — full-width Share Button + separate items badge row + always-shown search bar
+<Button title="📤 Share Stats with Husband" full variant="gold" />
+<View style={secHeader}><Text>All Transactions</Text><Badge text="3 items" /></View>
+<View style={searchWrap}><Input placeholder="Search…" /></View>
+```
+
+Saved per screen: ~80-100px (one full-width button + one always-shown search row).
+
+### 5. Search hidden behind 🔍 icon
+
+Search input renders only when `searchOpen === true`. Toggle clears the query on close.
+
+```tsx
+// ✅ DO
+const [searchOpen, setSearchOpen] = useState(false);
+const toggleSearch = useCallback(() => {
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  setSearchOpen(o => {
+    if (o) setSearch('');  // clear on close
+    return !o;
+  });
+}, []);
+
+{searchOpen && (
+  <View style={styles.searchWrap}>
+    <Text style={styles.searchIcon}>🔍</Text>
+    <Input placeholder="Search transactions…" value={search} onChangeText={setSearch} autoFocus />
+  </View>
+)}
+
+// ❌ DON'T — always-shown search bar that nobody uses 90% of the time
+<View style={searchWrap}><Input placeholder="Search…" /></View>
+```
+
+Apply to: Vendors, Inventory, Recipes, RemindersScreen filter pills, InsightsScreen category filter. Saved per screen: ~64px (search row).
+
+### 6. Compact horizontal chip rail (with inline label)
+
+The "⚡ Quick Add" header + hint subtitle + tile rail collapses into a single rail. The label scrolls WITH the rail as its first child.
+
+| Token | Old | New |
+|-------|-----|-----|
+| Tile minWidth × minHeight | 88 × 88 | **72 × 72** |
+| Tile borderRadius | 16 | **14** |
+| Tile padding (h/v) | 12 / 12 | **8 / 10** |
+| Tile icon fontSize | 24 | **22** |
+| Tile text fontSize | 12 | **11** |
+| Tile preset secondary line | shown | **dropped** |
+| Card padding | 20 | **12** |
+
+```tsx
+// ✅ DO
+<Card style={styles.quickCard}>
+  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRail}>
+    <View style={styles.quickInlineLabelWrap}>
+      <Text style={styles.quickInlineLabel}>Quick:</Text>
+    </View>
+    {EXPENSE_PRESETS.map(p => (
+      <TouchableOpacity key={p.label} style={styles.presetTile} onPress={() => applyPreset(p)}
+        accessibilityRole="button" accessibilityLabel={`Quick add ${p.label}`}>
+        <Text style={styles.presetIcon}>{p.icon}</Text>
+        <Text style={styles.presetText} numberOfLines={1}>{p.label}</Text>
+      </TouchableOpacity>
+    ))}
+  </ScrollView>
+</Card>
+
+// ❌ DON'T — ⚡ Quick Add header + hint + larger tiles + amount sublabel
+<Card>
+  <Text style={sectionLabel}>⚡ Quick Add</Text>
+  <Text style={presetHint}>Tap to prefill the expense form</Text>
+  <ScrollView horizontal>
+    {EXPENSE_PRESETS.map(p => (
+      <TouchableOpacity style={{ minWidth: 88, minHeight: 88 }}>
+        <Text>{p.icon}</Text><Text>{p.label}</Text>
+        {p.amount > 0 && <Text>{pkr(p.amount)}</Text>}
+      </TouchableOpacity>
+    ))}
+  </ScrollView>
+</Card>
+```
+
+Apply to: ShoppingListScreen quick-add, RecipeBookScreen ingredient chips, anywhere ≤20 items in a single visual row. Saved per screen: ~70-90px (label, hint, larger tiles).
+
+### Roll-out order
+
+Apply these six rules to ONE screen per release. Proposed order (highest user value first):
+
+1. **TodayScreen** — already partly tight from v1.2.3 inline-expand; verify rule 1 (typography) and rule 4 (section header) match. Likely small.
+2. **ShoppingListScreen** — large session header + bulky quick-add chips; rules 1, 5, 6.
+3. **RemindersScreen** — verbose filter pills + always-shown form; rules 3, 4, 5.
+4. **VendorsScreen** — search always-shown, inline form too tall; rules 3, 5.
+5. **InventoryScreen** — search + category pills + always-shown add form; rules 3, 5.
+6. **RecipeBookScreen** — list mode chrome + ingredient chip rail; rules 1, 6.
+7. **SavingsGoalsScreen** — verbose hero + always-shown add modal trigger; rules 1, 3.
+8. **InsightsScreen** — large month picker + chart cards; rules 1, 4, 5.
+9. **MonthlyReportScreen** — separate Share button below summary; rule 4.
+10. **BodyStatsScreen** — feature-flag hero + always-shown log form; rules 1, 3.
+11. **CycleScreen** — symptom rail + add-log form; rules 3, 6.
+12. **CookingScreen** — day strip already tight; verify rule 1 + rule 6 (meal slot chips).
+13. **MaidScreen** — task add form + salary single-setting; rules 2, 3.
+14. **PrayerTimesScreen** — already minimal; verify rule 1.
+15. **FastingCalendarScreen** — already compact (v1.2.12); spot-check rule 4.
+16. **BackupScreen** — three Cards + four full-width Buttons; rule 1 typography only (don't touch the safety copy).
+17. **SettingsScreen** — list of toggles is fine; rule 1 typography only.
+
+Any screen that already follows a rule keeps the existing implementation. The pattern is "minimum quality bar going forward," not "redesign for its own sake."
+
+
 
 ### New screen: `src/screens/FastingCalendarScreen.tsx`
 

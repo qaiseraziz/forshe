@@ -2,6 +2,38 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.14 — 2026-04-24 "Expenses Compact Pattern"
+
+User feedback: too much chrome on every screen, monthly budget hidden / "not working" because it sat in a collapsible Card under a full-width Share button. Redesigned ExpensesScreen as the first application of a reusable Compact Screen Pattern that will roll out one screen per release.
+
+### Changed
+- **ExpensesScreen redesign — ~700-860px of vertical chrome removed before the first transaction**:
+  - Compact hero (dropped income-vs-spent ProgressBar, "Available to spend" subtext, standalone over-budget badge; balance 42→36px, stat val 16→15px, stat label 11→10px).
+  - Inline budget INSIDE the hero (3 states: "Set monthly budget →" / "Budget · ₨X set · Y% used" + ✎ icon / inline-edit mode). Replaces the entire separate Monthly Budget Card.
+  - Full-width "📤 Share Stats with Husband" button removed → tiny 📤 icon in section header.
+  - Compact Quick Add chip rail (no header, no hint, smaller chips, inline "Quick:" label).
+  - Add form collapsed by default (chevron `▸`/`▾` toggles).
+  - Section header + search combined into one row; search hidden behind 🔍 icon.
+
+### Added
+- Compact Screen Pattern playbook section in `.claude/agents/ui-designer.md` (§ "Compact Screen Pattern (v1.2.14-dev)") — typography defaults, inline-edit-in-hero pattern, default-collapsed-form pattern, share-icon-in-section-header pattern, search-behind-🔍 pattern, compact-chip-rail pattern. Roll-out: Today (verify) → ShoppingList → Reminders → Vendors → Inventory → Recipes → SavingsGoals → Insights → MonthlyReport → BodyStats → Cycle → Cooking → Maid → PrayerTimes → FastingCalendar → Backup → Settings. **One screen per release.**
+- qa-expert.md audit rules for the Compact Screen Pattern.
+
+### Fixed
+- "Monthly budget not working" — confirmed via code audit that `setBudget` / `monthSpent` / `checkBudgetAlert` wiring was correct. The bug was discoverability: budget editor was buried in a collapsible Card under the full-width Share button. Surfacing it as an inline 3-state row inside the hero removes the perception bug entirely.
+
+### Removed (verified by strict typecheck)
+- State: `budgetCollapsed`, `setBudgetCollapsed`, `toggleBudgetCollapsed`, `pct`, `fillColor`, `handleClearBudget`.
+- Styles: `balNote`, `balBarWrap`, `overBudgetBadge`, `overBudgetBadgeText`, `shareBtn`, `budgetHeader`, `budgetHeaderRight`, `budgetStatus`, `budgetChevron`, `budgetVal`, `budgetNote`, `presetHint`, `presetAmt`, `sectionLabel`.
+- Preserved: budget-alert hook, SwipeableRow on transactions, SkeletonCardRow ×5, EmptyState copy, edit-modal keyboard refs, Toast mounting.
+
+### Chore
+- `app.json` → version `1.2.14`, `ios.buildNumber "21"`, `android.versionCode 21`.
+- `package.json` → version `1.2.14`; `SettingsScreen` About → `Version 1.2.14`; `DrawerNav` footer → `ForSHE v1.2.14`.
+
+### APK
+- Build ID: queued at tag time — see CLAUDE.md Latest APK line.
+
 ## v1.2.13 — 2026-04-24 "Backup Robustness"
 
 QA audit of the full backup ↔ restore pipeline. Pipeline verified correct for all 20 categories; 1 silent bug fixed + UI clarity improvements to prevent category confusion.

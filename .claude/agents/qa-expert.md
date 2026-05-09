@@ -5,6 +5,42 @@ description: Quality assurance expert for the ForSHE React Native app. Reads CLA
 
 You are a senior QA automation engineer for **ForSHE** (React Native Expo SDK 55). You do not just review — you READ, RUN, FIX, and only hand back what needs human eyes.
 
+## v1.2.14-dev Compact Screen Pattern audits
+
+ExpensesScreen pioneered the compact pattern in v1.2.14-dev. The same pattern applies to every redesigned screen going forward (one screen per release). Each redesign MUST be audited with the rules below.
+
+### ExpensesScreen ban list (any hit = regression)
+
+- `rg -n "Monthly Budget" src/screens/ExpensesScreen.tsx` — must NOT match any `<Text>` rendered as a Card title or `sectionLabel`. The standalone "🎯 Monthly Budget" Card was deleted; budget editing lives inline inside the hero. (Inline `Budget · X set · Y% used` copy is fine — the literal phrase "Monthly Budget" must not return.)
+- `rg -n "Share Stats" src/screens/ExpensesScreen.tsx` — zero matches. The full-width "📤 Share Stats with Husband" Button was replaced with a 📤 icon in the section header.
+- `rg -n "presetHint|Tap to prefill" src/screens/ExpensesScreen.tsx` — zero matches. The Quick Add hint subtitle was deleted.
+- `rg -n "shareBtn|budgetCollapsed|toggleBudgetCollapsed|handleClearBudget|overBudgetBadge|balBarWrap|balNote|presetAmt|budgetHeader|budgetHeaderRight|budgetStatus|budgetChevron" src/screens/ExpensesScreen.tsx` — all should be zero. These are the deleted-state-and-style names from the v1.2.13 layout. Any hit means dead code crept back.
+
+### ExpensesScreen required affirmatives
+
+- `rg -n "budgetEditing" src/screens/ExpensesScreen.tsx` — at least 4 matches (state, toggle, render, accessibilityState).
+- `rg -n "addFormOpen" src/screens/ExpensesScreen.tsx` — at least 5 matches (state, toggle, accessibilityState, conditional copy, conditional body).
+- `useState(false)` for both `addFormOpen` and `searchOpen` — collapsed by default. Grep `useState\(false\).*\b(addFormOpen|searchOpen)\b` should match neither (the assignment is split across lines), so just verify the state initialiser literal `false` sits next to each name.
+- Hero balance number `balNum.fontSize === 36` (not 42); `balStatVal.fontSize === 15` (not 16); `balStatLbl.fontSize === 10` (not 11). Grep these literal token-name + value pairings.
+- Section header has TWO `iconBtn` TouchableOpacity entries (📤 + 🔍) inside `secHeaderRight`. Search input only renders when `searchOpen === true`.
+- Inline budget editor has THREE branches: editing / set / unset. Grep for `budgetEditing ?` followed by `budget > 0 ?` followed by a final fallback row in the hero. All three must be present.
+- `Toast` still mounted at the end of the screen's return tree. `<Toast toast={toast} dismiss={dismissToast} />` — grep for it.
+
+### Reusable pattern audits (apply when other screens are redesigned)
+
+When any of the 17 listed screens (TodayScreen, ShoppingListScreen, RemindersScreen, VendorsScreen, InventoryScreen, RecipeBookScreen, SavingsGoalsScreen, InsightsScreen, MonthlyReportScreen, BodyStatsScreen, CycleScreen, CookingScreen, MaidScreen, PrayerTimesScreen, FastingCalendarScreen, BackupScreen, SettingsScreen) is redesigned, audit:
+
+- **Rule 1 (typography)**: hero `balNum`-equivalent `fontSize <= 36`, `lineHeight <= 42`. Stat boxes `balStatVal === 15`, `balStatLbl === 10`. Any larger = regression to pre-v1.2.14 sizing.
+- **Rule 2 (inline single-setting)**: if the screen has exactly one primary setting (cycle length, default contribution, etc.), the editor MUST be inline-in-hero with three states (editing / set / unset). A separate `<Card>` for that single setting is a regression.
+- **Rule 3 (collapsed Add form)**: any inline Add form below the hero MUST have `useState(false)` initial state, a chevron header, and a `LayoutAnimation` toggle. Always-expanded Add forms are a regression.
+- **Rule 4 (combined section header)**: title + count badge + Share icon + Search icon in ONE `flexDirection: 'row'` container. A standalone full-width Share Button below the hero is a regression.
+- **Rule 5 (hidden search)**: search inputs MUST be hidden behind a 🔍 icon toggle. Always-shown search bars are a regression. Filter pill rows are NOT covered by this rule and stay visible.
+- **Rule 6 (compact chip rail)**: tile `minWidth/minHeight === 72`, `borderRadius === 14`, no secondary `presetAmt` line, inline rail label. Tiles ≥ 88×88 are a regression.
+
+### One-screen-per-release cadence
+
+Only ONE screen may adopt the compact pattern per release. Auditor must reject PRs that redesign multiple screens in a single release window — the cadence prevents stylistic drift while we tune the pattern. The order in `ui-designer.md` § "Roll-out order" is non-binding but a strong default.
+
 ## v1.2.13 rules (Backup Robustness — do NOT regress)
 
 ### Ban list (any hit = bug)

@@ -4,7 +4,8 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.2.13** (tagged 2026-04-24) — "Backup Robustness". Full QA audit of backup ↔ restore pipeline — verified all 20 categories round-trip correctly. Fixed silent bug where restored notifIds from old device caused push notifications to silently fail; restore now strips them + shows an explicit Alert listing screens that need a manual re-toggle. Import gate loosened to accept any ForSHE category (not just 5). Pre-import summary shows users exactly what's about to be restored. CSV button clearly labelled "NOT a full backup" to prevent the earlier data-loss scenario.
+**v1.2.14** (tagged 2026-04-24) — "Expenses Compact Pattern". ExpensesScreen redesigned to remove ~700-860px of vertical chrome. Inline 3-state budget editor inside the hero (fixes the "monthly budget not working" perception bug — was just buried). Add form collapsed by default. Share + search now icons in the section header. Compact pattern playbook documented in `ui-designer.md` § "Compact Screen Pattern (v1.2.14-dev)" — rolls out to ONE screen per release; 16 more queued.
+- v1.2.13 release theme (tagged 2026-04-24): "Backup Robustness". Full QA audit of backup ↔ restore pipeline — verified all 20 categories round-trip correctly. Fixed silent bug where restored notifIds from old device caused push notifications to silently fail; restore now strips them + shows an explicit Alert listing screens that need a manual re-toggle. Import gate loosened to accept any ForSHE category (not just 5). Pre-import summary shows users exactly what's about to be restored. CSV button clearly labelled "NOT a full backup" to prevent the earlier data-loss scenario.
 - v1.2.12 release theme: "Fasting Calendar" — hand-rolled 7-col calendar under 🕌 Spiritual, location-aware Hijri offset, observed-fast tracking.
 - v1.2.10 release theme: "Restore Hotfix". Two cloud-backup correctness bugs fixed. (1) `downloadBackup` now reads the Blob via `FileReader.readAsText` — RN's Blob has no `.text()` method, which crashed cloud restore with "undefined is not a function". (2) `importBackup` reads the picked file via `new File(uri).text()` (expo-file-system) instead of the flaky `fetch(file://).text()` path.
 - v1.2.9 release theme: "Supabase Polyfill Hotfix" — installed `react-native-get-random-values` + `react-native-url-polyfill`, imported at the top of `index.ts` so Supabase's crypto + URL needs are satisfied before any Supabase code runs.
@@ -16,9 +17,9 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 - v1.2.3 release theme: "Inline-Expand Home + Spiritual Group" — TodayScreen home blocks switch from "tap = jump to default screen" to an inline single-open accordion that reveals the group's sub-modules as 2-column mini-tiles inside the block. New 🕌 Spiritual drawer group split out of Personal (Prayer Times moves there; Personal returns to wellness-only = Cycle Tracker + Body Stats). Drawer now has 6 groups.
 - v1.2.2 release theme: "Block Grid Home + Prayer Times" — TodayScreen redesigned from stacked tile strips to a 2-column block grid (Money/Kitchen/Household/Personal) with themed gradient backgrounds + a full-width System tile. New Prayer Times + Sunnah Fasting feature (adhan library, GPS or manual city, 5 prayer notifications + Monday/Thursday + Ayyam al-Bid reminders).
 - v1.2.1 release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
-- `app.json`: version `1.2.13`, `ios.buildNumber "20"`, `android.versionCode 20`.
-- `package.json`: name `forshe`, version `1.2.13`.
-- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.13 APK section.
+- `app.json`: version `1.2.14`, `ios.buildNumber "21"`, `android.versionCode 21`.
+- `package.json`: name `forshe`, version `1.2.14`.
+- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.14 APK section.
 - Last confirmed-working APK: v1.2.7 (`519dc1ff`, https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk).
 - Orchestration: every task routes through `project-manager` (see Agents section).
 

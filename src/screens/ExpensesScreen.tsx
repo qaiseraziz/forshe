@@ -91,15 +91,34 @@ export default function ExpensesScreen() {
   // Search
   const [search, setSearch] = useState('');
 
-  // Budget input
+  // Budget input — v1.2.14-dev: inline-in-hero edit mode
   const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
-  // Collapsed by default if a budget is set; expanded if not set
-  const [budgetCollapsed, setBudgetCollapsed] = useState(budget > 0);
+  const [budgetEditing, setBudgetEditing] = useState(false);
 
-  const toggleBudgetCollapsed = useCallback(() => {
+  const toggleBudgetEditing = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.selectionAsync();
-    setBudgetCollapsed(c => !c);
+    setBudgetInput(budget > 0 ? String(budget) : '');
+    setBudgetEditing(e => !e);
+  }, [budget]);
+
+  // v1.2.14-dev: Add form is collapsed by default — most users use the FAB.
+  const [addFormOpen, setAddFormOpen] = useState(false);
+  const toggleAddForm = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.selectionAsync();
+    setAddFormOpen(o => !o);
+  }, []);
+
+  // v1.2.14-dev: Search hidden behind 🔍 icon in the section header.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const toggleSearch = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.selectionAsync();
+    setSearchOpen(o => {
+      if (o) setSearch(''); // clear on close
+      return !o;
+    });
   }, []);
 
   // Quick Add preset handler — stable per-preset
@@ -132,8 +151,6 @@ export default function ExpensesScreen() {
     [history, td],
   );
   const bal = totalRec - totalSpent;
-  const pct = totalRec > 0 ? Math.min((totalSpent / totalRec) * 100, 100) : 0;
-  const fillColor = pct > 90 ? colors.red : pct > 70 ? colors.gold : colors.green;
 
   // Monthly budget
   const monthSpent = useMemo(() => {
@@ -313,18 +330,27 @@ export default function ExpensesScreen() {
   }, []);
 
   const handleSetBudget = useCallback(() => {
-    const v = parseFloat(budgetInput);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const trimmed = budgetInput.trim();
+    if (trimmed === '') {
+      // Empty + Save = clear
+      setBudget(0);
+      setBudgetEditing(false);
+      showToast('Budget cleared');
+      return;
+    }
+    const v = parseFloat(trimmed);
     if (!isNaN(v) && v > 0) {
       setBudget(v);
+      setBudgetEditing(false);
       showToast('🎯 Budget set to ' + pkrF(v));
     }
-  }, [budgetInput, setBudget, showToast]);
+  }, [budgetInput, setBudget, showToast, pkrF]);
 
-  const handleClearBudget = useCallback(() => {
-    setBudget(0);
-    setBudgetInput('');
-    showToast('Budget cleared');
-  }, [setBudget, showToast]);
+  const handleCancelBudget = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setBudgetEditing(false);
+  }, []);
 
   const openDatePicker = useCallback(() => setShowDatePicker(true), []);
   const openEditDatePicker = useCallback(() => setShowEditDatePicker(true), []);
@@ -425,7 +451,7 @@ export default function ExpensesScreen() {
   // Header component for FlatList
   const listHeader = useMemo(() => (
     <View>
-      {/* Balance Hero */}
+      {/* Balance Hero — v1.2.14-dev: compact hero with inline budget editor */}
       <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
         <View style={styles.heroHeaderRow}>
           <DrawerMenuButton />
@@ -435,23 +461,6 @@ export default function ExpensesScreen() {
               {pkrF(bal)}
             </Text>
           </View>
-        </View>
-        {(bal < 0 || (budget > 0 && monthSpent > budget)) && (
-          <View style={[styles.overBudgetBadge, { backgroundColor: colors.redBg }]}>
-            <Text style={[styles.overBudgetBadgeText, { color: colors.red }]}>
-              ⚠️ Over budget
-            </Text>
-          </View>
-        )}
-        <Text style={[styles.balNote, { color: colors.sub }]}>
-          {bal < 0
-            ? '⚠️ Overspent! Add more funds'
-            : bal === 0
-              ? 'Balance is zero'
-              : '✨ Available to spend'}
-        </Text>
-        <View style={styles.balBarWrap}>
-          <ProgressBar percent={pct} fillColor={fillColor} bgColor={colors.border} height={8} />
         </View>
 
         {/* 3 stat boxes */}
@@ -470,76 +479,56 @@ export default function ExpensesScreen() {
           </View>
         </View>
 
-        {/* Budget bar inside hero */}
-        {budget > 0 && (
-          <View style={[styles.budgetWrap, { borderTopColor: colors.border }]}>
-            <View style={styles.budgetRow}>
-              <Text style={[styles.budgetLabel, { color: colors.sub }]}>This Month's Budget</Text>
-              <Text style={[styles.budgetVal, { color: colors.gold }]}>
-                {pkrF(monthSpent)} / {pkrF(budget)}
+        {/* Inline budget block — v1.2.14-dev */}
+        <View style={[styles.budgetWrap, { borderTopColor: colors.border }]}>
+          {budgetEditing ? (
+            <View style={styles.budgetEditRow}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  placeholder={`Monthly budget in ${currencyCode}`}
+                  keyboardType="numeric"
+                  value={budgetInput}
+                  onChangeText={setBudgetInput}
+                  autoFocus
+                />
+              </View>
+              <Button title="Save" variant="green" small onPress={handleSetBudget} />
+              <Button title="Cancel" variant="outline" small onPress={handleCancelBudget} />
+            </View>
+          ) : budget > 0 ? (
+            <View>
+              <View style={styles.budgetRow}>
+                <Text style={[styles.budgetLabel, { color: colors.sub }]} numberOfLines={1}>
+                  Budget · {pkrF(budget)} set · {budgetPct}% used
+                </Text>
+                <TouchableOpacity
+                  onPress={toggleBudgetEditing}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit monthly budget"
+                  accessibilityState={{ expanded: budgetEditing }}
+                  style={styles.budgetEditBtn}
+                >
+                  <Text style={[styles.budgetEditIcon, { color: colors.gold }]}>✎</Text>
+                </TouchableOpacity>
+              </View>
+              <ProgressBar percent={budgetPct} fillColor={budgetColor} bgColor={colors.border} height={4} />
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={toggleBudgetEditing}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Set monthly budget"
+              accessibilityState={{ expanded: budgetEditing }}
+              style={styles.budgetSetRow}
+            >
+              <Text style={[styles.budgetSetText, { color: colors.gold }]}>
+                Set monthly budget →
               </Text>
-            </View>
-            <ProgressBar percent={budgetPct} fillColor={budgetColor} bgColor={colors.border} height={6} />
-            <Text style={[styles.budgetNote, { color: colors.muted }]}>
-              {budgetPct}% used{budgetPct >= 100 ? ' — Budget exceeded!' : ''}
-            </Text>
-          </View>
-        )}
-      </Card>
-
-      {/* Share button */}
-      <Button
-        title="📤 Share Stats with Husband"
-        variant="gold"
-        full
-        onPress={handleShare}
-        style={styles.shareBtn}
-      />
-
-      {/* Monthly Budget Setting (collapsible) */}
-      <Card>
-        <TouchableOpacity
-          onPress={toggleBudgetCollapsed}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={budgetCollapsed ? 'Expand monthly budget settings' : 'Collapse monthly budget settings'}
-          accessibilityState={{ expanded: !budgetCollapsed }}
-          style={styles.budgetHeader}
-        >
-          <Text style={[styles.sectionLabel, { color: colors.deep }]}>🎯 Monthly Budget</Text>
-          <View style={styles.budgetHeaderRight}>
-            <Text style={[styles.budgetStatus, { color: colors.muted }]}>
-              {budget > 0 ? pkrF(budget) + ' set' : 'Not set'}
-            </Text>
-            <Text style={[styles.budgetChevron, { color: colors.muted }]}>
-              {budgetCollapsed ? '▾' : '▴'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        {!budgetCollapsed && (
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <Input
-                placeholder={`Set budget in ${currencyCode}`}
-                keyboardType="numeric"
-                value={budgetInput}
-                onChangeText={setBudgetInput}
-              />
-            </View>
-            <Button
-              title="Set"
-              variant="blue"
-              small
-              onPress={handleSetBudget}
-            />
-            <Button
-              title="Clear"
-              variant="outline"
-              small
-              onPress={handleClearBudget}
-            />
-          </View>
-        )}
+            </TouchableOpacity>
+          )}
+        </View>
       </Card>
 
       {/* Monthly Summary */}
@@ -601,17 +590,16 @@ export default function ExpensesScreen() {
         </Card>
       )}
 
-      {/* Quick Presets — horizontal Pakistani household rail */}
-      <Card>
-        <Text style={[styles.sectionLabel, { color: colors.deep }]}>⚡ Quick Add</Text>
-        <Text style={[styles.presetHint, { color: colors.muted }]}>
-          Tap to prefill the expense form
-        </Text>
+      {/* Quick Presets — v1.2.14-dev: compact rail with inline label */}
+      <Card style={styles.quickCard}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.presetRail}
         >
+          <View style={styles.quickInlineLabelWrap}>
+            <Text style={[styles.quickInlineLabel, { color: colors.muted }]}>Quick:</Text>
+          </View>
           {EXPENSE_PRESETS.map(p => (
             <TouchableOpacity
               key={p.label}
@@ -625,137 +613,180 @@ export default function ExpensesScreen() {
               <Text style={[styles.presetText, { color: colors.sub }]} numberOfLines={1}>
                 {p.label}
               </Text>
-              {p.amount > 0 && (
-                <Text style={[styles.presetAmt, { color: colors.muted }]}>{pkr(p.amount)}</Text>
-              )}
             </TouchableOpacity>
           ))}
         </ScrollView>
       </Card>
 
-      {/* Unified Add Form */}
+      {/* Unified Add Form — v1.2.14-dev: collapsed by default */}
       <Card>
-        <View style={styles.formToggle}>
-          <TouchableOpacity
-            style={[
-              styles.formToggleBtn,
-              { backgroundColor: formMode === 'topup' ? 'rgba(200,134,10,0.12)' : colors.bg3 },
-            ]}
-            onPress={() => setFormMode('topup')}
-          >
-            <Text style={[styles.formToggleText, { color: formMode === 'topup' ? colors.gold : colors.muted }]}>
-              💰 Received
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.formToggleBtn,
-              { backgroundColor: formMode === 'expense' ? 'rgba(200,134,10,0.12)' : colors.bg3 },
-            ]}
-            onPress={() => setFormMode('expense')}
-          >
-            <Text style={[styles.formToggleText, { color: formMode === 'expense' ? colors.gold : colors.muted }]}>
-              🛒 Expense
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {formMode === 'topup' ? (
-          <>
-            <Input
-              placeholder="e.g. Weekly kharch…"
-              value={topupNote}
-              onChangeText={setTopupNote}
-              style={styles.formInput}
-            />
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder={`Amount in ${currencyCode}`}
-                  keyboardType="numeric"
-                  value={topupAmt}
-                  onChangeText={setTopupAmt}
-                />
-              </View>
-              <Button title="Add" variant="green" onPress={addTopup} />
-            </View>
-          </>
-        ) : (
-          <>
-            <Input
-              placeholder="What did you buy?"
-              value={expItem}
-              onChangeText={setExpItem}
-              style={styles.formInput}
-            />
-            <View style={[styles.row, styles.formInput]}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder={`Amount in ${currencyCode}`}
-                  keyboardType="numeric"
-                  value={expAmt}
-                  onChangeText={setExpAmt}
-                />
-              </View>
+        <TouchableOpacity
+          onPress={toggleAddForm}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={addFormOpen ? 'Collapse add transaction form' : 'Expand add transaction form'}
+          accessibilityState={{ expanded: addFormOpen }}
+          style={styles.addFormHeader}
+        >
+          <Text style={[styles.addFormTitle, { color: colors.deep }]}>+ Add transaction</Text>
+          <Text style={[styles.addFormChevron, { color: colors.muted }]}>
+            {addFormOpen ? '▾' : '▸'}
+          </Text>
+        </TouchableOpacity>
+        {!addFormOpen && (
+          <Text style={[styles.optionSub, { color: colors.muted }]}>
+            Or use the floating + button for quick entry
+          </Text>
+        )}
+        {addFormOpen && (
+          <View style={styles.addFormBody}>
+            <View style={styles.formToggle}>
               <TouchableOpacity
-                style={[styles.dateBtn, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-                onPress={openDatePicker}
+                style={[
+                  styles.formToggleBtn,
+                  { backgroundColor: formMode === 'topup' ? 'rgba(200,134,10,0.12)' : colors.bg3 },
+                ]}
+                onPress={() => setFormMode('topup')}
               >
-                <Text style={[styles.dateBtnText, { color: colors.text }]}>{dateToDMY(expDate)}</Text>
+                <Text style={[styles.formToggleText, { color: formMode === 'topup' ? colors.gold : colors.muted }]}>
+                  💰 Received
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.formToggleBtn,
+                  { backgroundColor: formMode === 'expense' ? 'rgba(200,134,10,0.12)' : colors.bg3 },
+                ]}
+                onPress={() => setFormMode('expense')}
+              >
+                <Text style={[styles.formToggleText, { color: formMode === 'expense' ? colors.gold : colors.muted }]}>
+                  🛒 Expense
+                </Text>
               </TouchableOpacity>
             </View>
-            {showDatePicker && (
-              <DateTimePicker
-                value={expDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleExpDateChange}
-              />
+
+            {formMode === 'topup' ? (
+              <>
+                <Input
+                  placeholder="e.g. Weekly kharch…"
+                  value={topupNote}
+                  onChangeText={setTopupNote}
+                  style={styles.formInput}
+                />
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      placeholder={`Amount in ${currencyCode}`}
+                      keyboardType="numeric"
+                      value={topupAmt}
+                      onChangeText={setTopupAmt}
+                    />
+                  </View>
+                  <Button title="Add" variant="green" onPress={addTopup} />
+                </View>
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="What did you buy?"
+                  value={expItem}
+                  onChangeText={setExpItem}
+                  style={styles.formInput}
+                />
+                <View style={[styles.row, styles.formInput]}>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      placeholder={`Amount in ${currencyCode}`}
+                      keyboardType="numeric"
+                      value={expAmt}
+                      onChangeText={setExpAmt}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.dateBtn, { backgroundColor: colors.bg3, borderColor: colors.border }]}
+                    onPress={openDatePicker}
+                  >
+                    <Text style={[styles.dateBtnText, { color: colors.text }]}>{dateToDMY(expDate)}</Text>
+                  </TouchableOpacity>
+                </View>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={expDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleExpDateChange}
+                  />
+                )}
+                <View style={styles.row}>
+                  <View style={[styles.pickerWrap, { flex: 1, backgroundColor: colors.bg3, borderColor: colors.border }]}>
+                    <Picker
+                      selectedValue={expCat}
+                      onValueChange={setExpCat}
+                      style={{ color: colors.text }}
+                      dropdownIconColor={colors.sub}
+                    >
+                      {CAT_KEYS.map(c => (
+                        <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
+                      ))}
+                    </Picker>
+                  </View>
+                  <Button title="+ Add" variant="gold" onPress={addExpense} />
+                </View>
+                <View style={styles.receiptRow}>
+                  <Button title={receiptUri ? "📷 Change" : "📷 Receipt"} variant="outline" small onPress={pickReceipt} />
+                  {receiptUri && <Text style={[styles.receiptLabel, { color: colors.green }]}>✓ Photo attached</Text>}
+                </View>
+              </>
             )}
-            <View style={styles.row}>
-              <View style={[styles.pickerWrap, { flex: 1, backgroundColor: colors.bg3, borderColor: colors.border }]}>
-                <Picker
-                  selectedValue={expCat}
-                  onValueChange={setExpCat}
-                  style={{ color: colors.text }}
-                  dropdownIconColor={colors.sub}
-                >
-                  {CAT_KEYS.map(c => (
-                    <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
-                  ))}
-                </Picker>
-              </View>
-              <Button title="+ Add" variant="gold" onPress={addExpense} />
-            </View>
-            <View style={styles.receiptRow}>
-              <Button title={receiptUri ? "📷 Change" : "📷 Receipt"} variant="outline" small onPress={pickReceipt} />
-              {receiptUri && <Text style={[styles.receiptLabel, { color: colors.green }]}>✓ Photo attached</Text>}
-            </View>
-          </>
+          </View>
         )}
       </Card>
 
-      {/* Transactions header */}
+      {/* Transactions header — v1.2.14-dev: title + count + share + search icons in one row */}
       <View style={styles.secHeader}>
-        <Text style={[styles.secTitle, { color: colors.deep }]}>{sectionTitle}</Text>
-        <Badge
-          text={`${filtered.length} items`}
-          bg={colors.goldBg}
-          color={colors.gold}
-          borderColor={colors.goldBorder}
-        />
+        <Text style={[styles.secTitle, { color: colors.deep }]} numberOfLines={1}>{sectionTitle}</Text>
+        <View style={styles.secHeaderRight}>
+          <Badge
+            text={`${filtered.length}`}
+            bg={colors.goldBg}
+            color={colors.gold}
+            borderColor={colors.goldBorder}
+          />
+          <TouchableOpacity
+            onPress={handleShare}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Share stats"
+            style={styles.iconBtn}
+          >
+            <Text style={[styles.iconBtnText, { color: colors.sub }]}>📤</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={toggleSearch}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={searchOpen ? 'Hide search' : 'Show search'}
+            accessibilityState={{ expanded: searchOpen }}
+            style={styles.iconBtn}
+          >
+            <Text style={[styles.iconBtnText, { color: searchOpen ? colors.gold : colors.sub }]}>🔍</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Search */}
-      <View style={[styles.searchWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <Input
-          placeholder="Search transactions…"
-          value={search}
-          onChangeText={setSearch}
-          style={[styles.searchInput, { borderWidth: 0, backgroundColor: 'transparent' }]}
-        />
-      </View>
+      {/* Search — hidden behind 🔍 icon, v1.2.14-dev */}
+      {searchOpen && (
+        <View style={[styles.searchWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <Input
+            placeholder="Search transactions…"
+            value={search}
+            onChangeText={setSearch}
+            style={[styles.searchInput, { borderWidth: 0, backgroundColor: 'transparent' }]}
+            autoFocus
+          />
+        </View>
+      )}
 
       {!allLoaded && (
         <>
@@ -776,13 +807,15 @@ export default function ExpensesScreen() {
       )}
     </View>
   ), [
-    colors, bal, pct, fillColor, totalRec, totalSpent, todaySpent,
+    colors, dark, bal, totalRec, totalSpent, todaySpent,
     budget, monthSpent, budgetPct, budgetColor, handleShare,
-    budgetInput, handleSetBudget, handleClearBudget,
+    budgetInput, budgetEditing, toggleBudgetEditing, handleSetBudget, handleCancelBudget,
+    addFormOpen, toggleAddForm,
+    searchOpen, toggleSearch,
     filter, selMonth, selYear, monthlySummary,
     formMode, topupNote, topupAmt, addTopup,
     expItem, expAmt, expDate, showDatePicker, handleExpDateChange,
-    expCat, addExpense, receiptUri, pickReceipt,
+    expCat, addExpense, receiptUri, pickReceipt, openDatePicker,
     sectionTitle, filtered, search, allLoaded,
     pkr, pkrF, currencyCode,
   ]);
@@ -916,111 +949,80 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 120,
   },
-  // Balance hero
+  // Balance hero — v1.2.14-dev: tighter typography
   balLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Outfit-Bold',
     textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 6,
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   balNum: {
     fontFamily: 'PlayfairDisplay-ExtraBold',
-    fontSize: 42,
-    lineHeight: 48,
+    fontSize: 36,
+    lineHeight: 42,
     letterSpacing: -0.5,
-  },
-  balNote: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 6,
-  },
-  overBudgetBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  overBudgetBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    letterSpacing: 0.5,
-  },
-  balBarWrap: {
-    marginTop: 14,
-    marginBottom: 16,
   },
   balStats: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 12,
   },
   balStatBox: {
     flex: 1,
     alignItems: 'center',
   },
   balStatVal: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Outfit-Bold',
   },
   balStatLbl: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'Outfit-SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: 2,
   },
-  // Budget inside hero
+  // Budget inline-in-hero — v1.2.14-dev
   budgetWrap: {
-    marginTop: 14,
-    paddingTop: 14,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
   },
   budgetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
+    gap: 8,
   },
   budgetLabel: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 13,
     fontFamily: 'Outfit-SemiBold',
   },
-  budgetVal: {
-    fontSize: 14,
+  budgetEditBtn: {
+    minWidth: 28,
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  budgetEditIcon: {
+    fontSize: 16,
     fontFamily: 'Outfit-Bold',
   },
-  budgetNote: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 4,
-  },
-  // Share
-  shareBtn: {
-    marginBottom: 16,
-  },
-  // Budget setting
-  budgetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  budgetSetRow: {
     minHeight: 44,
+    justifyContent: 'center',
   },
-  budgetHeaderRight: {
+  budgetSetText: {
+    fontSize: 13,
+    fontFamily: 'Outfit-SemiBold',
+  },
+  budgetEditRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  budgetStatus: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Regular',
-  },
-  budgetChevron: {
-    fontSize: 16,
-    fontFamily: 'Outfit-Bold',
-    width: 16,
-    textAlign: 'center',
   },
   // Monthly summary
   summaryTitle: {
@@ -1082,39 +1084,67 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-SemiBold',
     textAlign: 'right',
   },
-  // Presets
-  presetHint: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 2,
-    marginBottom: 12,
+  // Quick presets — v1.2.14-dev: compact rail with inline label
+  quickCard: {
+    padding: 12,
+  },
+  quickInlineLabelWrap: {
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  quickInlineLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   presetRail: {
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 2,
-    gap: 10,
+    gap: 8,
+    alignItems: 'center',
   },
   presetTile: {
-    minWidth: 88,
-    minHeight: 88,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 16,
+    minWidth: 72,
+    minHeight: 72,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   presetIcon: {
-    fontSize: 24,
-    marginBottom: 4,
+    fontSize: 22,
+    marginBottom: 2,
   },
   presetText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Outfit-SemiBold',
     textAlign: 'center',
-    maxWidth: 76,
+    maxWidth: 64,
   },
-  presetAmt: {
-    fontSize: 10,
+  // Collapsed Add form — v1.2.14-dev
+  addFormHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  addFormTitle: {
+    fontSize: 15,
+    fontFamily: 'Outfit-Bold',
+  },
+  addFormChevron: {
+    fontSize: 16,
+    fontFamily: 'Outfit-Bold',
+    width: 20,
+    textAlign: 'center',
+  },
+  addFormBody: {
+    marginTop: 12,
+  },
+  optionSub: {
+    fontSize: 12,
     fontFamily: 'Outfit-Regular',
     marginTop: 2,
   },
@@ -1161,17 +1191,33 @@ const styles = StyleSheet.create({
     minHeight: 54,
     justifyContent: 'center',
   },
-  // Section header
+  // Section header — v1.2.14-dev: title + count + share/search icons
   secHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 14,
     marginBottom: 8,
+    gap: 10,
   },
   secTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 20,
+    flex: 1,
+    fontSize: 16,
+    fontFamily: 'Outfit-Bold',
+  },
+  secHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnText: {
+    fontSize: 18,
   },
   // Search
   searchWrap: {
