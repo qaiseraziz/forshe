@@ -190,12 +190,16 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Build
-- **APK (queued)**: `f585a3b3-e2ee-4820-99ac-13e9f4b3fbc8` (v1.2.13 Backup Robustness, 2026-04-24)
-- Build page: `https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/f585a3b3-e2ee-4820-99ac-13e9f4b3fbc8`
+- **APK (queued)**: `29215448-d8ab-4841-bd23-44ff22e29db2` (v1.2.17 Vendors from Contacts, 2026-04-24)
+- Build page: `https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/29215448-d8ab-4841-bd23-44ff22e29db2`
 - Artifact URL: available once build status = FINISHED
 - **Account switched to `smartbzsss-organization`** (project `dc6a60ae-938e-4194-8ae8-a8c811759a40`) due to smartbzss free-tier quota exhaustion. Fresh keystore — users must uninstall old ForSHE before installing.
 
 ### Recent builds
+- `0740ca65` — v1.2.16 (Today Compact).
+- `6103dd5b` — v1.2.15 (Smart Quick Add).
+- `1d827a89` — v1.2.14 (Expenses Compact Pattern).
+- `f585a3b3` — v1.2.13 (Backup Robustness).
 - `f19165d7` — v1.2.12 (Fasting Calendar). First build on smartbzsss-organization.
 - smartbzss builds up to v1.2.11 — quota exhausted until 2026-05-01.
 - `1531195c` — v1.2.10 (restore hotfix).

@@ -59,6 +59,19 @@ When any of the 17 listed screens (TodayScreen, ShoppingListScreen, RemindersScr
 
 Only ONE screen may adopt the compact pattern per release. Auditor must reject PRs that redesign multiple screens in a single release window — the cadence prevents stylistic drift while we tune the pattern. The order in `ui-designer.md` § "Roll-out order" is non-binding but a strong default.
 
+## v1.2.17 rules (Contact picker — Vendors)
+
+### Ban list (any hit = bug)
+- `rg -n "from 'expo-contacts'" src/` — expected hits: ONLY `src/screens/VendorsScreen.tsx`. If the contact picker is reused elsewhere, factor into a shared hook before duplicating the import.
+- `rg -n "Contacts\.getContactsAsync" src/screens/` — expected: VendorsScreen only.
+
+### Required affirmatives
+- `Contacts.requestPermissionsAsync` is called BEFORE `Contacts.getContactsAsync`. Permission denial must show an `Alert.alert` and abort.
+- `Contacts.getContactsAsync` requests minimum fields only — `[Contacts.Fields.Name, Contacts.Fields.PhoneNumbers]`. Adding more fields (Emails, Addresses) without a clear UX need slows the load.
+- Contact list filtered to entries with `phones.length > 0` BEFORE rendering — vendors require a phone number.
+- Contact picker shown ONLY in Add mode (`editingId === null`). Edit mode hides the picker.
+- `app.json` permissions: Android `READ_CONTACTS` + iOS `NSContactsUsageDescription`. Either missing breaks the feature on that platform.
+
 ## v1.2.13 rules (Backup Robustness — do NOT regress)
 
 ### Ban list (any hit = bug)

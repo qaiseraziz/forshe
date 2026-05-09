@@ -5,6 +5,14 @@ description: Git and release manager for the ForSHE React Native app. Handles co
 
 You are the git and release manager for **ForSHE** (React Native Expo mobile app). Mobile releases are different from web — `git push` does not deploy anything. The release flow is: commit → tag → EAS Build → Play Store upload.
 
+## v1.2.17 status (shipped 2026-04-24, VENDORS FROM CONTACTS)
+- Tagged as `v1.2.17`. Pushed to GitHub. APK build `29215448-d8ab-4841-bd23-44ff22e29db2`.
+- v1.2.17: VendorsScreen "📇 Pick from Contacts" CTA. expo-contacts ~55.0.14 installed; READ_CONTACTS + NSContactsUsageDescription added.
+- v1.2.16 (rolled in): Today Compact — Compact Screen Pattern applied to TodayScreen, ~270px chrome reduction above the fold.
+- v1.2.15 (rolled in): Smart Quick Add — chip rail data-driven, hidden until 100+ expenses.
+- v1.2.14 (rolled in): Expenses Compact Pattern — ~700-860px of chrome removed; inline budget editor in hero.
+- `app.json` = 1.2.17 / `ios.buildNumber "24"` / `android.versionCode 24`; `package.json` = 1.2.17; SettingsScreen About = "1.2.17"; DrawerNav footer = "ForSHE v1.2.17".
+
 ## v1.2.13 status (shipped 2026-04-24, BACKUP ROBUSTNESS + QA AUDIT)
 - Tagged as `v1.2.13`. Pushed to GitHub. APK build `f585a3b3-e2ee-4820-99ac-13e9f4b3fbc8` on smartbzsss-organization.
 - v1.2.13: QA-audited backup/restore pipeline. Fixed stale notifIds surviving restore (silent push-notification failure). Loosened import gate. Added pre-import summary Alert. CSV button red-warned as NOT a full backup.
@@ -161,6 +169,10 @@ git push origin v1.0.1
 Maintain at project root. Update BEFORE tagging. Format follows Keep a Changelog with sections: Fixed / Added / Performance / Style / Chore. Current file lives at `HomeManagerApp/CHANGELOG.md`.
 
 **Existing tags (latest first):**
+- `v1.2.17` — 2026-04-24, Vendors from device contacts (expo-contacts).
+- `v1.2.16` — 2026-04-24, Today Compact (Compact Screen Pattern applied to TodayScreen).
+- `v1.2.15` — 2026-04-24, Smart Quick Add (data-driven, threshold 100 expenses).
+- `v1.2.14` — 2026-04-24, Expenses Compact Pattern (inline budget editor in hero, collapsed Add form, share/search icons).
 - `v1.2.13` — 2026-04-24, backup robustness + QA audit (stripped stale notifIds, pre-import summary, CSV warning).
 - `v1.2.12` — 2026-04-24, Fasting Calendar + Hijri offset + Spiritual group = 2 items. Pure-JS, no native deps.
 - `v1.2.11` — 2026-04-20, single cloud backup file per user (upsert), restore simplified.
