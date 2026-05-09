@@ -242,11 +242,27 @@ The "⚡ Quick Add" header + hint subtitle + tile rail collapses into a single r
 
 Apply to: ShoppingListScreen quick-add, RecipeBookScreen ingredient chips, anywhere ≤20 items in a single visual row. Saved per screen: ~70-90px (label, hint, larger tiles).
 
+### Today / Dashboard variant (v1.2.16-dev)
+
+The dashboard hero + accordion is a different shape than a list-screen hero, so the six base rules apply with these specifics. Confirmed on TodayScreen v1.2.16-dev:
+
+- **Compact greeting + date in ONE line** (replaces the 3-line label-greeting-date stack). `"Good morning · Friday 24 Apr"` with `·` separator. PlayfairDisplay-Bold 19/24, single line, `numberOfLines={1}`. No separate `heroDate` line. No "Today's Overview" label — the screen IS Today.
+- **Hero stats stay** but compact: value 22px (was 28px), label 11px (unchanged), `gap: 24` between cols, NO vertical divider — spacing alone separates. `heroCard: { padding: 16 }` (was 28/24).
+- **No section title above the accordion blocks.** "Explore" was redundant — the 6 cards make it self-evident. Same rule for Today's Essentials: replace the section title with the existing per-subsection labels (`🔔 Due Soon`, `🍽️ Today's Meals`, `🧹 Maid Tasks`) at 11px uppercase, `letterSpacing: 1`.
+- **Status DOT, not status pill.** When a block has actionable signal (red = over budget / low stock / due-today; gold = fasting day / setup nudge), render a 8×8 colored circle on the header row between name and chevron. NEVER render a dot for `green` or `muted` — those tones are noise and add nothing. Helper: `dotColorForTone(tone)` returns `colors.red` / `colors.gold` / `null`. The `<View style={statusDot}>` element MUST have `accessibilityLabel={block.badge.label}` so screen readers still hear the state.
+- **Block card padding 14, gap 10** (was 18/12). Block icon 24px (was 28). Block name 16px (was 18).
+- **Sub-module mini-tiles:** padding 12 (was 16), icon 20 (was 24), `minHeight: 72` (was 80) — keeps them tappable but cuts ~30% area.
+- **Drop ALL `<MotiEnter>` wrappers from this screen.** Per v1.2.7, MotiEnter renders `<View>` anyway, but the wrapper added a useless mount layer. Use plain `<Card>` directly.
+- **Prayer setup nudge → single-line.** Just `🕌 Enable Prayer Times` + `Set Up ›` on one row, 14px font, `padding: 12`. Drop the secondary subtitle line.
+- **Today's Essentials wrapper** uses `marginTop: 12` (was 20). Due-soon row tightened to `paddingVertical: 10, paddingHorizontal: 12`. Meal/task rows reduced from `paddingVertical: 14` to `12`.
+
+Pixel saving on TodayScreen ≈ 220-260px of vertical chrome above the fold.
+
 ### Roll-out order
 
 Apply these six rules to ONE screen per release. Proposed order (highest user value first):
 
-1. **TodayScreen** — already partly tight from v1.2.3 inline-expand; verify rule 1 (typography) and rule 4 (section header) match. Likely small.
+1. ~~**TodayScreen**~~ — **DONE in v1.2.16-dev**. Full compact pass (greeting+date one-liner, status-dot replaces badge-pill, dropped "Explore" + "Today's Essentials" section titles, dropped MotiEnter wrappers, single-line prayer nudge). See § "Today / Dashboard variant" above.
 2. **ShoppingListScreen** — large session header + bulky quick-add chips; rules 1, 5, 6.
 3. **RemindersScreen** — verbose filter pills + always-shown form; rules 3, 4, 5.
 4. **VendorsScreen** — search always-shown, inline form too tall; rules 3, 5.

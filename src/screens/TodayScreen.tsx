@@ -18,7 +18,6 @@ import { useData } from '../context/DataContext';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useToast, Toast } from '../components/ui/Toast';
-import { MotiEnter } from '../components/ui/MotiEnter';
 import { MEALS, MEAL_ICONS, FULL_DAYS, MONTHS } from '../constants/data';
 import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, todayDay, todayISO, fmtISO } from '../utils/dates';
@@ -86,14 +85,14 @@ export default function TodayScreen() {
   // bucket changes, which happens at most 24× per day.
   const currentHour = useMemo(() => new Date().getHours(), []);
 
-  const { greeting, fullDate } = useMemo(() => {
+  // v1.2.16-dev: compact greeting+date single line. Drops the redundant
+  // overview label and the separate fullDate line.
+  const greetingLine = useMemo(() => {
     const now = new Date();
     const hr = now.getHours();
     const weekday = FULL_DAYS[(now.getDay() + 6) % 7];
-    return {
-      greeting: hr < 12 ? 'Good morning! ☀️' : hr < 17 ? 'Good afternoon! 🌤️' : 'Good evening! 🌙',
-      fullDate: `${weekday}, ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
-    };
+    const greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+    return `${greeting} · ${weekday} ${now.getDate()} ${MONTHS[now.getMonth()]}`;
   }, []);
 
   // v1.2.5-dev: time-aware hero gradient. Static — no animation, no re-render
@@ -310,17 +309,13 @@ export default function TodayScreen() {
     [navigation],
   );
 
-  const badgeColorFor = (tone: Tone) => {
-    switch (tone) {
-      case 'red':
-        return { bg: colors.redBg, fg: colors.red };
-      case 'green':
-        return { bg: colors.greenBg, fg: colors.green };
-      case 'gold':
-        return { bg: colors.goldBg, fg: colors.gold };
-      default:
-        return { bg: colors.bg3, fg: colors.muted };
-    }
+  // v1.2.16-dev: status dot rendered ONLY when `tone === 'red' || tone === 'gold'`.
+  // Green ("on track", "logged today") and muted ("stocked", "no log today",
+  // "all clear", "on track") are noise — hide entirely.
+  const dotColorForTone = (tone: Tone): string | null => {
+    if (tone === 'red') return colors.red;
+    if (tone === 'gold') return colors.gold;
+    return null;
   };
 
   return (
@@ -333,15 +328,14 @@ export default function TodayScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero — v1.2.4-dev: fade + slide-up entrance via MotiEnter. One-shot only. */}
-        <MotiEnter>
+        {/* v1.2.16-dev: compact hero — single greeting+date line, smaller stats, no divider. */}
         <Card gradient={heroGradient} style={styles.heroCard}>
           <View style={styles.heroHeaderRow}>
             <DrawerMenuButton />
             <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.gold }]}>🏠 Today's Overview</Text>
-              <Text style={[styles.heroGreeting, { color: colors.deep }]}>{greeting}</Text>
-              <Text style={[styles.heroDate, { color: colors.sub }]}>{fullDate}</Text>
+              <Text style={[styles.heroGreeting, { color: colors.deep }]} numberOfLines={1}>
+                {greetingLine}
+              </Text>
             </View>
           </View>
 
@@ -358,26 +352,22 @@ export default function TodayScreen() {
                   {pkr(bal)}
                 </Text>
               ) : (
-                <Skeleton height={26} width={120} borderRadius={8} />
+                <Skeleton height={22} width={120} borderRadius={8} />
               )}
             </View>
-            <View style={[styles.heroStatDivider, { backgroundColor: colors.border }]} />
             <View style={styles.heroStatCol}>
               <Text style={[styles.heroStatLabel, { color: colors.muted }]}>Spent Today</Text>
               {allLoaded ? (
                 <Text style={[styles.heroStatValue, { color: colors.deep }]}>{pkr(todaySpent)}</Text>
               ) : (
-                <Skeleton height={26} width={100} borderRadius={8} />
+                <Skeleton height={22} width={100} borderRadius={8} />
               )}
             </View>
           </View>
         </Card>
-        </MotiEnter>
 
-        {/* Block accordion — tap a block to reveal its sub-modules in place.
-            Single-open accordion: tapping a different block collapses the previous one. */}
+        {/* v1.2.16-dev: compact block accordion — no section title, status as a dot. */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.deep }]}>Explore</Text>
           {!allLoaded && (
             <>
               <SkeletonCardRow />
@@ -386,14 +376,12 @@ export default function TodayScreen() {
               <SkeletonCardRow />
             </>
           )}
-          {allLoaded && blocks.map((block, idx) => {
+          {allLoaded && blocks.map((block) => {
             const isExpanded = expandedGroup === block.key;
-            const badge = block.badge ? badgeColorFor(block.badge.tone) : null;
+            const dotColor = block.badge ? dotColorForTone(block.badge.tone) : null;
             const grad = dark ? block.gradientDark : block.gradientLight;
-            // v1.2.4-dev: staggered 30ms one-shot entrance per block.
             return (
-              <MotiEnter key={block.key} delay={idx * 30}>
-              <Card style={styles.blockCard} gradient={grad}>
+              <Card key={block.key} style={styles.blockCard} gradient={grad}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => toggleBlock(block.key)}
@@ -405,19 +393,16 @@ export default function TodayScreen() {
                   <View style={styles.blockHeaderRow}>
                     <Text style={styles.blockIcon}>{block.icon}</Text>
                     <Text style={[styles.blockName, { color: colors.deep }]}>{block.name}</Text>
+                    {dotColor && block.badge && (
+                      <View
+                        style={[styles.statusDot, { backgroundColor: dotColor }]}
+                        accessibilityLabel={block.badge.label}
+                      />
+                    )}
                     <Text style={[styles.blockChevron, { color: colors.muted }]}>
                       {isExpanded ? '▾' : '▸'}
                     </Text>
                   </View>
-                  {block.badge && badge && (
-                    <View style={styles.blockBadgeRow}>
-                      <View style={[styles.blockBadge, { backgroundColor: badge.bg }]}>
-                        <Text style={[styles.blockBadgeText, { color: badge.fg }]}>
-                          {block.badge.label}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
                 </TouchableOpacity>
 
                 {isExpanded && (
@@ -446,12 +431,11 @@ export default function TodayScreen() {
                   </View>
                 )}
               </Card>
-              </MotiEnter>
             );
           })}
         </View>
 
-        {/* Prayer Times setup nudge */}
+        {/* v1.2.16-dev: single-line Prayer Times nudge */}
         {!prayerSettings.enabled && (
           <TouchableOpacity
             activeOpacity={0.85}
@@ -462,23 +446,18 @@ export default function TodayScreen() {
             <Card style={styles.onboardCard} gradient={dark ? gradients.greenHeroDark : gradients.greenHero}>
               <View style={styles.onboardRow}>
                 <Text style={styles.onboardIcon}>🕌</Text>
-                <View style={styles.onboardText}>
-                  <Text style={[styles.onboardTitle, { color: colors.deep }]}>Enable Prayer Times</Text>
-                  <Text style={[styles.onboardSub, { color: colors.sub }]}>
-                    Accurate salah schedules + Sunnah fasting reminders
-                  </Text>
-                </View>
+                <Text style={[styles.onboardTitle, { color: colors.deep }]} numberOfLines={1}>
+                  Enable Prayer Times
+                </Text>
                 <Text style={[styles.onboardCta, { color: colors.green }]}>Set Up ›</Text>
               </View>
             </Card>
           </TouchableOpacity>
         )}
 
-        {/* Today's Essentials */}
+        {/* v1.2.16-dev: Today's Essentials — no section title, compact rows. */}
         {(dueSoon.length > 0 || meals.length > 0 || maidTasks.length > 0) && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.deep }]}>Today's Essentials</Text>
-
+          <View style={styles.essentialsSection}>
             {dueSoon.length > 0 && (
               <View style={styles.subsection}>
                 <Text style={[styles.subsectionTitle, { color: colors.muted }]}>🔔 Due Soon</Text>
@@ -527,7 +506,7 @@ export default function TodayScreen() {
             {maidTasks.length > 0 && (
               <View style={styles.subsection}>
                 <Text style={[styles.subsectionTitle, { color: colors.muted }]}>
-                  🧹 Today's Tasks{att ? ` · ${att}` : ''}
+                  🧹 Maid Tasks{att ? ` · ${att}` : ''}
                 </Text>
                 <Card>
                   {maidTasks.slice(0, 5).map((t, i) => (
@@ -571,7 +550,7 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {/* Empty state when nothing today */}
+        {/* v1.2.16-dev: smaller empty state. */}
         {allLoaded && dueSoon.length === 0 && meals.length === 0 && maidTasks.length === 0 && (
           <EmptyState icon="✨" text="All caught up for today. Enjoy yourself." />
         )}
@@ -585,40 +564,35 @@ export default function TodayScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+
+  // v1.2.16-dev: compact hero — pad 16, single-line greeting, smaller stats, no divider.
+  heroHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
   heroHeaderText: { flex: 1 },
-  heroCard: { paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24 },
-  heroLabel: {
-    fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
-    letterSpacing: 1.5, marginBottom: 8,
+  heroCard: { padding: 16 },
+  heroGreeting: {
+    fontFamily: 'PlayfairDisplay-Bold',
+    fontSize: 19,
+    lineHeight: 24,
   },
-  heroGreeting: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },
-  heroDate: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  heroStatsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 16 },
+  heroStatsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 24 },
   heroStatCol: { flex: 1 },
   heroStatLabel: {
     fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase',
-    letterSpacing: 0.8, marginBottom: 6,
+    letterSpacing: 0.8, marginBottom: 4,
   },
   heroStatValue: { fontSize: 22, fontFamily: 'Outfit-Bold' },
-  heroStatDivider: { width: 1, height: 40 },
 
-  section: { marginBottom: 20 },
-  sectionTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 20,
-    marginBottom: 12,
-  },
-  subsection: { marginBottom: 12 },
+  section: { marginBottom: 16 },
+  subsection: { marginBottom: 10 },
   subsectionTitle: {
     fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase',
-    letterSpacing: 0.8, marginBottom: 8,
+    letterSpacing: 1, marginBottom: 8,
   },
 
-  // --- v1.2.3-dev: inline-expanding accordion blocks ---
+  // v1.2.16-dev: compact accordion blocks (padding 14, gap 10, status dot).
   blockCard: {
-    padding: 18,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
   },
   blockHeaderTouch: {
     minHeight: 44,
@@ -629,11 +603,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  blockIcon: { fontSize: 28, lineHeight: 32 },
+  blockIcon: { fontSize: 24, lineHeight: 28 },
   blockName: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Outfit-Bold',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   blockChevron: {
     fontSize: 16,
@@ -641,66 +620,51 @@ const styles = StyleSheet.create({
     width: 18,
     textAlign: 'center',
   },
-  blockBadgeRow: {
-    flexDirection: 'row',
-    marginTop: 8,
-    paddingLeft: 40, // align with group name (icon 28 + gap 12)
-  },
-  blockBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  blockBadgeText: {
-    fontSize: 11,
-    fontFamily: 'Outfit-SemiBold',
-    textTransform: 'lowercase',
-    letterSpacing: 0.3,
-  },
 
-  // --- submodule mini-tile grid (2-col) ---
+  // v1.2.16-dev: tighter sub-module mini-tiles (padding 12, icon 20).
   submoduleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 14,
+    marginTop: 12,
   },
   submoduleTile: {
     flexBasis: '47%',
     flexGrow: 1,
-    minHeight: 80,
+    minHeight: 72,
     borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     alignItems: 'flex-start',
     justifyContent: 'center',
     gap: 6,
   },
-  submoduleIcon: { fontSize: 22, lineHeight: 26 },
+  submoduleIcon: { fontSize: 20, lineHeight: 24 },
   submoduleLabel: {
     fontSize: 14,
     fontFamily: 'Outfit-SemiBold',
   },
 
-  // Prayer onboarding nudge
-  onboardCard: { marginBottom: 16 },
-  onboardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
-  onboardIcon: { fontSize: 26, width: 32, textAlign: 'center' },
-  onboardText: { flex: 1 },
-  onboardTitle: { fontSize: 15, fontFamily: 'Outfit-Bold' },
-  onboardSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
+  // v1.2.16-dev: single-line Prayer onboarding nudge.
+  onboardCard: { marginBottom: 12, padding: 12 },
+  onboardRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  onboardIcon: { fontSize: 22 },
+  onboardTitle: { flex: 1, fontSize: 14, fontFamily: 'Outfit-SemiBold' },
   onboardCta: { fontSize: 13, fontFamily: 'Outfit-Bold' },
 
-  // Essentials
+  // v1.2.16-dev: Today's Essentials — title dropped; reduced top spacing.
+  essentialsSection: { marginTop: 12, marginBottom: 16 },
+
+  // v1.2.16-dev: due-soon row tightened (10/12 padding).
   dueSoonItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 0,
-    borderRadius: 16,
-    marginBottom: 7,
+    borderRadius: 14,
+    marginBottom: 6,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -710,11 +674,11 @@ const styles = StyleSheet.create({
   dueSoonContent: { flex: 1 },
   dueSoonTitle: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
   dueSoonMeta: { fontSize: 11, fontFamily: 'Outfit-Regular' },
-  mealRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
+  mealRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   mealIcon: { fontSize: 18 },
   mealLabel: { flex: 1, fontSize: 12, fontFamily: 'Outfit-Regular' },
   mealText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
+  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   taskCheck: { width: 18, height: 18, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
   taskCheckMark: { fontSize: 11, color: '#fff' },
   taskName: { fontSize: 13, fontFamily: 'Outfit-Regular' },

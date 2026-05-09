@@ -37,6 +37,24 @@ When any of the 17 listed screens (TodayScreen, ShoppingListScreen, RemindersScr
 - **Rule 5 (hidden search)**: search inputs MUST be hidden behind a 🔍 icon toggle. Always-shown search bars are a regression. Filter pill rows are NOT covered by this rule and stay visible.
 - **Rule 6 (compact chip rail)**: tile `minWidth/minHeight === 72`, `borderRadius === 14`, no secondary `presetAmt` line, inline rail label. Tiles ≥ 88×88 are a regression.
 
+### TodayScreen ban list (v1.2.16-dev)
+
+- `rg -n "🏠 Today's Overview" src/screens/TodayScreen.tsx` — zero matches. The redundant overview label was deleted in v1.2.16-dev.
+- `rg -n "heroDate:" src/screens/TodayScreen.tsx` — zero matches. The separate fullDate line + its style were deleted; greeting + date now share one line.
+- `rg -n "heroStatDivider:" src/screens/TodayScreen.tsx` — zero matches. The vertical divider between Balance and Spent Today was deleted; `gap: 24` alone separates them now.
+- `rg -n "Text>Explore<" src/screens/TodayScreen.tsx` — zero matches. The "Explore" section title above the 6 blocks was dropped (the cards are self-evidently the explorer).
+- `rg -n "MotiEnter" src/screens/TodayScreen.tsx` — zero matches. The wrappers were removed (post-v1.2.7 they render `<View>` only and added a useless mount layer).
+- `rg -n "blockBadgeRow|blockBadge:|blockBadgeText:" src/screens/TodayScreen.tsx` — zero matches. The pill-style badge ROW was replaced with a single 8×8 status dot.
+- `rg -n "Today's Essentials" src/screens/TodayScreen.tsx` — zero matches as a `<Text>` value. Subsection labels (`🔔 Due Soon`, `🍽️ Today's Meals`, `🧹 Maid Tasks`) are kept; the wrapper section title was dropped.
+
+### TodayScreen required affirmatives (v1.2.16-dev)
+
+- **Status dot rendered ONLY when `tone === 'red' || tone === 'gold'`** — never for `green` or `muted`. The helper `dotColorForTone(tone)` returns `colors.red`, `colors.gold`, or `null`. Grep for the function — it MUST contain `if (tone === 'red')` and `if (tone === 'gold')` and a final `return null` for the green/muted fallthrough. Any change that returns a colour for `green` or `muted` is a regression — green "logged today" / "on track" and muted "stocked" / "all clear" / "no log today" are noise, not signal.
+- The status `<View>` with `style={statusDot}` MUST carry `accessibilityLabel={block.badge.label}` so screen readers still hear the state ("over budget", "Setup", "Fasting day ✨", etc.).
+- Hero greeting `fontSize === 19`, `lineHeight === 24` (was 30/36 pre-v1.2.16). Hero stat value `fontSize === 22` (was 28). Hero card `padding: 16` (not the old `paddingTop: 28, paddingBottom: 24, paddingHorizontal: 24`).
+- Block card `padding: 14` (was 18). Block icon `fontSize: 24` (was 28). Block name `fontSize: 16` (was 18). Sub-module tile `paddingVertical: 12` + `paddingHorizontal: 12` (was 14). Sub-module icon `fontSize: 20` (was 22). Sub-module `minHeight: 72` (was 80).
+- Prayer onboard nudge is a SINGLE row — `onboardRow` contains exactly: icon + title + CTA. The old `onboardSub` second-line subtitle is gone; verify `rg -n "onboardSub" src/screens/TodayScreen.tsx` returns zero.
+
 ### One-screen-per-release cadence
 
 Only ONE screen may adopt the compact pattern per release. Auditor must reject PRs that redesign multiple screens in a single release window — the cadence prevents stylistic drift while we tune the pattern. The order in `ui-designer.md` § "Roll-out order" is non-binding but a strong default.

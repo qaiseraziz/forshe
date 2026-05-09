@@ -2,6 +2,37 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.16 — 2026-04-24 "Today Compact"
+
+User feedback: *"dashboard has also a complex and large hero same as the explore portion. can you make it better to view and easy to use"*. Same Compact Screen Pattern applied to ExpensesScreen in v1.2.14, now applied to TodayScreen.
+
+### Changed
+- **Hero collapsed to a single greeting + date line** — `"Good morning · Friday 24 Apr"` with `·` separator (PlayfairDisplay-Bold 19/24, single line). Dropped the redundant "🏠 Today's Overview" label and the separate full-date line. Hero card padding reduced from 28/24/24 → flat `padding: 16`. Greeting font dropped from 30/36 → 19/24. Stat value dropped from 28 → 22.
+- **Vertical divider between Balance and Spent Today removed** — replaced with `gap: 24` spacing only. `heroStatDivider` style key deleted.
+- **"Explore" section title above the 6 blocks dropped** — the 6 themed accordion cards are self-evidently the explorer; the title was redundant.
+- **Per-block badge ROW replaced with an 8×8 status dot** on the header row, between the block name and chevron. Dot renders ONLY when the badge tone is `red` (over budget / low stock / due-today) or `gold` (fasting day / setup nudge). Green ("on track", "logged today") and muted ("stocked", "all clear", "no log today") tones now render NO dot — those are noise, not signal. Status dot carries `accessibilityLabel={badge.label}` so screen readers still hear the full text.
+- **Block cards tightened** — padding 18 → 14, gap between blocks 12 → 10. Block icon 28 → 24, name 18 → 16. Sub-module tiles: padding 14 → 12, icon 22 → 20, `minHeight` 80 → 72.
+- **Prayer Times setup nudge collapsed to one line** — `🕌 Enable Prayer Times` + `Set Up ›` only. Dropped the second-line subtitle and the larger 26 → 22 icon. Card padding 12.
+- **Today's Essentials section title dropped** — kept the per-subsection labels (`🔔 Due Soon`, `🍽️ Today's Meals`, `🧹 Maid Tasks`) at 11px uppercase `letterSpacing: 1`. Wrapper `marginTop` reduced from 20 → 12. Due-soon row: `paddingVertical: 10, paddingHorizontal: 12` (was `padding: 16`). Meal/task rows: `paddingVertical: 12` (was 14).
+
+### Removed (verified by strict typecheck)
+- Styles: `heroLabel`, `heroDate`, `heroStatDivider`, `sectionTitle`, `blockBadgeRow`, `blockBadge`, `blockBadgeText`, `onboardText`, `onboardSub`.
+- State: `fullDate` and the `greeting`-`fullDate` destructure object (replaced by single `greetingLine`).
+- Imports: `MotiEnter` (the wrappers were no-ops post-v1.2.7 and added a useless mount layer; removed from hero + 6 block cards).
+- Component layer: `MotiEnter` JSX wrapper removed from hero + each of the 6 accordion blocks.
+
+### Added
+- `dotColorForTone(tone)` helper inside TodayScreen — returns `colors.red` / `colors.gold` / `null`. Used to gate the status dot.
+- `greetingLine` `useMemo` — combines greeting + weekday + day + month into a single string with `·` separators.
+- `.claude/agents/ui-designer.md` § "Today / Dashboard variant" — codifies the rules so the same shape applies to any future dashboard.
+- `.claude/agents/qa-expert.md` § "TodayScreen ban list (v1.2.16-dev)" + "TodayScreen required affirmatives (v1.2.16-dev)" — covers the 7 banned strings/keys and the 6 required affirmatives.
+
+### Chore
+- `app.json` / `package.json` STAY at `1.2.15`. v1.2.16-dev only — no version bump, no commit, no build, no push. Doc and agent updates only beyond the screen.
+
+### APK
+- Not built. v1.2.16-dev is a design pass; release-cadence rule (one screen per release) makes this the v1.2.16 candidate when ship-ready.
+
 ## v1.2.15 — 2026-04-24 "Smart Quick Add"
 
 ### Fixed
