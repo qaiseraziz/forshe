@@ -31,7 +31,7 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { MonthBar } from '../components/MonthBar';
-import { CAT_KEYS, CAT_COLORS, MONTHS, EXPENSE_PRESETS } from '../constants/data';
+import { CAT_KEYS, CAT_COLORS, MONTHS } from '../constants/data';
 import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, parseDMY, dateToDMY } from '../utils/dates';
 import { buildShareText, doShare } from '../utils/share';
@@ -121,16 +121,23 @@ export default function ExpensesScreen() {
     });
   }, []);
 
-  // Quick Add preset handler — stable per-preset
+  // v1.2.15: tapping a Quick chip pre-fills + auto-opens the Add form so
+  // the user actually sees what got added (was silently filling a collapsed
+  // form, looked like nothing happened).
   const applyPreset = useCallback(
-    (p: typeof EXPENSE_PRESETS[number]) => {
+    (p: { label: string; icon: string; cat: string; amount: number }) => {
       Haptics.selectionAsync();
       setFormMode('expense');
       setExpItem(p.label);
       setExpCat(p.cat);
       if (p.amount > 0) setExpAmt(String(p.amount));
+      // Open the form if collapsed.
+      if (!addFormOpen) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setAddFormOpen(true);
+      }
     },
-    [],
+    [addFormOpen],
   );
 
   const keyExtractor = useCallback((item: Transaction) => String(item.id), []);
@@ -204,6 +211,51 @@ export default function ExpensesScreen() {
 
     return { periodExp, periodRec, net, cats, maxC, expCount: exps.length };
   }, [filtered]);
+
+  // v1.2.15: Smart Quick Add — only appears once the user has 100+ expense
+  // entries logged. Below that the chip rail is hidden entirely (returns
+  // empty array and the consumer skips rendering the Card). Reason: small
+  // sample sizes give unreliable "most-frequent" suggestions; better to
+  // hide the feature than show noise.
+  const SMART_QUICK_ADD_THRESHOLD = 100;
+  const smartQuickAdd = useMemo<{ label: string; icon: string; cat: string; amount: number }[]>(() => {
+    const expenses = history.filter(h => h.type === 'expense' && h.label);
+    if (expenses.length < SMART_QUICK_ADD_THRESHOLD) return [];
+
+    // Group by lowercase label, keep stats per group.
+    const byLabel: Record<string, { label: string; cats: Record<string, number>; amounts: number[]; count: number }> = {};
+    for (const e of expenses) {
+      const key = e.label.trim().toLowerCase();
+      if (!key) continue;
+      if (!byLabel[key]) {
+        byLabel[key] = { label: e.label.trim(), cats: {}, amounts: [], count: 0 };
+      }
+      byLabel[key].count += 1;
+      byLabel[key].amounts.push(e.amount);
+      byLabel[key].cats[e.cat] = (byLabel[key].cats[e.cat] || 0) + 1;
+    }
+
+    // Sort by frequency desc, take top 8.
+    return Object.values(byLabel)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+      .map(g => {
+        // Most-common category for this label
+        const cat = Object.entries(g.cats).sort((a, b) => b[1] - a[1])[0][0];
+        // Median amount (more stable than mean against outliers)
+        const sorted = [...g.amounts].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        // Icon = first emoji of the category string ("🍔 Food" -> "🍔")
+        const iconMatch = cat.match(/\p{Emoji}/u);
+        const icon = iconMatch ? iconMatch[0] : '💸';
+        return {
+          label: g.label,
+          icon,
+          cat,
+          amount: Math.round(median),
+        };
+      });
+  }, [history]);
 
   // Actions
   const addTopup = useCallback(() => {
@@ -590,33 +642,36 @@ export default function ExpensesScreen() {
         </Card>
       )}
 
-      {/* Quick Presets — v1.2.14-dev: compact rail with inline label */}
-      <Card style={styles.quickCard}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.presetRail}
-        >
-          <View style={styles.quickInlineLabelWrap}>
-            <Text style={[styles.quickInlineLabel, { color: colors.muted }]}>Quick:</Text>
-          </View>
-          {EXPENSE_PRESETS.map(p => (
-            <TouchableOpacity
-              key={p.label}
-              style={[styles.presetTile, { backgroundColor: colors.surfaceMuted }]}
-              activeOpacity={0.7}
-              onPress={() => applyPreset(p)}
-              accessibilityRole="button"
-              accessibilityLabel={`Quick add ${p.label}${p.amount > 0 ? `, default amount ${pkr(p.amount)}` : ''}`}
-            >
-              <Text style={styles.presetIcon}>{p.icon}</Text>
-              <Text style={[styles.presetText, { color: colors.sub }]} numberOfLines={1}>
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Card>
+      {/* Smart Quick Add — only appears after 100+ expenses logged.
+          Below that, the rail is hidden so we never show noise. */}
+      {smartQuickAdd.length > 0 && (
+        <Card style={styles.quickCard}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.presetRail}
+          >
+            <View style={styles.quickInlineLabelWrap}>
+              <Text style={[styles.quickInlineLabel, { color: colors.muted }]}>Quick:</Text>
+            </View>
+            {smartQuickAdd.map(p => (
+              <TouchableOpacity
+                key={p.label}
+                style={[styles.presetTile, { backgroundColor: colors.surfaceMuted }]}
+                activeOpacity={0.7}
+                onPress={() => applyPreset(p)}
+                accessibilityRole="button"
+                accessibilityLabel={`Quick add ${p.label}${p.amount > 0 ? `, default amount ${pkr(p.amount)}` : ''}`}
+              >
+                <Text style={styles.presetIcon}>{p.icon}</Text>
+                <Text style={[styles.presetText, { color: colors.sub }]} numberOfLines={1}>
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Card>
+      )}
 
       {/* Unified Add Form — v1.2.14-dev: collapsed by default */}
       <Card>
@@ -818,6 +873,7 @@ export default function ExpensesScreen() {
     expCat, addExpense, receiptUri, pickReceipt, openDatePicker,
     sectionTitle, filtered, search, allLoaded,
     pkr, pkrF, currencyCode,
+    smartQuickAdd, applyPreset,
   ]);
 
   return (

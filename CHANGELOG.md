@@ -2,6 +2,28 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.15 — 2026-04-24 "Smart Quick Add"
+
+### Fixed
+- **Quick Add chips silently failing** — tapping a chip in v1.2.14 pre-filled the form but the form was collapsed by default, so it looked like nothing happened. Now `applyPreset` auto-expands the Add form via `LayoutAnimation` so the user instantly sees the pre-filled label/amount/category. Just tap **Add** to confirm.
+
+### Changed
+- **Quick Add is now data-driven, not static.** Replaced the 15 Pakistani household defaults with a `smartQuickAdd` `useMemo` keyed on `history` that:
+  - Filters to expense entries only
+  - Groups by `label.toLowerCase()` (case-insensitive) so "Milk" and "milk" merge
+  - Counts frequency, computes median amount, picks most-common category per group
+  - Sorts by frequency desc, takes top 8
+  - Icon = first emoji of the category string ("🍔 Food" → "🍔")
+- **Threshold gate**: chip rail is hidden entirely until the user has logged **100+ expense entries**. Below the threshold, small samples give unreliable suggestions; better to show nothing than show noise. The Card disappears completely (not even an empty placeholder).
+- Removed the `EXPENSE_PRESETS` import + 15-item static fallback. The data table stays in `src/constants/data.ts` for any future reuse, but is no longer referenced from ExpensesScreen.
+
+### Chore
+- `app.json` → version `1.2.15`, `ios.buildNumber "22"`, `android.versionCode 22`.
+- `package.json` → version `1.2.15`; `SettingsScreen` About → `Version 1.2.15`; `DrawerNav` footer → `ForSHE v1.2.15`.
+
+### APK
+- Build ID: queued at tag time — see CLAUDE.md Latest APK line.
+
 ## v1.2.14 — 2026-04-24 "Expenses Compact Pattern"
 
 User feedback: too much chrome on every screen, monthly budget hidden / "not working" because it sat in a collapsible Card under a full-width Share button. Redesigned ExpensesScreen as the first application of a reusable Compact Screen Pattern that will roll out one screen per release.
