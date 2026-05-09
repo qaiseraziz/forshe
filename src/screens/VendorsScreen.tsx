@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
+import * as Contacts from 'expo-contacts';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { gradients } from '../constants/colors';
@@ -70,6 +71,14 @@ export default function VendorsScreen() {
   const [fFavorite, setFFavorite] = useState(false);
   const [fNotes, setFNotes] = useState('');
 
+  // v1.2.17: contact-picker state — user can import name + phone from
+  // their phone's address book instead of typing.
+  type DeviceContact = { id: string; name: string; phones: string[] };
+  const [contactsModalOpen, setContactsModalOpen] = useState(false);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsList, setContactsList] = useState<DeviceContact[]>([]);
+  const [contactsSearch, setContactsSearch] = useState('');
+
   // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
   const vNameRef = useRef<TextInput | null>(null);
   const vPhoneRef = useRef<TextInput | null>(null);
@@ -93,6 +102,60 @@ export default function VendorsScreen() {
     resetForm();
     setModalOpen(true);
   }, [resetForm]);
+
+  // v1.2.17: open the device contact picker. Requests permission, loads
+  // contacts (name + phones), filters in-memory.
+  const openContactPicker = useCallback(async () => {
+    setContactsLoading(true);
+    setContactsSearch('');
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission needed',
+          'Please allow contact access in your device settings to import vendors from your address book.',
+        );
+        setContactsLoading(false);
+        return;
+      }
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+        sort: Contacts.SortTypes.FirstName,
+      });
+      const mapped: DeviceContact[] = data
+        .map(c => ({
+          id: c.id || `${c.name}-${Math.random()}`,
+          name: c.name || 'Unnamed',
+          phones: (c.phoneNumbers || [])
+            .map(p => (p.number || '').trim())
+            .filter(p => p.length > 0),
+        }))
+        .filter(c => c.phones.length > 0);
+      setContactsList(mapped);
+      setContactsModalOpen(true);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not load contacts.');
+    } finally {
+      setContactsLoading(false);
+    }
+  }, []);
+
+  const pickContact = useCallback((c: DeviceContact) => {
+    Haptics.selectionAsync();
+    setFName(c.name);
+    setFPhone(c.phones[0] || '');
+    if (c.phones.length > 1) setFAltPhone(c.phones[1]);
+    setContactsModalOpen(false);
+  }, []);
+
+  const filteredContacts = useMemo(() => {
+    const q = contactsSearch.trim().toLowerCase();
+    if (!q) return contactsList;
+    return contactsList.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.phones.some(p => p.replace(/\D/g, '').includes(q.replace(/\D/g, ''))),
+    );
+  }, [contactsList, contactsSearch]);
 
   const openEdit = useCallback((vendor: Vendor) => {
     setEditingId(vendor.id);
@@ -531,6 +594,29 @@ export default function VendorsScreen() {
                 {editingId !== null ? 'Edit Vendor' : 'Add Vendor'}
               </Text>
 
+              {/* v1.2.17: pick from device contacts (only when adding, not editing). */}
+              {editingId === null && (
+                <TouchableOpacity
+                  onPress={openContactPicker}
+                  activeOpacity={0.8}
+                  disabled={contactsLoading}
+                  style={[styles.contactsCta, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Import vendor from your phone contacts"
+                >
+                  <Text style={styles.contactsCtaIcon}>📇</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.contactsCtaTitle, { color: colors.blue }]}>
+                      {contactsLoading ? 'Loading contacts…' : 'Pick from Contacts'}
+                    </Text>
+                    <Text style={[styles.contactsCtaSub, { color: colors.sub }]}>
+                      Pre-fills name + phone from your address book
+                    </Text>
+                  </View>
+                  <Text style={[styles.contactsCtaChevron, { color: colors.blue }]}>›</Text>
+                </TouchableOpacity>
+              )}
+
               <Input
                 ref={vNameRef}
                 label="Name"
@@ -538,7 +624,7 @@ export default function VendorsScreen() {
                 value={fName}
                 onChangeText={setFName}
                 style={{ marginBottom: 12 }}
-                autoFocus
+                autoFocus={editingId !== null}
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => vPhoneRef.current?.focus()}
@@ -646,6 +732,73 @@ export default function VendorsScreen() {
         </View>
       </Modal>
 
+      {/* v1.2.17: Contact picker modal */}
+      <Modal
+        visible={contactsModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setContactsModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.deep }]}>Pick a contact</Text>
+              <TouchableOpacity
+                onPress={() => setContactsModalOpen(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Close contact picker"
+                accessibilityRole="button"
+              >
+                <Text style={[styles.modalClose, { color: colors.muted }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Input
+              placeholder="Search by name or number…"
+              value={contactsSearch}
+              onChangeText={setContactsSearch}
+              style={{ marginBottom: 12 }}
+            />
+            <FlatList
+              data={filteredContacts}
+              keyExtractor={c => c.id}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => pickContact(item)}
+                  activeOpacity={0.7}
+                  style={[styles.contactRow, { backgroundColor: colors.bg2, borderColor: colors.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Pick ${item.name}`}
+                >
+                  <View style={[styles.contactAvatar, { backgroundColor: colors.blueBg }]}>
+                    <Text style={[styles.contactAvatarText, { color: colors.blue }]}>
+                      {item.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.contactName, { color: colors.deep }]} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.contactPhone, { color: colors.sub }]} numberOfLines={1}>
+                      {item.phones[0]}
+                      {item.phones.length > 1 ? ` · +${item.phones.length - 1} more` : ''}
+                    </Text>
+                  </View>
+                  <Text style={[styles.contactsCtaChevron, { color: colors.muted }]}>›</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={[styles.contactEmpty, { color: colors.muted }]}>
+                  {contactsSearch.trim()
+                    ? 'No contacts match your search.'
+                    : 'No contacts with phone numbers found on this device.'}
+                </Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
+
       <Toast toast={toast} dismiss={dismissToast} />
     </LinearGradient>
   );
@@ -692,4 +845,19 @@ const styles = StyleSheet.create({
   switchTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
   switchSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 12 },
+  // v1.2.17: contact picker styles
+  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '88%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  modalClose: { fontSize: 22, fontFamily: 'Outfit-Bold' },
+  contactsCta: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
+  contactsCtaIcon: { fontSize: 24 },
+  contactsCtaTitle: { fontSize: 15, fontFamily: 'Outfit-Bold' },
+  contactsCtaSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
+  contactsCtaChevron: { fontSize: 24, fontFamily: 'Outfit-Bold' },
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 8 },
+  contactAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  contactAvatarText: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  contactName: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
+  contactPhone: { fontSize: 13, fontFamily: 'Outfit-Regular', marginTop: 2 },
+  contactEmpty: { textAlign: 'center', fontSize: 14, fontFamily: 'Outfit-Regular', paddingVertical: 32 },
 });

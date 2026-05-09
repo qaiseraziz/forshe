@@ -2,6 +2,20 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## v1.2.17 — 2026-04-24 "Vendors from Contacts"
+
+### Added
+- **Pick from Contacts** — VendorsScreen Add modal now has a top-of-form "📇 Pick from Contacts" tappable card. Requests `Contacts.requestPermissionsAsync` on tap, lists every device contact with at least one phone number, supports search by name or number. Tap a contact → name + phone (and altPhone if a 2nd number exists) auto-fill in the form. Editing an existing vendor still goes straight to the form (no contact-picker shown).
+- `expo-contacts@~55.0.14` installed via `npx expo install` (SDK-55-matched, Expo native module).
+- `app.json` permissions: Android `READ_CONTACTS`, iOS `NSContactsUsageDescription`.
+
+### Chore
+- `app.json` → version `1.2.17`, `ios.buildNumber "24"`, `android.versionCode 24`.
+- `package.json` → version `1.2.17`; `SettingsScreen` About → `Version 1.2.17`; `DrawerNav` footer → `ForSHE v1.2.17`.
+
+### APK
+- Build ID: queued at tag time — see CLAUDE.md Latest APK line.
+
 ## v1.2.16 — 2026-04-24 "Today Compact"
 
 User feedback: *"dashboard has also a complex and large hero same as the explore portion. can you make it better to view and easy to use"*. Same Compact Screen Pattern applied to ExpensesScreen in v1.2.14, now applied to TodayScreen.

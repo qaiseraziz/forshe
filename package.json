@@ -1,6 +1,6 @@
 {
   "name": "forshe",
-  "version": "1.2.16",
+  "version": "1.2.17",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -25,6 +25,7 @@
     "expo": "~55.0.8",
     "expo-blur": "~15.0.7",
     "expo-clipboard": "~55.0.9",
+    "expo-contacts": "~55.0.14",
     "expo-dev-client": "~55.0.24",
     "expo-document-picker": "~55.0.9",
     "expo-file-system": "~55.0.16",

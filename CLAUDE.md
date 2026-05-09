@@ -4,7 +4,8 @@
 A React Native (Expo) home management app for tracking household expenses, cooking plans, maid tasks, reminders, and menstrual cycles. Built with TypeScript. Features a premium luxury design with gradient surfaces, hamburger drawer navigation, and a 4-tab bottom bar.
 
 ## Current Version
-**v1.2.16** (tagged 2026-04-24) — "Today Compact". Compact Screen Pattern applied to TodayScreen. Hero collapsed from 3-line stack to single-line greeting+date + tight 2-stat row, no divider. 6 Explore blocks lose per-block badge pill — replaced with 8×8 status dot, only when red (over budget / low stock / due today) or gold (fasting day / setup). Green/muted dropped as noise. "Explore" + "Today's Essentials" section titles dropped. Prayer setup nudge collapsed to one line. MotiEnter wrappers removed. ~270px less chrome above the fold.
+**v1.2.17** (tagged 2026-04-24) — "Vendors from Contacts". VendorsScreen Add modal now has a "📇 Pick from Contacts" CTA at the top — requests permission, lists device contacts with phone numbers, search by name or number, tap to pre-fill name + phone (and altPhone). `expo-contacts` installed; permissions added (Android `READ_CONTACTS`, iOS `NSContactsUsageDescription`).
+- v1.2.16 release theme: "Today Compact" — Compact Screen Pattern applied to TodayScreen. Hero collapsed from 3-line stack to single-line greeting+date + tight 2-stat row, no divider. 6 Explore blocks lose per-block badge pill — replaced with 8×8 status dot, only when red (over budget / low stock / due today) or gold (fasting day / setup). Green/muted dropped as noise. "Explore" + "Today's Essentials" section titles dropped. Prayer setup nudge collapsed to one line. MotiEnter wrappers removed. ~270px less chrome above the fold.
 
 - v1.2.15 release theme: "Smart Quick Add". Two ExpensesScreen fixes on top of v1.2.14: (1) tapping a Quick Add chip now auto-expands the collapsed Add form so the pre-fill is visible (was silently filling a hidden form, looked broken). (2) Replaced the static 15 Pakistani presets with data-driven suggestions — analyses your `history`, picks your top 8 most-frequent labels with their median amount + most-common category. Hidden entirely until you've logged 100+ expenses (small samples = noisy suggestions).
 - v1.2.14 release theme: "Expenses Compact Pattern" — removed ~700-860px of chrome; inline budget editor in hero; Add form collapsed; share + search now icons.
@@ -20,9 +21,9 @@ A React Native (Expo) home management app for tracking household expenses, cooki
 - v1.2.3 release theme: "Inline-Expand Home + Spiritual Group" — TodayScreen home blocks switch from "tap = jump to default screen" to an inline single-open accordion that reveals the group's sub-modules as 2-column mini-tiles inside the block. New 🕌 Spiritual drawer group split out of Personal (Prayer Times moves there; Personal returns to wellness-only = Cycle Tracker + Body Stats). Drawer now has 6 groups.
 - v1.2.2 release theme: "Block Grid Home + Prayer Times" — TodayScreen redesigned from stacked tile strips to a 2-column block grid (Money/Kitchen/Household/Personal) with themed gradient backgrounds + a full-width System tile. New Prayer Times + Sunnah Fasting feature (adhan library, GPS or manual city, 5 prayer notifications + Monday/Thursday + Ayyam al-Bid reminders).
 - v1.2.1 release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
-- `app.json`: version `1.2.16`, `ios.buildNumber "23"`, `android.versionCode 23`.
-- `package.json`: name `forshe`, version `1.2.16`.
-- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.16 APK section.
+- `app.json`: version `1.2.17`, `ios.buildNumber "24"`, `android.versionCode 24`.
+- `package.json`: name `forshe`, version `1.2.17`.
+- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.17 APK section.
 - Last confirmed-working APK: v1.2.7 (`519dc1ff`, https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk).
 - Orchestration: every task routes through `project-manager` (see Agents section).
 
