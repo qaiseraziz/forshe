@@ -14,48 +14,99 @@ import {
   LayoutAnimation,
   UIManager,
   TextInput,
+  Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-import { ProgressBar } from '../components/ui/ProgressBar';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
-import { MonthBar } from '../components/MonthBar';
-import { CAT_KEYS, CAT_COLORS, MONTHS } from '../constants/data';
+import { CAT_KEYS, MONTHS } from '../constants/data';
 import { useCurrency } from '../context/CurrencyContext';
 import { todayStr, parseDMY, dateToDMY } from '../utils/dates';
 import { buildShareText, doShare } from '../utils/share';
 import { Transaction } from '../types';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import * as ImagePicker from 'expo-image-picker';
 import { checkBudgetAlert } from '../utils/budgetAlerts';
 import { SwipeableRow } from '../components/ui/SwipeableRow';
 import { SkeletonCardRow } from '../components/ui/Skeleton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+  hennaType,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaPill,
+  HennaProgress,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
+import type { HennaIconName } from '../components/henna';
 
-// Enable LayoutAnimation on Android (iOS has it on by default)
+// Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// Pakistani preset chip rail — mapped to Henna icons.
+const PRESETS: { label: string; icon: HennaIconName; cat: string; amount: number }[] = [
+  { label: 'Vegetables',  icon: 'veg',         cat: '🍔 Food',      amount: 200 },
+  { label: 'Bread',       icon: 'bread',       cat: '🍔 Food',      amount: 100 },
+  { label: 'Milk',        icon: 'milk',        cat: '🍔 Food',      amount: 200 },
+  { label: 'Fruits',      icon: 'fruit',       cat: '🍔 Food',      amount: 500 },
+  { label: 'Grocery',     icon: 'cart',        cat: '🛒 Shopping',  amount: 2000 },
+  { label: 'Petrol',      icon: 'fuel',        cat: '🚗 Transport', amount: 1500 },
+  { label: 'Rickshaw',    icon: 'car',         cat: '🚗 Transport', amount: 250 },
+  { label: 'Medicine',    icon: 'pill',        cat: '💊 Health',    amount: 500 },
+  { label: 'Electricity', icon: 'electricity', cat: '💡 Bills',     amount: 3000 },
+  { label: 'Gas',         icon: 'flame',       cat: '💡 Bills',     amount: 1500 },
+  { label: 'Water',       icon: 'water',       cat: '💡 Bills',     amount: 500 },
+  { label: 'School',      icon: 'book',        cat: '📚 Education', amount: 5000 },
+];
+
+const CAT_ICON_MAP: Record<string, HennaIconName> = {
+  '🍔 Food': 'pot',
+  '🚗 Transport': 'car',
+  '💊 Health': 'pill',
+  '🛒 Shopping': 'cart',
+  '💡 Bills': 'electricity',
+  '📚 Education': 'book',
+  '🎁 Other': 'sparkle',
+};
+
+function iconForCat(cat: string): HennaIconName {
+  return CAT_ICON_MAP[cat] ?? 'cart';
+}
+
+// Split a formatted balance so the last 3 chars get the Cormorant flourish.
+function splitFlourish(formatted: string): { head: string; tail: string } {
+  if (formatted.length <= 3) return { head: '', tail: formatted };
+  return { head: formatted.slice(0, -3), tail: formatted.slice(-3) };
+}
+
+type FilterKey = 'all' | 'today' | 'month';
+
 export default function ExpensesScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { history, setHistory, budget, setBudget, allLoaded } = useData();
   const { pkr, pkrF, currencyCode, currency } = useCurrency();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
-  // Filter state
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [selMonth, setSelMonth] = useState(new Date().getMonth());
   const [selYear, setSelYear] = useState(new Date().getFullYear());
 
@@ -78,22 +129,26 @@ export default function ExpensesScreen() {
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [editCat, setEditCat] = useState('');
 
-  // Form mode toggle
   const [formMode, setFormMode] = useState<'expense' | 'topup'>('expense');
-
-  // Receipt photo
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
 
-  // v1.2.5-dev: keyboard flow refs for the edit modal.
   const editLabelRef = useRef<TextInput | null>(null);
   const editAmtRef = useRef<TextInput | null>(null);
 
   // Search
   const [search, setSearch] = useState('');
 
-  // Budget input — v1.2.14-dev: inline-in-hero edit mode
+  // Budget inline editor
   const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
   const [budgetEditing, setBudgetEditing] = useState(false);
+
+  const [addFormOpen, setAddFormOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   const toggleBudgetEditing = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -102,36 +157,28 @@ export default function ExpensesScreen() {
     setBudgetEditing(e => !e);
   }, [budget]);
 
-  // v1.2.14-dev: Add form is collapsed by default — most users use the FAB.
-  const [addFormOpen, setAddFormOpen] = useState(false);
   const toggleAddForm = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.selectionAsync();
     setAddFormOpen(o => !o);
   }, []);
 
-  // v1.2.14-dev: Search hidden behind 🔍 icon in the section header.
-  const [searchOpen, setSearchOpen] = useState(false);
   const toggleSearch = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.selectionAsync();
     setSearchOpen(o => {
-      if (o) setSearch(''); // clear on close
+      if (o) setSearch('');
       return !o;
     });
   }, []);
 
-  // v1.2.15: tapping a Quick chip pre-fills + auto-opens the Add form so
-  // the user actually sees what got added (was silently filling a collapsed
-  // form, looked like nothing happened).
   const applyPreset = useCallback(
-    (p: { label: string; icon: string; cat: string; amount: number }) => {
+    (p: { label: string; cat: string; amount: number }) => {
       Haptics.selectionAsync();
       setFormMode('expense');
       setExpItem(p.label);
       setExpCat(p.cat);
       if (p.amount > 0) setExpAmt(String(p.amount));
-      // Open the form if collapsed.
       if (!addFormOpen) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setAddFormOpen(true);
@@ -141,8 +188,6 @@ export default function ExpensesScreen() {
   );
 
   const keyExtractor = useCallback((item: Transaction) => String(item.id), []);
-
-  // Computed values
   const td = todayStr();
 
   const totalRec = useMemo(
@@ -159,7 +204,6 @@ export default function ExpensesScreen() {
   );
   const bal = totalRec - totalSpent;
 
-  // Monthly budget
   const monthSpent = useMemo(() => {
     const nowMonth = new Date().getMonth();
     const nowYear = new Date().getFullYear();
@@ -172,9 +216,7 @@ export default function ExpensesScreen() {
       .reduce((s, h) => s + h.amount, 0);
   }, [history]);
   const budgetPct = budget > 0 ? Math.min(Math.round((monthSpent / budget) * 100), 100) : 0;
-  const budgetColor = budgetPct > 90 ? colors.red : budgetPct > 70 ? colors.gold : colors.green;
 
-  // Filtered list
   const filtered = useMemo(() => {
     let list =
       filter === 'all'
@@ -194,35 +236,12 @@ export default function ExpensesScreen() {
     return list;
   }, [history, filter, td, selMonth, selYear, search]);
 
-  // Monthly summary data
-  const monthlySummary = useMemo(() => {
-    const exps = filtered.filter(h => h.type === 'expense');
-    const tops = filtered.filter(h => h.type === 'topup');
-    const periodExp = exps.reduce((s, h) => s + h.amount, 0);
-    const periodRec = tops.reduce((s, h) => s + h.amount, 0);
-    const net = periodRec - periodExp;
-
-    const catMap: Record<string, number> = {};
-    exps.forEach(h => {
-      catMap[h.cat] = (catMap[h.cat] || 0) + h.amount;
-    });
-    const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
-    const maxC = cats.length ? cats[0][1] : 1;
-
-    return { periodExp, periodRec, net, cats, maxC, expCount: exps.length };
-  }, [filtered]);
-
-  // v1.2.15: Smart Quick Add — only appears once the user has 100+ expense
-  // entries logged. Below that the chip rail is hidden entirely (returns
-  // empty array and the consumer skips rendering the Card). Reason: small
-  // sample sizes give unreliable "most-frequent" suggestions; better to
-  // hide the feature than show noise.
-  const SMART_QUICK_ADD_THRESHOLD = 100;
-  const smartQuickAdd = useMemo<{ label: string; icon: string; cat: string; amount: number }[]>(() => {
+  // Smart Quick Add — only after 100+ expenses logged
+  const SMART_THRESHOLD = 100;
+  const smartQuickAdd = useMemo<{ label: string; icon: HennaIconName; cat: string; amount: number }[]>(() => {
     const expenses = history.filter(h => h.type === 'expense' && h.label);
-    if (expenses.length < SMART_QUICK_ADD_THRESHOLD) return [];
+    if (expenses.length < SMART_THRESHOLD) return [];
 
-    // Group by lowercase label, keep stats per group.
     const byLabel: Record<string, { label: string; cats: Record<string, number>; amounts: number[]; count: number }> = {};
     for (const e of expenses) {
       const key = e.label.trim().toLowerCase();
@@ -235,27 +254,52 @@ export default function ExpensesScreen() {
       byLabel[key].cats[e.cat] = (byLabel[key].cats[e.cat] || 0) + 1;
     }
 
-    // Sort by frequency desc, take top 8.
     return Object.values(byLabel)
       .sort((a, b) => b.count - a.count)
       .slice(0, 8)
       .map(g => {
-        // Most-common category for this label
         const cat = Object.entries(g.cats).sort((a, b) => b[1] - a[1])[0][0];
-        // Median amount (more stable than mean against outliers)
         const sorted = [...g.amounts].sort((a, b) => a - b);
         const median = sorted[Math.floor(sorted.length / 2)];
-        // Icon = first emoji of the category string ("🍔 Food" -> "🍔")
-        const iconMatch = cat.match(/\p{Emoji}/u);
-        const icon = iconMatch ? iconMatch[0] : '💸';
         return {
           label: g.label,
-          icon,
+          icon: iconForCat(cat),
           cat,
           amount: Math.round(median),
         };
       });
   }, [history]);
+
+  // Group filtered transactions by date for the design's date-section pattern
+  const grouped = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    filtered.forEach(t => {
+      const list = map.get(t.date) ?? [];
+      list.push(t);
+      map.set(t.date, list);
+    });
+    // Sort dates descending
+    return Array.from(map.entries()).sort((a, b) => {
+      const pa = parseDMY(a[0]);
+      const pb = parseDMY(b[0]);
+      if (!pa || !pb) return 0;
+      return new Date(pb.y, pb.m, pb.d).getTime() - new Date(pa.y, pa.m, pa.d).getTime();
+    });
+  }, [filtered]);
+
+  // Date display: "Today", "Yesterday", or "Wed 24 May"
+  const dateLabel = useCallback((date: string) => {
+    const p = parseDMY(date);
+    if (!p) return date;
+    const td2 = todayStr();
+    if (date === td2) return 'Today';
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date === dateToDMY(yesterday)) return 'Yesterday';
+    const d = new Date(p.y, p.m, p.d);
+    const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+    return `${weekday} ${p.d} ${MONTHS[p.m].slice(0, 3)}`;
+  }, []);
 
   // Actions
   const addTopup = useCallback(() => {
@@ -272,8 +316,8 @@ export default function ExpensesScreen() {
     setHistory(h => [entry, ...h]);
     setTopupNote('');
     setTopupAmt('');
-    showToast('💵 ' + pkrF(amt) + ' received added');
-  }, [topupNote, topupAmt, td, setHistory, showToast]);
+    showToast(pkrF(amt) + ' received added');
+  }, [topupNote, topupAmt, td, setHistory, showToast, pkrF]);
 
   const addExpense = useCallback(() => {
     const amt = parseFloat(expAmt);
@@ -289,12 +333,11 @@ export default function ExpensesScreen() {
       receipt: receiptUri || undefined,
     };
     setHistory(h => [entry, ...h]);
-    // Check budget alert
     if (budget > 0) {
       const newMonthSpent = monthSpent + amt;
       checkBudgetAlert(newMonthSpent, budget);
     }
-    showToast('🛒 ' + expItem + ' logged');
+    showToast(expItem + ' logged');
     setExpItem('');
     setExpAmt('');
     setReceiptUri(null);
@@ -316,7 +359,6 @@ export default function ExpensesScreen() {
     setEditId(h.id);
     setEditLabel(h.label);
     setEditAmt(String(h.amount));
-    // Parse DD/MM/YYYY to Date
     const parts = h.date.split('/');
     if (parts.length === 3) {
       setEditDate(new Date(+parts[2], +parts[1] - 1, +parts[0]));
@@ -351,7 +393,7 @@ export default function ExpensesScreen() {
         }),
       );
       setEditId(null);
-      showToast('✅ Entry updated');
+      showToast('Entry updated');
     },
     [editLabel, editAmt, editDate, editCat, setHistory, showToast],
   );
@@ -385,7 +427,6 @@ export default function ExpensesScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const trimmed = budgetInput.trim();
     if (trimmed === '') {
-      // Empty + Save = clear
       setBudget(0);
       setBudgetEditing(false);
       showToast('Budget cleared');
@@ -395,7 +436,7 @@ export default function ExpensesScreen() {
     if (!isNaN(v) && v > 0) {
       setBudget(v);
       setBudgetEditing(false);
-      showToast('🎯 Budget set to ' + pkrF(v));
+      showToast('Budget set to ' + pkrF(v));
     }
   }, [budgetInput, setBudget, showToast, pkrF]);
 
@@ -414,497 +455,434 @@ export default function ExpensesScreen() {
 
   const sectionTitle =
     filter === 'all'
-      ? 'All Transactions'
+      ? 'History'
       : filter === 'today'
-        ? "Today's Transactions"
+        ? "Today's"
         : `${MONTHS[selMonth]} ${selYear}`;
 
-  // v1.2.5-dev: Render transaction item — now wrapped in SwipeableRow.
-  // Left-swipe reveals Edit (outline) + Delete (red) actions. The tap area
-  // inside the Card still works for navigation / future drill-in. Delete
-  // preserves its undo toast (deleteEntry already fires one).
-  const renderItem = useCallback(({ item: h }: { item: Transaction }) => {
-    const isTopup = h.type === 'topup';
-    const icon = isTopup ? '💵' : (h.cat?.split(' ')[0] || '🛒');
+  // Hero subtitle: "May 2026 · track every rupee"
+  const heroSubtitle = useMemo(() => {
+    const now = new Date();
+    return `${MONTHS[now.getMonth()]} ${now.getFullYear()} · track every rupee`;
+  }, []);
+
+  const editingTransaction = editId !== null ? history.find(h => h.id === editId) : null;
+  const balanceSplit = splitFlourish(allLoaded ? pkrF(bal) : '—');
+
+  // Group rendering item — the design uses date-grouped lists; render as section view.
+  // We swap FlatList for a ScrollView since the visual now groups by date and keeps
+  // SwipeableRow / receipt thumbs / undo intact. Performance still bounded by
+  // `removeClippedSubviews` on ScrollView and the < few hundred rows the app sees.
+  const renderTxnRow = useCallback((t: Transaction, isLast: boolean) => {
+    const isTopup = t.type === 'topup';
+    const icon: HennaIconName = isTopup ? 'wallet' : iconForCat(t.cat);
+    const tintBg = isTopup ? hennaColors.sageBg : hennaColors.hennaBg;
+    const tintFg = isTopup ? hennaColors.sage : hennaColors.henna;
+    const sign = isTopup ? '+ ' : '− ';
+    const amtColor = isTopup ? hennaColors.sage : hennaColors.ink;
 
     return (
       <SwipeableRow
-        itemLabel={h.label}
+        key={t.id}
+        itemLabel={t.label}
         actions={[
-          { kind: 'edit', onPress: () => startEdit(h) },
-          { kind: 'delete', onPress: () => deleteEntry(h.id) },
+          { kind: 'edit', onPress: () => startEdit(t) },
+          { kind: 'delete', onPress: () => deleteEntry(t.id) },
         ]}
       >
-        <Card>
-          {/* Main row */}
-          <View style={styles.txMain}>
-            <View
-              style={[
-                styles.txIcon,
-                {
-                  backgroundColor: isTopup ? colors.greenBg : colors.redBg,
-                  borderColor: isTopup ? colors.greenBorder : colors.redBorder,
-                },
-              ]}
-            >
-              <Text style={styles.txIconText}>{icon}</Text>
-            </View>
-            <View style={styles.txInfo}>
-              <Text style={[styles.txName, { color: colors.deep }]} numberOfLines={1}>
-                {h.label}
-              </Text>
-              <View style={styles.txMeta}>
-                <Badge
-                  text={isTopup ? 'Received' : h.cat}
-                  bg={isTopup ? colors.greenBg : colors.redBg}
-                  color={isTopup ? colors.green : colors.red}
-                  borderColor={isTopup ? colors.greenBorder : colors.redBorder}
-                />
-                <Text style={[styles.txDate, { color: colors.muted }]}>{h.date}</Text>
-              </View>
-            </View>
-            <Text style={[styles.txAmt, { color: isTopup ? colors.green : colors.red }]}>
-              {isTopup ? '+' : '-'}
-              {pkrF(h.amount)}
+        <View
+          style={[
+            styles.txRow,
+            !isLast && { borderBottomWidth: 1, borderBottomColor: hennaColors.line },
+          ]}
+        >
+          <View style={[styles.txIcon, { backgroundColor: tintBg }]}>
+            <HennaIcon name={icon} size={16} color={tintFg} />
+          </View>
+          <View style={styles.txInfo}>
+            <Text style={styles.txLabel} numberOfLines={1}>{t.label}</Text>
+            <Text style={styles.txCat} numberOfLines={1}>
+              {isTopup ? 'Received' : (t.cat || 'Other')}
             </Text>
+            {t.receipt ? (
+              <Image source={{ uri: t.receipt }} style={styles.txReceipt} />
+            ) : null}
           </View>
-
-          {/* Receipt thumbnail */}
-          {h.receipt && (
-            <Image
-              source={{ uri: h.receipt }}
-              style={styles.receiptThumb}
-            />
-          )}
-
-          {/* Action buttons (kept for tap-users who don't discover the swipe) */}
-          <View style={[styles.txActions, { borderTopColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.txActionBtn, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
-              onPress={() => startEdit(h)}
-            >
-              <Text style={[styles.txActionText, { color: colors.blue }]}>✏️ Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.txActionBtn, { backgroundColor: colors.redBg, borderColor: colors.redBorder }]}
-              onPress={() => deleteEntry(h.id)}
-            >
-              <Text style={[styles.txActionText, { color: colors.red }]}>🗑 Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
+          <Text style={[styles.txAmt, { color: amtColor }]}>
+            {sign}{pkrF(t.amount)}
+          </Text>
+        </View>
       </SwipeableRow>
     );
-  }, [colors, startEdit, deleteEntry, pkrF]);
+  }, [startEdit, deleteEntry, pkrF]);
 
-  // Find the transaction being edited (for the modal)
-  const editingTransaction = editId !== null ? history.find(h => h.id === editId) : null;
+  return (
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
+      <FlatList
+        data={[0]}
+        keyExtractor={() => 'expenses-scroll'}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        renderItem={() => (
+          <View>
+            <HennaHeader
+              title="Expenses"
+              subtitle={heroSubtitle}
+              onMenu={onMenu}
+              action={
+                <View style={styles.headerActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={searchOpen ? 'Hide search' : 'Show search'}
+                    onPress={toggleSearch}
+                    hitSlop={8}
+                    style={styles.headerIconBtn}
+                  >
+                    <HennaIcon name="search" size={18} color={hennaColors.ink2} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Share"
+                    onPress={handleShare}
+                    hitSlop={8}
+                    style={styles.headerIconBtn}
+                  >
+                    <HennaIcon name="share" size={18} color={hennaColors.ink2} />
+                  </Pressable>
+                </View>
+              }
+            />
 
-  // Header component for FlatList
-  const listHeader = useMemo(() => (
-    <View>
-      {/* Balance Hero — v1.2.14-dev: compact hero with inline budget editor */}
-      <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
-        <View style={styles.heroHeaderRow}>
-          <DrawerMenuButton />
-          <View style={styles.heroHeaderText}>
-            <Text style={[styles.balLabel, { color: colors.gold }]}>💼 Remaining Balance</Text>
-            <Text style={[styles.balNum, { color: bal < 0 ? colors.red : colors.green }]}>
-              {pkrF(bal)}
-            </Text>
-          </View>
-        </View>
+            {/* Hero */}
+            <View style={styles.heroWrap}>
+              <View style={styles.heroCard}>
+                <LinearGradient
+                  colors={hennaGradients.heroHenna}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <MeshOverlay />
+                <View style={styles.heroCorner} pointerEvents="none">
+                  <ArabesqueCorner size={110} color={hennaColors.henna} opacity={0.14} />
+                </View>
 
-        {/* 3 stat boxes */}
-        <View style={styles.balStats}>
-          <View style={styles.balStatBox}>
-            <Text style={[styles.balStatVal, { color: colors.green }]}>{pkr(totalRec)}</Text>
-            <Text style={[styles.balStatLbl, { color: colors.muted }]}>Received</Text>
-          </View>
-          <View style={styles.balStatBox}>
-            <Text style={[styles.balStatVal, { color: colors.red }]}>{pkr(totalSpent)}</Text>
-            <Text style={[styles.balStatLbl, { color: colors.muted }]}>Spent</Text>
-          </View>
-          <View style={styles.balStatBox}>
-            <Text style={[styles.balStatVal, { color: colors.gold }]}>{pkr(todaySpent)}</Text>
-            <Text style={[styles.balStatLbl, { color: colors.muted }]}>Today</Text>
-          </View>
-        </View>
+                <View style={styles.heroInner}>
+                  <View style={styles.greetRow}>
+                    <MarginMark color={hennaColors.henna} />
+                    <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.henna }]}>Balance</Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.balanceText,
+                      { color: bal < 0 ? hennaColors.henna : hennaColors.ink },
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {balanceSplit.head}
+                    <Text style={styles.balanceTail}>{balanceSplit.tail}</Text>
+                  </Text>
 
-        {/* Inline budget block — v1.2.14-dev */}
-        <View style={[styles.budgetWrap, { borderTopColor: colors.border }]}>
-          {budgetEditing ? (
-            <View style={styles.budgetEditRow}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder={`Monthly budget in ${currencyCode}`}
-                  keyboardType="numeric"
-                  value={budgetInput}
-                  onChangeText={setBudgetInput}
+                  <View style={styles.heroStatsRow}>
+                    <View style={styles.heroStat}>
+                      <HennaIcon name="chev-down" size={11} color={hennaColors.sage} />
+                      <Text style={[styles.heroStatText, { color: hennaColors.sage }]}>
+                        {pkr(totalRec)}
+                      </Text>
+                    </View>
+                    <View style={styles.heroStat}>
+                      <HennaIcon name="chev-down" size={11} color={hennaColors.henna} />
+                      <Text style={[styles.heroStatText, { color: hennaColors.henna }]}>
+                        {pkr(totalSpent)}
+                      </Text>
+                    </View>
+                    <View style={styles.heroStatRight}>
+                      <Text style={[hennaTextStyles.caption, { color: hennaColors.muted }]}>Today</Text>
+                      <Text style={styles.heroStatToday}>{pkr(todaySpent)}</Text>
+                    </View>
+                  </View>
+
+                  {/* Budget block — inline editor */}
+                  <View style={styles.budgetBox}>
+                    {budgetEditing ? (
+                      <View style={styles.budgetEditRow}>
+                        <View style={{ flex: 1 }}>
+                          <HennaInput
+                            placeholder={`Monthly budget in ${currencyCode}`}
+                            keyboardType="numeric"
+                            value={budgetInput}
+                            onChangeText={setBudgetInput}
+                            autoFocus
+                          />
+                        </View>
+                        <HennaButton title="Save" size="sm" variant="primary" onPress={handleSetBudget} />
+                        <HennaButton title="Cancel" size="sm" variant="outline" onPress={handleCancelBudget} />
+                      </View>
+                    ) : budget > 0 ? (
+                      <>
+                        <View style={styles.budgetRow}>
+                          <Text style={styles.budgetLabel}>Monthly budget</Text>
+                          <Text style={styles.budgetVal}>
+                            {pkr(monthSpent)} / {pkr(budget)}
+                          </Text>
+                          <Pressable
+                            onPress={toggleBudgetEditing}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel="Edit monthly budget"
+                            style={styles.budgetEditBtn}
+                          >
+                            <HennaIcon name="pencil" size={13} color={hennaColors.henna} />
+                          </Pressable>
+                        </View>
+                        <HennaProgress value={monthSpent} max={budget} accent="henna" />
+                        <Text style={styles.budgetRemain}>
+                          {pkr(Math.max(0, budget - monthSpent))} remaining · {budgetPct}%
+                        </Text>
+                      </>
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Set monthly budget"
+                        onPress={toggleBudgetEditing}
+                        style={styles.budgetSetRow}
+                      >
+                        <Text style={styles.budgetSetText}>Set monthly budget</Text>
+                        <HennaIcon name="chev-right" size={13} color={hennaColors.henna} />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Filter pills */}
+            <View style={styles.filterRow}>
+              <HennaPill label="All" active={filter === 'all'} onPress={() => setFilter('all')} />
+              <HennaPill label="Today" active={filter === 'today'} onPress={() => setFilter('today')} />
+              <HennaPill label="Month" active={filter === 'month'} onPress={() => setFilter('month')} />
+              {filter === 'month' ? (
+                <Text style={styles.monthLabel}>
+                  {MONTHS[selMonth]} {selYear}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* Search */}
+            {searchOpen ? (
+              <View style={styles.searchWrap}>
+                <HennaInput
+                  icon="search"
+                  placeholder="Search transactions"
+                  value={search}
+                  onChangeText={setSearch}
                   autoFocus
                 />
               </View>
-              <Button title="Save" variant="green" small onPress={handleSetBudget} />
-              <Button title="Cancel" variant="outline" small onPress={handleCancelBudget} />
-            </View>
-          ) : budget > 0 ? (
-            <View>
-              <View style={styles.budgetRow}>
-                <Text style={[styles.budgetLabel, { color: colors.sub }]} numberOfLines={1}>
-                  Budget · {pkrF(budget)} set · {budgetPct}% used
-                </Text>
-                <TouchableOpacity
-                  onPress={toggleBudgetEditing}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit monthly budget"
-                  accessibilityState={{ expanded: budgetEditing }}
-                  style={styles.budgetEditBtn}
-                >
-                  <Text style={[styles.budgetEditIcon, { color: colors.gold }]}>✎</Text>
-                </TouchableOpacity>
-              </View>
-              <ProgressBar percent={budgetPct} fillColor={budgetColor} bgColor={colors.border} height={4} />
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={toggleBudgetEditing}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Set monthly budget"
-              accessibilityState={{ expanded: budgetEditing }}
-              style={styles.budgetSetRow}
+            ) : null}
+
+            {/* Quick-add chip rail */}
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Quick Add</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.presetRail}
             >
-              <Text style={[styles.budgetSetText, { color: colors.gold }]}>
-                Set monthly budget →
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </Card>
+              {(smartQuickAdd.length > 0 ? smartQuickAdd : PRESETS).map(p => (
+                <Pressable
+                  key={p.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quick add ${p.label}`}
+                  onPress={() => applyPreset(p)}
+                  style={({ pressed }) => [styles.presetTile, { opacity: pressed ? 0.9 : 1 }]}
+                >
+                  <HennaIcon name={p.icon} size={20} color={hennaColors.henna} />
+                  <Text style={styles.presetText} numberOfLines={1}>{p.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
-      {/* Monthly Summary */}
-      {filter === 'month' && (
-        <Card style={{ backgroundColor: colors.purpleBg, borderColor: colors.purpleBorder }}>
-          <Text style={[styles.summaryTitle, { color: colors.deep }]}>
-            📊 {MONTHS[selMonth]} {selYear}
-          </Text>
-          <View style={styles.summaryGrid}>
-            <View style={[styles.summaryBox, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
-              <Text style={[styles.summaryVal, { color: colors.green }]}>{pkrF(monthlySummary.periodRec)}</Text>
-              <Text style={[styles.summaryLbl, { color: colors.muted }]}>Received</Text>
-            </View>
-            <View style={[styles.summaryBox, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
-              <Text style={[styles.summaryVal, { color: colors.red }]}>{pkrF(monthlySummary.periodExp)}</Text>
-              <Text style={[styles.summaryLbl, { color: colors.muted }]}>Spent</Text>
-            </View>
-            <View style={[styles.summaryBox, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
-              <Text
-                style={[
-                  styles.summaryVal,
-                  { color: monthlySummary.net >= 0 ? colors.green : colors.red },
-                ]}
-              >
-                {pkrF(monthlySummary.net)}
-              </Text>
-              <Text style={[styles.summaryLbl, { color: colors.muted }]}>
-                {monthlySummary.net >= 0 ? 'Saved' : 'Deficit'}
-              </Text>
-            </View>
-            <View style={[styles.summaryBox, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
-              <Text style={[styles.summaryVal, { color: colors.gold }]}>{monthlySummary.expCount}</Text>
-              <Text style={[styles.summaryLbl, { color: colors.muted }]}>Expenses</Text>
-            </View>
-          </View>
-
-          {/* Category breakdown bars */}
-          {monthlySummary.cats.length > 0 && (
-            <View style={styles.catBars}>
-              {monthlySummary.cats.map((c, i) => {
-                const catColor = CAT_COLORS[CAT_KEYS.indexOf(c[0]) % CAT_COLORS.length];
-                const barPct = Math.round((c[1] / monthlySummary.maxC) * 100);
-                return (
-                  <View key={i} style={styles.catBarRow}>
-                    <Text style={[styles.catBarName, { color: colors.sub }]} numberOfLines={1}>
-                      {c[0]}
-                    </Text>
-                    <View style={[styles.catBarBg, { backgroundColor: colors.border }]}>
-                      <View
-                        style={[styles.catBarFill, { width: `${barPct}%` as any, backgroundColor: catColor }]}
-                      />
-                    </View>
-                    <Text style={[styles.catBarAmt, { color: colors.deep }]}>{pkr(c[1])}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </Card>
-      )}
-
-      {/* Smart Quick Add — only appears after 100+ expenses logged.
-          Below that, the rail is hidden so we never show noise. */}
-      {smartQuickAdd.length > 0 && (
-        <Card style={styles.quickCard}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.presetRail}
-          >
-            <View style={styles.quickInlineLabelWrap}>
-              <Text style={[styles.quickInlineLabel, { color: colors.muted }]}>Quick:</Text>
-            </View>
-            {smartQuickAdd.map(p => (
-              <TouchableOpacity
-                key={p.label}
-                style={[styles.presetTile, { backgroundColor: colors.surfaceMuted }]}
-                activeOpacity={0.7}
-                onPress={() => applyPreset(p)}
+            {/* Collapsed Add form */}
+            <View style={styles.addFormWrap}>
+              <Pressable
+                onPress={toggleAddForm}
                 accessibilityRole="button"
-                accessibilityLabel={`Quick add ${p.label}${p.amount > 0 ? `, default amount ${pkr(p.amount)}` : ''}`}
+                accessibilityLabel={addFormOpen ? 'Collapse add form' : 'Expand add form'}
+                accessibilityState={{ expanded: addFormOpen }}
+                style={({ pressed }) => [styles.addFormHeader, { opacity: pressed ? 0.94 : 1 }]}
               >
-                <Text style={styles.presetIcon}>{p.icon}</Text>
-                <Text style={[styles.presetText, { color: colors.sub }]} numberOfLines={1}>
-                  {p.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Card>
-      )}
+                <Text style={styles.addFormTitle}>+ Add transaction</Text>
+                <HennaIcon
+                  name={addFormOpen ? 'chev-down' : 'chev-right'}
+                  size={14}
+                  color={hennaColors.muted}
+                />
+              </Pressable>
+              {!addFormOpen ? (
+                <Text style={styles.addFormSub}>Or use the floating + button</Text>
+              ) : (
+                <View style={styles.addFormBody}>
+                  <View style={styles.formToggle}>
+                    <Pressable
+                      onPress={() => setFormMode('topup')}
+                      style={[
+                        styles.formToggleBtn,
+                        formMode === 'topup' && { backgroundColor: hennaColors.sageBg },
+                      ]}
+                    >
+                      <Text style={[
+                        styles.formToggleText,
+                        { color: formMode === 'topup' ? hennaColors.sage : hennaColors.muted },
+                      ]}>
+                        Received
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setFormMode('expense')}
+                      style={[
+                        styles.formToggleBtn,
+                        formMode === 'expense' && { backgroundColor: hennaColors.hennaBg },
+                      ]}
+                    >
+                      <Text style={[
+                        styles.formToggleText,
+                        { color: formMode === 'expense' ? hennaColors.henna : hennaColors.muted },
+                      ]}>
+                        Expense
+                      </Text>
+                    </Pressable>
+                  </View>
 
-      {/* Unified Add Form — v1.2.14-dev: collapsed by default */}
-      <Card>
-        <TouchableOpacity
-          onPress={toggleAddForm}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={addFormOpen ? 'Collapse add transaction form' : 'Expand add transaction form'}
-          accessibilityState={{ expanded: addFormOpen }}
-          style={styles.addFormHeader}
-        >
-          <Text style={[styles.addFormTitle, { color: colors.deep }]}>+ Add transaction</Text>
-          <Text style={[styles.addFormChevron, { color: colors.muted }]}>
-            {addFormOpen ? '▾' : '▸'}
-          </Text>
-        </TouchableOpacity>
-        {!addFormOpen && (
-          <Text style={[styles.optionSub, { color: colors.muted }]}>
-            Or use the floating + button for quick entry
-          </Text>
-        )}
-        {addFormOpen && (
-          <View style={styles.addFormBody}>
-            <View style={styles.formToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.formToggleBtn,
-                  { backgroundColor: formMode === 'topup' ? 'rgba(200,134,10,0.12)' : colors.bg3 },
-                ]}
-                onPress={() => setFormMode('topup')}
-              >
-                <Text style={[styles.formToggleText, { color: formMode === 'topup' ? colors.gold : colors.muted }]}>
-                  💰 Received
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.formToggleBtn,
-                  { backgroundColor: formMode === 'expense' ? 'rgba(200,134,10,0.12)' : colors.bg3 },
-                ]}
-                onPress={() => setFormMode('expense')}
-              >
-                <Text style={[styles.formToggleText, { color: formMode === 'expense' ? colors.gold : colors.muted }]}>
-                  🛒 Expense
-                </Text>
-              </TouchableOpacity>
+                  {formMode === 'topup' ? (
+                    <>
+                      <HennaInput
+                        placeholder="e.g. Weekly kharch"
+                        value={topupNote}
+                        onChangeText={setTopupNote}
+                        containerStyle={styles.formInput}
+                      />
+                      <View style={styles.row}>
+                        <View style={{ flex: 1 }}>
+                          <HennaInput
+                            placeholder={`Amount in ${currencyCode}`}
+                            keyboardType="numeric"
+                            value={topupAmt}
+                            onChangeText={setTopupAmt}
+                          />
+                        </View>
+                        <HennaButton title="Add" variant="sage" onPress={addTopup} />
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <HennaInput
+                        placeholder="What did you buy?"
+                        value={expItem}
+                        onChangeText={setExpItem}
+                        containerStyle={styles.formInput}
+                      />
+                      <View style={[styles.row, styles.formInput]}>
+                        <View style={{ flex: 1 }}>
+                          <HennaInput
+                            placeholder={`Amount in ${currencyCode}`}
+                            keyboardType="numeric"
+                            value={expAmt}
+                            onChangeText={setExpAmt}
+                          />
+                        </View>
+                        <Pressable
+                          onPress={openDatePicker}
+                          style={styles.dateBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel="Pick date"
+                        >
+                          <HennaIcon name="calendar" size={14} color={hennaColors.ink2} />
+                          <Text style={styles.dateBtnText}>{dateToDMY(expDate)}</Text>
+                        </Pressable>
+                      </View>
+                      {showDatePicker && (
+                        <DateTimePicker
+                          value={expDate}
+                          mode="date"
+                          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                          onChange={handleExpDateChange}
+                        />
+                      )}
+                      <View style={styles.row}>
+                        <View style={[styles.pickerWrap, { flex: 1 }]}>
+                          <Picker
+                            selectedValue={expCat}
+                            onValueChange={setExpCat}
+                            style={{ color: hennaColors.ink }}
+                            dropdownIconColor={hennaColors.muted}
+                          >
+                            {CAT_KEYS.map(c => (
+                              <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
+                            ))}
+                          </Picker>
+                        </View>
+                        <HennaButton title="+ Add" variant="primary" onPress={addExpense} />
+                      </View>
+                      <View style={styles.receiptRow}>
+                        <HennaButton
+                          title={receiptUri ? 'Change photo' : 'Receipt photo'}
+                          icon="pencil"
+                          variant="outline"
+                          size="sm"
+                          onPress={pickReceipt}
+                        />
+                        {receiptUri ? (
+                          <Text style={styles.receiptOk}>Photo attached</Text>
+                        ) : null}
+                      </View>
+                    </>
+                  )}
+                </View>
+              )}
             </View>
 
-            {formMode === 'topup' ? (
-              <>
-                <Input
-                  placeholder="e.g. Weekly kharch…"
-                  value={topupNote}
-                  onChangeText={setTopupNote}
-                  style={styles.formInput}
-                />
-                <View style={styles.row}>
-                  <View style={{ flex: 1 }}>
-                    <Input
-                      placeholder={`Amount in ${currencyCode}`}
-                      keyboardType="numeric"
-                      value={topupAmt}
-                      onChangeText={setTopupAmt}
-                    />
-                  </View>
-                  <Button title="Add" variant="green" onPress={addTopup} />
-                </View>
-              </>
-            ) : (
-              <>
-                <Input
-                  placeholder="What did you buy?"
-                  value={expItem}
-                  onChangeText={setExpItem}
-                  style={styles.formInput}
-                />
-                <View style={[styles.row, styles.formInput]}>
-                  <View style={{ flex: 1 }}>
-                    <Input
-                      placeholder={`Amount in ${currencyCode}`}
-                      keyboardType="numeric"
-                      value={expAmt}
-                      onChangeText={setExpAmt}
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.dateBtn, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-                    onPress={openDatePicker}
-                  >
-                    <Text style={[styles.dateBtnText, { color: colors.text }]}>{dateToDMY(expDate)}</Text>
-                  </TouchableOpacity>
-                </View>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={expDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleExpDateChange}
-                  />
-                )}
-                <View style={styles.row}>
-                  <View style={[styles.pickerWrap, { flex: 1, backgroundColor: colors.bg3, borderColor: colors.border }]}>
-                    <Picker
-                      selectedValue={expCat}
-                      onValueChange={setExpCat}
-                      style={{ color: colors.text }}
-                      dropdownIconColor={colors.sub}
-                    >
-                      {CAT_KEYS.map(c => (
-                        <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
-                      ))}
-                    </Picker>
-                  </View>
-                  <Button title="+ Add" variant="gold" onPress={addExpense} />
-                </View>
-                <View style={styles.receiptRow}>
-                  <Button title={receiptUri ? "📷 Change" : "📷 Receipt"} variant="outline" small onPress={pickReceipt} />
-                  {receiptUri && <Text style={[styles.receiptLabel, { color: colors.green }]}>✓ Photo attached</Text>}
-                </View>
-              </>
+            {/* Transactions section */}
+            <View style={styles.secHeader}>
+              <Text style={styles.secTitle}>{sectionTitle}</Text>
+              <Text style={styles.secCount}>{filtered.length}</Text>
+            </View>
+
+            {!allLoaded && (
+              <View style={{ paddingHorizontal: 16 }}>
+                <SkeletonCardRow />
+                <SkeletonCardRow />
+                <SkeletonCardRow />
+              </View>
             )}
+
+            {allLoaded && filtered.length === 0 && (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyTitle}>All caught up for today.</Text>
+                <Text style={styles.emptyHint}>
+                  Use the form above or the floating + to add your first entry.
+                </Text>
+              </View>
+            )}
+
+            {/* Grouped list */}
+            <View style={{ paddingHorizontal: 16 }}>
+              {grouped.map(([date, items]) => (
+                <View key={date} style={{ marginBottom: 10 }}>
+                  <Text style={[hennaTextStyles.eyebrow, styles.dateEyebrow]}>{dateLabel(date)}</Text>
+                  <HennaCard padding={0}>
+                    {items.map((t, i) => renderTxnRow(t, i === items.length - 1))}
+                  </HennaCard>
+                </View>
+              ))}
+            </View>
           </View>
         )}
-      </Card>
-
-      {/* Transactions header — v1.2.14-dev: title + count + share + search icons in one row */}
-      <View style={styles.secHeader}>
-        <Text style={[styles.secTitle, { color: colors.deep }]} numberOfLines={1}>{sectionTitle}</Text>
-        <View style={styles.secHeaderRight}>
-          <Badge
-            text={`${filtered.length}`}
-            bg={colors.goldBg}
-            color={colors.gold}
-            borderColor={colors.goldBorder}
-          />
-          <TouchableOpacity
-            onPress={handleShare}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityRole="button"
-            accessibilityLabel="Share stats"
-            style={styles.iconBtn}
-          >
-            <Text style={[styles.iconBtnText, { color: colors.sub }]}>📤</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={toggleSearch}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityRole="button"
-            accessibilityLabel={searchOpen ? 'Hide search' : 'Show search'}
-            accessibilityState={{ expanded: searchOpen }}
-            style={styles.iconBtn}
-          >
-            <Text style={[styles.iconBtnText, { color: searchOpen ? colors.gold : colors.sub }]}>🔍</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Search — hidden behind 🔍 icon, v1.2.14-dev */}
-      {searchOpen && (
-        <View style={[styles.searchWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <Input
-            placeholder="Search transactions…"
-            value={search}
-            onChangeText={setSearch}
-            style={[styles.searchInput, { borderWidth: 0, backgroundColor: 'transparent' }]}
-            autoFocus
-          />
-        </View>
-      )}
-
-      {!allLoaded && (
-        <>
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-        </>
-      )}
-
-      {allLoaded && filtered.length === 0 && (
-        <EmptyState
-          icon="📋"
-          text="No expenses logged yet. Your balance is your own."
-          hint="Use the form above or the floating + to add your first entry."
-        />
-      )}
-    </View>
-  ), [
-    colors, dark, bal, totalRec, totalSpent, todaySpent,
-    budget, monthSpent, budgetPct, budgetColor, handleShare,
-    budgetInput, budgetEditing, toggleBudgetEditing, handleSetBudget, handleCancelBudget,
-    addFormOpen, toggleAddForm,
-    searchOpen, toggleSearch,
-    filter, selMonth, selYear, monthlySummary,
-    formMode, topupNote, topupAmt, addTopup,
-    expItem, expAmt, expDate, showDatePicker, handleExpDateChange,
-    expCat, addExpense, receiptUri, pickReceipt, openDatePicker,
-    sectionTitle, filtered, search, allLoaded,
-    pkr, pkrF, currencyCode,
-    smartQuickAdd, applyPreset,
-  ]);
-
-  return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={[styles.container, { paddingTop: insets.top }]}>
-      {/* MonthBar filter */}
-      <MonthBar
-        filter={filter}
-        setFilter={setFilter}
-        selMonth={selMonth}
-        selYear={selYear}
-        setSelMonth={setSelMonth}
-        setSelYear={setSelYear}
-        history={history}
       />
 
-      <FlatList
-        data={filtered}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={listHeader}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
-        windowSize={10}
-        initialNumToRender={10}
-        removeClippedSubviews
-      />
-
-      {/* Edit Modal — rendered outside FlatList to avoid re-render on keystroke */}
+      {/* Edit Modal */}
       <Modal
         visible={editId !== null}
         transparent
@@ -915,49 +893,46 @@ export default function ExpensesScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          {/* v1.2.5 hotfix: BlurView removed (native-init crash). */}
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={closeEditModal}
-          />
-          <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
+          <Pressable style={styles.modalBackdrop} onPress={closeEditModal} accessibilityLabel="Close edit modal" />
+          <View style={styles.modalContent}>
             <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={[styles.modalTitle, { color: colors.deep }]}>
+              <Text style={styles.modalTitle}>
                 Edit {editingTransaction?.type === 'topup' ? 'Received' : 'Expense'}
               </Text>
-              <Input
+              <HennaInput
                 ref={editLabelRef}
                 label="What"
                 value={editLabel}
                 onChangeText={setEditLabel}
                 placeholder="e.g. Groceries"
-                style={styles.editInput}
+                containerStyle={styles.editField}
                 returnKeyType="next"
                 autoFocus
                 blurOnSubmit={false}
                 onSubmitEditing={() => editAmtRef.current?.focus()}
               />
               <View style={styles.editRow}>
-                <Input
-                  ref={editAmtRef}
-                  label="Amount"
-                  value={editAmt}
-                  onChangeText={setEditAmt}
-                  placeholder={`Amount in ${currencyCode}`}
-                  keyboardType="numeric"
-                  style={[styles.editInput, { flex: 1 }]}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveEdit}
-                />
-                <TouchableOpacity
-                  style={[styles.dateBtn, { backgroundColor: colors.bg2, borderColor: colors.border }]}
+                <View style={{ flex: 1 }}>
+                  <HennaInput
+                    ref={editAmtRef}
+                    label="Amount"
+                    value={editAmt}
+                    onChangeText={setEditAmt}
+                    placeholder={`Amount in ${currencyCode}`}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSaveEdit}
+                  />
+                </View>
+                <Pressable
                   onPress={openEditDatePicker}
+                  style={[styles.dateBtn, { alignSelf: 'flex-end' }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pick date"
                 >
-                  <Text style={[styles.dateBtnText, { color: colors.text }]}>
-                    {dateToDMY(editDate)}
-                  </Text>
-                </TouchableOpacity>
+                  <HennaIcon name="calendar" size={14} color={hennaColors.ink2} />
+                  <Text style={styles.dateBtnText}>{dateToDMY(editDate)}</Text>
+                </Pressable>
               </View>
               {showEditDatePicker && (
                 <DateTimePicker
@@ -968,12 +943,12 @@ export default function ExpensesScreen() {
                 />
               )}
               {editingTransaction?.type === 'expense' && (
-                <View style={[styles.pickerWrap, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
+                <View style={[styles.pickerWrap, { marginTop: 10 }]}>
                   <Picker
                     selectedValue={editCat}
                     onValueChange={setEditCat}
-                    style={{ color: colors.text }}
-                    dropdownIconColor={colors.sub}
+                    style={{ color: hennaColors.ink }}
+                    dropdownIconColor={hennaColors.muted}
                   >
                     {CAT_KEYS.map(c => (
                       <Picker.Item key={c} value={c} label={c} style={{ fontSize: 13 }} />
@@ -982,8 +957,16 @@ export default function ExpensesScreen() {
                 </View>
               )}
               <View style={styles.editBtns}>
-                <Button title="✓ Save" variant="green" small onPress={handleSaveEdit} />
-                <Button title="Cancel" variant="outline" small onPress={closeEditModal} />
+                <HennaButton title="Save" variant="primary" size="md" onPress={handleSaveEdit} />
+                <HennaButton title="Cancel" variant="outline" size="md" onPress={closeEditModal} />
+                <View style={{ flex: 1 }} />
+                <HennaButton
+                  title="Delete"
+                  icon="trash"
+                  variant="outline"
+                  size="md"
+                  onPress={() => editId !== null && deleteEntry(editId)}
+                />
               </View>
             </ScrollView>
           </View>
@@ -991,71 +974,86 @@ export default function ExpensesScreen() {
       </Modal>
 
       <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  listContent: {
-    padding: 20,
-    paddingBottom: 120,
-  },
-  // Balance hero — v1.2.14-dev: tighter typography
-  balLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  balNum: {
-    fontFamily: 'PlayfairDisplay-ExtraBold',
-    fontSize: 36,
-    lineHeight: 42,
-    letterSpacing: -0.5,
-  },
-  balStats: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-  },
-  balStatBox: {
-    flex: 1,
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 180 },
+  headerActions: { flexDirection: 'row', gap: 4 },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  balStatVal: {
-    fontSize: 15,
-    fontFamily: 'Outfit-Bold',
+
+  // Hero
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
   },
-  balStatLbl: {
-    fontSize: 10,
-    fontFamily: 'Outfit-SemiBold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: 2,
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  balanceText: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: hennaType.hero,
+    lineHeight: hennaType.hero,
+    letterSpacing: -0.5,
+    color: hennaColors.ink,
   },
-  // Budget inline-in-hero — v1.2.14-dev
-  budgetWrap: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+  balanceTail: {
+    fontFamily: hennaFonts.flourish,
+    color: hennaColors.henna,
   },
+  heroStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 14,
+  },
+  heroStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  heroStatText: {
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 12,
+  },
+  heroStatRight: { marginLeft: 'auto', alignItems: 'flex-end' },
+  heroStatToday: {
+    fontFamily: hennaFonts.serif,
+    fontSize: 14,
+    color: hennaColors.ink,
+  },
+  budgetBox: {
+    marginTop: 14,
+    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderRadius: 16,
+  },
+  budgetEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   budgetRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
     gap: 8,
   },
   budgetLabel: {
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 11,
+    color: hennaColors.ink2,
+  },
+  budgetVal: {
     flex: 1,
+    textAlign: 'right',
+    fontFamily: hennaFonts.serif,
     fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
+    color: hennaColors.ink,
   },
   budgetEditBtn: {
     minWidth: 28,
@@ -1063,325 +1061,266 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  budgetEditIcon: {
-    fontSize: 16,
-    fontFamily: 'Outfit-Bold',
+  budgetRemain: {
+    marginTop: 6,
+    fontFamily: hennaFonts.ui,
+    fontSize: 10,
+    color: hennaColors.muted,
   },
   budgetSetRow: {
-    minHeight: 44,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 32,
   },
   budgetSetText: {
+    fontFamily: hennaFonts.uiSemi,
     fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
+    color: hennaColors.henna,
   },
-  budgetEditRow: {
+
+  // Filters
+  filterRow: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  // Monthly summary
-  summaryTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 20,
-    marginBottom: 12,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  summaryBox: {
-    flexGrow: 1,
-    flexBasis: '46%',
-    borderRadius: 16,
-    borderWidth: 0,
-    padding: 14,
-    alignItems: 'center',
-  },
-  summaryVal: {
-    fontSize: 16,
-    fontFamily: 'Outfit-Bold',
-  },
-  summaryLbl: {
-    fontSize: 10,
-    fontFamily: 'Outfit-Regular',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: 2,
-  },
-  catBars: {
-    marginTop: 14,
-  },
-  catBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  catBarName: {
-    width: 80,
-    fontSize: 13,
-    fontFamily: 'Outfit-Regular',
-  },
-  catBarBg: {
-    flex: 1,
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  catBarFill: {
-    height: 10,
-    borderRadius: 5,
-  },
-  catBarAmt: {
-    width: 60,
-    fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
-    textAlign: 'right',
-  },
-  // Quick presets — v1.2.14-dev: compact rail with inline label
-  quickCard: {
-    padding: 12,
-  },
-  quickInlineLabelWrap: {
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  quickInlineLabel: {
+  monthLabel: {
+    marginLeft: 'auto',
+    fontFamily: hennaFonts.ui,
     fontSize: 11,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    color: hennaColors.muted,
+  },
+
+  // Search
+  searchWrap: { paddingHorizontal: 16, marginTop: 8 },
+
+  // Section eyebrows + presets
+  sectionEyebrow: {
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    paddingBottom: 8,
   },
   presetRail: {
-    paddingVertical: 2,
-    paddingHorizontal: 2,
+    paddingHorizontal: 16,
     gap: 8,
-    alignItems: 'center',
+    paddingBottom: 6,
   },
   presetTile: {
-    minWidth: 72,
-    minHeight: 72,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 14,
+    width: 78,
+    backgroundColor: hennaColors.paper,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  presetIcon: {
-    fontSize: 22,
-    marginBottom: 2,
+    gap: 4,
+    minHeight: 70,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
   },
   presetText: {
-    fontSize: 11,
-    fontFamily: 'Outfit-SemiBold',
-    textAlign: 'center',
-    maxWidth: 64,
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 10,
+    color: hennaColors.ink2,
   },
-  // Collapsed Add form — v1.2.14-dev
+
+  // Add form
+  addFormWrap: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: hennaColors.paper,
+    borderRadius: hennaRadii.card,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    ...hennaShadows.sm,
+  },
   addFormHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     minHeight: 44,
   },
   addFormTitle: {
-    fontSize: 15,
-    fontFamily: 'Outfit-Bold',
+    fontFamily: hennaFonts.serif,
+    fontSize: 17,
+    color: hennaColors.ink,
   },
-  addFormChevron: {
-    fontSize: 16,
-    fontFamily: 'Outfit-Bold',
-    width: 20,
-    textAlign: 'center',
-  },
-  addFormBody: {
-    marginTop: 12,
-  },
-  optionSub: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Regular',
+  addFormSub: {
     marginTop: 2,
-  },
-  // Form toggle
-  formToggle: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  formToggleBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
-  formToggleText: { fontFamily: 'Outfit-Bold', fontSize: 14 },
-  // Receipt
-  receiptThumb: { width: 48, height: 48, borderRadius: 8, marginTop: 8 },
-  receiptRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  receiptLabel: { fontSize: 13, fontFamily: 'Outfit-Regular' },
-  // Forms
-  sectionLabel: {
+    fontFamily: hennaFonts.ui,
     fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 10,
+    color: hennaColors.muted,
   },
-  formInput: {
+  addFormBody: { marginTop: 12 },
+  formToggle: {
+    flexDirection: 'row',
+    gap: 6,
     marginBottom: 12,
+    backgroundColor: hennaColors.paper2,
+    padding: 4,
+    borderRadius: hennaRadii.pill,
   },
-  row: {
+  formToggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: hennaRadii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+  },
+  formToggleText: {
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 13,
+  },
+  formInput: { marginBottom: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
+    backgroundColor: hennaColors.paper2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    minHeight: 44,
   },
-  dateBtn: {
-    borderWidth: 0,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+  dateBtnText: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 13,
+    color: hennaColors.ink,
+  },
+  pickerWrap: {
+    backgroundColor: hennaColors.paper2,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    overflow: 'hidden',
     minHeight: 50,
     justifyContent: 'center',
   },
-  dateBtnText: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-  },
-  pickerWrap: {
-    borderWidth: 0,
-    borderRadius: 16,
-    overflow: 'hidden',
-    minHeight: 54,
-    justifyContent: 'center',
-  },
-  // Section header — v1.2.14-dev: title + count + share/search icons
-  secHeader: {
+  receiptRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 14,
-    marginBottom: 8,
+    gap: 10,
+    marginTop: 8,
+  },
+  receiptOk: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 12,
+    color: hennaColors.sage,
+  },
+
+  // Section list
+  secHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'baseline',
     gap: 10,
   },
   secTitle: {
     flex: 1,
-    fontSize: 16,
-    fontFamily: 'Outfit-Bold',
-  },
-  secHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBtn: {
-    minWidth: 32,
-    minHeight: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBtnText: {
+    fontFamily: hennaFonts.serif,
     fontSize: 18,
+    color: hennaColors.ink,
   },
-  // Search
-  searchWrap: {
+  secCount: {
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 11,
+    color: hennaColors.muted,
+  },
+  dateEyebrow: { paddingHorizontal: 6, paddingTop: 6, paddingBottom: 8 },
+  txRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0,
-    borderRadius: 16,
-    paddingLeft: 16,
-    marginBottom: 16,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  searchInput: {
-    flex: 1,
-    minHeight: 44,
-  },
-  // Transactions
-  txMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
   txIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    borderWidth: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  txIconText: {
-    fontSize: 22,
+  txInfo: { flex: 1, minWidth: 0 },
+  txLabel: {
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 14,
+    color: hennaColors.ink,
   },
-  txInfo: {
-    flex: 1,
-    minWidth: 0,
+  txCat: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 10,
+    color: hennaColors.muted,
+    marginTop: 1,
   },
-  txName: {
-    fontSize: 15,
-    fontFamily: 'Outfit-SemiBold',
-    marginBottom: 2,
-  },
-  txMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 3,
-  },
-  txDate: {
-    fontSize: 13,
-    fontFamily: 'Outfit-Regular',
+  txReceipt: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginTop: 4,
   },
   txAmt: {
-    fontSize: 17,
-    fontFamily: 'Outfit-Bold',
+    fontFamily: hennaFonts.serif,
+    fontSize: 15,
   },
-  txActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+
+  // Empty
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: {
+    fontFamily: hennaFonts.serif,
+    fontSize: 18,
+    color: hennaColors.ink,
+    textAlign: 'center',
   },
-  txActionBtn: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 0,
-    paddingVertical: 10,
-    alignItems: 'center',
+  emptyHint: {
+    marginTop: 8,
+    fontFamily: hennaFonts.ui,
+    fontSize: 12,
+    color: hennaColors.muted,
+    textAlign: 'center',
   },
-  txActionText: {
-    fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
-  },
+
   // Edit modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(60,40,20,0.45)',
   },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: hennaColors.pearl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: 24,
     paddingBottom: 40,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   modalTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 20,
+    fontFamily: hennaFonts.serif,
+    fontSize: 22,
+    color: hennaColors.ink,
     marginBottom: 16,
   },
-  editInput: {
-    marginBottom: 8,
-  },
+  editField: { marginBottom: 10 },
   editRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    alignItems: 'flex-end',
     marginBottom: 8,
   },
   editBtns: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
+    marginTop: 16,
+    alignItems: 'center',
   },
 });

@@ -3,7 +3,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Platform,
   StyleSheet,
@@ -12,19 +12,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as Notifications from 'expo-notifications';
-import { useTheme } from '../context/ThemeContext';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
 import { useCurrency } from '../context/CurrencyContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import {
   REMINDER_CATS,
@@ -34,9 +28,28 @@ import {
 } from '../constants/data';
 import { fmtISO, dateToISO, addDays } from '../utils/dates';
 import { Reminder, ReminderRecurring } from '../types';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { SwipeableRow } from '../components/ui/SwipeableRow';
 import { SkeletonCardRow } from '../components/ui/Skeleton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaPill,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
+import type { HennaIconName } from '../components/henna';
 
 async function scheduleNotifications(rem: Reminder): Promise<string[]> {
   const ids: string[] = [];
@@ -50,10 +63,7 @@ async function scheduleNotifications(rem: Reminder): Promise<string[]> {
     const t24h = target.getTime() - 24 * 3600 * 1000;
     if (t24h > now) {
       const id = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🔔 Reminder Tomorrow',
-          body: rem.title,
-        },
+        content: { title: 'Reminder tomorrow', body: rem.title },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(t24h) },
       });
       ids.push(id);
@@ -62,10 +72,7 @@ async function scheduleNotifications(rem: Reminder): Promise<string[]> {
     const t12h = target.getTime() - 12 * 3600 * 1000;
     if (t12h > now) {
       const id = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '⏰ Reminder in 12 Hours',
-          body: rem.title,
-        },
+        content: { title: 'Reminder in 12 hours', body: rem.title },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(t12h) },
       });
       ids.push(id);
@@ -74,27 +81,6 @@ async function scheduleNotifications(rem: Reminder): Promise<string[]> {
     // silently fail
   }
   return ids;
-}
-
-function remStatus(rem: Reminder): { label: string; cls: 'past' | 'due' | 'soon' | 'ok' } {
-  const now = new Date();
-  const target = new Date(rem.date + (rem.time ? 'T' + rem.time : 'T23:59'));
-  const diff = target.getTime() - now.getTime();
-  const hrs = diff / 3600000;
-  if (diff < 0) return { label: 'Past', cls: 'past' };
-  if (hrs <= 12) return { label: '< 12h', cls: 'due' };
-  if (hrs <= 26) return { label: 'Tomorrow', cls: 'soon' };
-  return { label: 'Upcoming', cls: 'ok' };
-}
-
-function daysUntil(d: string, t: string): string | null {
-  const now = new Date();
-  const target = new Date(d + (t ? 'T' + t : 'T23:59'));
-  const diff = target.getTime() - now.getTime();
-  if (diff < 0) return null;
-  const days = Math.floor(diff / 86400000);
-  const hrs = Math.floor((diff % 86400000) / 3600000);
-  return days > 0 ? `${days}d ${hrs}h away` : `${hrs}h away`;
 }
 
 function advanceByFreq(iso: string, freq: ReminderRecurring): string {
@@ -107,11 +93,42 @@ function advanceByFreq(iso: string, freq: ReminderRecurring): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+// Map reminder cat to Henna icon
+function iconForReminder(cat: string): HennaIconName {
+  if (cat === MEDICATION_CAT) return 'pill';
+  if (cat.includes('Bills') || cat.includes('Utility')) return 'electricity';
+  if (cat.includes('Rent')) return 'house';
+  if (cat.includes('School')) return 'book';
+  if (cat.includes('Subscription')) return 'sparkle';
+  if (cat.includes('Family')) return 'heart';
+  if (cat.includes('Health')) return 'doctor';
+  return 'bell';
+}
+
+function reminderType(cat: string): 'bill' | 'med' | 'general' {
+  if (BILL_CATS.includes(cat)) return 'bill';
+  if (cat === MEDICATION_CAT) return 'med';
+  return 'general';
+}
+
 type FilterKey = 'all' | 'bills' | 'medication' | 'other';
 
+// Format the date for a section header — "Today", "Tomorrow", "Fri 30 May"
+function sectionLabel(iso: string): string {
+  const target = new Date(iso);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target.getTime() - now.getTime()) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays === -1) return 'Yesterday';
+  return target.toDateString().split(' ').slice(0, 3).join(' '); // "Fri 30 May"
+}
+
 export default function RemindersScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { reminders, setReminders, allLoaded } = useData();
   const { pkrF } = useCurrency();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
@@ -126,7 +143,6 @@ export default function RemindersScreen() {
   const [withFood, setWithFood] = useState(false);
   const [medDuration, setMedDuration] = useState('1');
 
-  // v1.2.5-dev: keyboard flow refs for the Add-reminder form.
   const titleRef = useRef<TextInput | null>(null);
   const amountRef = useRef<TextInput | null>(null);
   const dosageRef = useRef<TextInput | null>(null);
@@ -134,6 +150,12 @@ export default function RemindersScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [formOpen, setFormOpen] = useState(false);
+
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   const isBillCat = BILL_CATS.includes(cat);
   const isMedCat = cat === MEDICATION_CAT;
@@ -153,9 +175,14 @@ export default function RemindersScreen() {
     [reminders],
   );
 
-  const nextUpcomingTitle = useMemo(() => {
+  const nextUp = useMemo(() => {
     if (upcoming.length === 0) return null;
-    return [...upcoming].sort((a, b) => a.date.localeCompare(b.date))[0].title;
+    return [...upcoming].sort((a, b) => a.date.localeCompare(b.date))[0];
+  }, [upcoming]);
+
+  const dueToday = useMemo(() => {
+    const todayIso = dateToISO(new Date());
+    return upcoming.filter(r => r.date === todayIso).length;
   }, [upcoming]);
 
   const sorted = useMemo(() => {
@@ -174,13 +201,23 @@ export default function RemindersScreen() {
       });
   }, [reminders, filter, categorize]);
 
-  // Counts for filter pills
   const counts = useMemo(() => {
     const bills = reminders.filter(r => BILL_CATS.includes(r.cat)).length;
     const meds = reminders.filter(r => r.cat === MEDICATION_CAT).length;
     const other = reminders.filter(r => !BILL_CATS.includes(r.cat) && r.cat !== MEDICATION_CAT).length;
     return { all: reminders.length, bills, meds, other };
   }, [reminders]);
+
+  // Group sorted list by date for section rendering
+  const grouped = useMemo(() => {
+    const map = new Map<string, Reminder[]>();
+    sorted.forEach(r => {
+      const list = map.get(r.date) ?? [];
+      list.push(r);
+      map.set(r.date, list);
+    });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [sorted]);
 
   const addReminder = useCallback(async () => {
     if (!title.trim()) {
@@ -192,7 +229,6 @@ export default function RemindersScreen() {
       ? `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`
       : '';
 
-    // Parse amount for bill reminders
     let amtVal: number | undefined;
     if (isBillCat && amount.trim()) {
       const n = parseFloat(amount);
@@ -203,10 +239,8 @@ export default function RemindersScreen() {
       amtVal = n;
     }
 
-    // Medication: generate N days of daily reminders
     if (isMedCat) {
       const duration = Math.max(1, Math.min(60, parseInt(medDuration, 10) || 1));
-      const createdIds: number[] = [];
       for (let i = 0; i < duration; i++) {
         const d = addDays(dateStr, i);
         const rem: Reminder = {
@@ -219,7 +253,6 @@ export default function RemindersScreen() {
           dosage: dosage.trim() || undefined,
           withFood,
         };
-        createdIds.push(rem.id);
         setReminders(r => [rem, ...r]);
         const notifIds = await scheduleNotifications(rem);
         if (notifIds.length > 0) {
@@ -253,6 +286,7 @@ export default function RemindersScreen() {
     setDosage('');
     setWithFood(false);
     setMedDuration('1');
+    setFormOpen(false);
   }, [title, date, time, cat, setReminders, isBillCat, isMedCat, amount, recurring, dosage, withFood, medDuration, showToast]);
 
   const cancelNotifications = useCallback(async (notifIds?: string[]) => {
@@ -268,7 +302,7 @@ export default function RemindersScreen() {
 
   const deleteReminder = useCallback(
     (id: number) => {
-      Alert.alert('Delete Reminder', 'Are you sure you want to delete this reminder?', [
+      Alert.alert('Delete Reminder', 'Are you sure?', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -297,10 +331,7 @@ export default function RemindersScreen() {
     (id: number) => {
       const target = reminders.find(x => x.id === id);
       if (target && !target.isDone) {
-        // Marking as done — cancel scheduled notifications
         cancelNotifications(target.notifIds);
-
-        // If it's a recurring bill, create the next occurrence
         if (target.recurring) {
           const nextDate = advanceByFreq(target.date, target.recurring);
           const nextRem: Reminder = {
@@ -340,528 +371,503 @@ export default function RemindersScreen() {
     setShowTimePicker(true);
   }, []);
 
-  const badgeProps = useCallback((cls: string) => {
-    switch (cls) {
-      case 'past':
-        return { bg: colors.bg3, color: colors.muted };
-      case 'due':
-        return { bg: colors.purpleBg, color: colors.purple };
-      case 'soon':
-        return { bg: colors.goldBg, color: colors.gold };
-      case 'ok':
-        return { bg: colors.greenBg, color: colors.green };
-      default:
-        return { bg: colors.bg3, color: colors.muted };
-    }
-  }, [colors]);
-
-  const FilterPill = useCallback(({ k, label, count }: { k: FilterKey; label: string; count: number }) => {
-    const active = filter === k;
-    return (
-      <TouchableOpacity
-        onPress={() => setFilter(k)}
-        style={[styles.filterPill, { backgroundColor: active ? colors.purpleBg : colors.bg3 }]}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.filterPillText, { color: active ? colors.purple : colors.sub }]}>
-          {label} {count > 0 ? `· ${count}` : ''}
-        </Text>
-      </TouchableOpacity>
-    );
-  }, [filter, colors]);
+  const heroSubtitle = `${upcoming.length} upcoming${dueToday > 0 ? ` · ${dueToday} due today` : ''}`;
+  const heroLine =
+    nextUp != null
+      ? `${nextUp.title}${nextUp.time ? ', ' + nextUp.time : ''}`
+      : 'Nothing due today';
+  const heroMeta = nextUp
+    ? `${nextUp.amount ? pkrF(nextUp.amount) + ' · ' : ''}${nextUp.recurring ? 'recurring ' + nextUp.recurring : nextUp.cat}`
+    : 'Add one below';
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Hero Card */}
-      <Card gradient={dark ? gradients.purpleHeroDark : gradients.purpleHero} style={{ backgroundColor: colors.purpleBg, borderColor: colors.purpleBorder }}>
-        <View style={styles.heroHeaderRow}>
-          <DrawerMenuButton />
-          <View style={styles.heroHeaderText}>
-            <Text style={[styles.heroLabel, { color: colors.purple }]}>🔔 Active Reminders</Text>
-            <Text style={[styles.heroCount, { color: colors.purple }]}>{upcoming.length}</Text>
-            <Text style={[styles.heroSub, { color: colors.sub }]}>
-              {nextUpcomingTitle ? `Next: ${nextUpcomingTitle}` : 'No upcoming reminders'}
-            </Text>
-          </View>
-        </View>
-      </Card>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <HennaHeader title="Reminders" subtitle={heroSubtitle} onMenu={onMenu} />
 
-      {/* Filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
-        <FilterPill k="all" label="All" count={counts.all} />
-        <FilterPill k="bills" label="💡 Bills" count={counts.bills} />
-        <FilterPill k="medication" label="💊 Medication" count={counts.meds} />
-        <FilterPill k="other" label="Other" count={counts.other} />
-      </ScrollView>
-
-      {/* Add Reminder Form */}
-      <Card>
-        <Text style={[styles.formLabel, { color: colors.purple }]}>📝 New Reminder</Text>
-
-        <Input
-          ref={titleRef}
-          label="Reminder Title"
-          placeholder={isMedCat ? 'e.g. Amoxicillin' : isBillCat ? 'e.g. Pay electricity bill' : 'e.g. Call plumber...'}
-          value={title}
-          onChangeText={setTitle}
-          style={{ marginBottom: 10 }}
-          returnKeyType={isBillCat || isMedCat ? 'next' : 'done'}
-          blurOnSubmit={!(isBillCat || isMedCat)}
-          onSubmitEditing={() => {
-            if (isBillCat) amountRef.current?.focus();
-            else if (isMedCat) dosageRef.current?.focus();
-            else addReminder();
-          }}
-        />
-
-        <Text style={[styles.fieldLabel, { color: colors.muted }]}>DATE</Text>
-        <TouchableOpacity
-          onPress={() => setShowDatePicker(true)}
-          style={[styles.dateButton, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-        >
-          <Text style={[styles.dateText, { color: colors.text }]}>📅 {fmtISO(dateToISO(date))}</Text>
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onDateChange}
-          />
-        )}
-
-        <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 10 }]}>
-          TIME (OPTIONAL)
-        </Text>
-        {time ? (
-          <View style={styles.timeRow}>
-            <TouchableOpacity
-              onPress={() => setShowTimePicker(true)}
-              style={[
-                styles.dateButton,
-                { backgroundColor: colors.bg3, borderColor: colors.border, flex: 1 },
-              ]}
-            >
-              <Text style={[styles.dateText, { color: colors.text }]}>
-                ⏰{' '}
-                {`${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setTime(null)}
-              style={[styles.clearBtn, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-            >
-              <Text style={{ fontSize: 14, color: colors.muted }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Button
-            title="Set Time"
-            icon="⏰"
-            variant="outline"
-            small
-            onPress={openSetTime}
-            style={{ alignSelf: 'flex-start', marginBottom: 4 }}
-          />
-        )}
-        {showTimePicker && time && (
-          <DateTimePicker
-            value={time}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onTimeChange}
-          />
-        )}
-
-        <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 10 }]}>CATEGORY</Text>
-        <View
-          style={[styles.pickerWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-        >
-          <Picker
-            selectedValue={cat}
-            onValueChange={v => setCat(v)}
-            style={{ color: colors.text }}
-            dropdownIconColor={colors.muted}
-          >
-            {REMINDER_CATS.map(c => (
-              <Picker.Item key={c} label={c} value={c} />
-            ))}
-          </Picker>
-        </View>
-
-        {/* Bill-specific fields */}
-        {isBillCat && (
-          <>
-            <Input
-              ref={amountRef}
-              label="Amount (optional)"
-              placeholder="e.g. 2500"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              style={{ marginTop: 10 }}
-              returnKeyType="done"
-              onSubmitEditing={addReminder}
+        {/* Hero — sage */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroSage}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 10 }]}>RECURRING</Text>
-            <View style={[styles.pickerWrap, { backgroundColor: colors.bg3, borderColor: colors.border }]}>
-              <Picker
-                selectedValue={recurring ?? 'none'}
-                onValueChange={(v) => setRecurring(v === 'none' ? null : (v as 'monthly' | 'quarterly' | 'yearly'))}
-                style={{ color: colors.text }}
-                dropdownIconColor={colors.muted}
-              >
-                {RECURRING_FREQS.map(f => (
-                  <Picker.Item key={f.key ?? 'none'} value={f.key ?? 'none'} label={f.label} />
-                ))}
-              </Picker>
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={100} color={hennaColors.sage} opacity={0.18} />
             </View>
-          </>
-        )}
-
-        {/* Medication-specific fields */}
-        {isMedCat && (
-          <>
-            <Input
-              ref={dosageRef}
-              label="Dosage (optional)"
-              placeholder="e.g. 500mg, 1 tablet"
-              value={dosage}
-              onChangeText={setDosage}
-              style={{ marginTop: 10 }}
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => medDurationRef.current?.focus()}
-            />
-            <Input
-              ref={medDurationRef}
-              label="Duration (days)"
-              placeholder="7"
-              value={medDuration}
-              onChangeText={(t) => setMedDuration(t.replace(/[^0-9]/g, '').slice(0, 2))}
-              keyboardType="numeric"
-              style={{ marginTop: 10 }}
-              returnKeyType="done"
-              onSubmitEditing={addReminder}
-            />
-            <View style={[styles.switchRow, { marginTop: 12 }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: colors.deep }]}>Take with food</Text>
-                <Text style={[styles.switchSub, { color: colors.muted }]}>Flag this dose</Text>
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.sage} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.sage }]}>Next up</Text>
               </View>
-              <Switch
-                value={withFood}
-                onValueChange={setWithFood}
-                trackColor={{ false: colors.border, true: colors.purple }}
-                thumbColor="#fff"
+              <Text style={styles.heroLine}>{heroLine}</Text>
+              <Text style={styles.heroMeta}>{heroMeta}</Text>
+              {nextUp && (
+                <View style={styles.heroBtnRow}>
+                  <HennaButton
+                    title="Mark done"
+                    icon="check"
+                    variant="sage"
+                    size="sm"
+                    onPress={() => toggleDone(nextUp.id)}
+                  />
+                  <HennaButton
+                    title="Snooze 1 day"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => {
+                      setReminders(r =>
+                        r.map(x =>
+                          x.id === nextUp.id
+                            ? { ...x, date: addDays(x.date, 1) }
+                            : x,
+                        ),
+                      );
+                      showToast('Snoozed 1 day');
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Filter rail */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRail}
+        >
+          <HennaPill label={`All${counts.all ? ' · ' + counts.all : ''}`} active={filter === 'all'} onPress={() => setFilter('all')} />
+          <HennaPill label={`Bills${counts.bills ? ' · ' + counts.bills : ''}`} active={filter === 'bills'} onPress={() => setFilter('bills')} />
+          <HennaPill label={`Medication${counts.meds ? ' · ' + counts.meds : ''}`} active={filter === 'medication'} onPress={() => setFilter('medication')} />
+          <HennaPill label={`Other${counts.other ? ' · ' + counts.other : ''}`} active={filter === 'other'} onPress={() => setFilter('other')} />
+          <View style={{ flex: 1 }} />
+          <HennaPill label="New" icon="plus" onPress={() => setFormOpen(o => !o)} />
+        </ScrollView>
+
+        {/* Add form (collapsed by default) */}
+        {formOpen && (
+          <View style={styles.formCardWrap}>
+            <HennaCard padding={18}>
+              <Text style={styles.formTitle}>New reminder</Text>
+              <HennaInput
+                ref={titleRef}
+                label="Title"
+                placeholder={isMedCat ? 'e.g. Amoxicillin' : isBillCat ? 'e.g. Electricity bill' : 'e.g. Call plumber'}
+                value={title}
+                onChangeText={setTitle}
+                containerStyle={{ marginBottom: 10 }}
+                returnKeyType={isBillCat || isMedCat ? 'next' : 'done'}
+                blurOnSubmit={!(isBillCat || isMedCat)}
+                onSubmitEditing={() => {
+                  if (isBillCat) amountRef.current?.focus();
+                  else if (isMedCat) dosageRef.current?.focus();
+                  else addReminder();
+                }}
               />
-            </View>
-          </>
+
+              <Text style={[hennaTextStyles.eyebrow, styles.fieldLabel]}>Date</Text>
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                style={styles.dateBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Pick date"
+              >
+                <HennaIcon name="calendar" size={14} color={hennaColors.ink2} />
+                <Text style={styles.dateBtnText}>{fmtISO(dateToISO(date))}</Text>
+              </Pressable>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onDateChange}
+                />
+              )}
+
+              <Text style={[hennaTextStyles.eyebrow, styles.fieldLabel]}>Time (optional)</Text>
+              {time ? (
+                <View style={styles.timeRow}>
+                  <Pressable onPress={() => setShowTimePicker(true)} style={[styles.dateBtn, { flex: 1 }]}>
+                    <HennaIcon name="clock" size={14} color={hennaColors.ink2} />
+                    <Text style={styles.dateBtnText}>
+                      {String(time.getHours()).padStart(2, '0')}:
+                      {String(time.getMinutes()).padStart(2, '0')}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => setTime(null)} style={styles.clearBtn} accessibilityLabel="Clear time">
+                    <HennaIcon name="close" size={14} color={hennaColors.muted} />
+                  </Pressable>
+                </View>
+              ) : (
+                <HennaButton title="Set time" icon="clock" variant="outline" size="sm" onPress={openSetTime} />
+              )}
+              {showTimePicker && time && (
+                <DateTimePicker
+                  value={time}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onTimeChange}
+                />
+              )}
+
+              <Text style={[hennaTextStyles.eyebrow, styles.fieldLabel]}>Category</Text>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={cat}
+                  onValueChange={v => setCat(v)}
+                  style={{ color: hennaColors.ink }}
+                  dropdownIconColor={hennaColors.muted}
+                >
+                  {REMINDER_CATS.map(c => (
+                    <Picker.Item key={c} label={c} value={c} />
+                  ))}
+                </Picker>
+              </View>
+
+              {isBillCat && (
+                <>
+                  <HennaInput
+                    ref={amountRef}
+                    label="Amount (optional)"
+                    placeholder="e.g. 2500"
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="numeric"
+                    containerStyle={{ marginTop: 10 }}
+                    returnKeyType="done"
+                    onSubmitEditing={addReminder}
+                  />
+                  <Text style={[hennaTextStyles.eyebrow, styles.fieldLabel]}>Recurring</Text>
+                  <View style={styles.pickerWrap}>
+                    <Picker
+                      selectedValue={recurring ?? 'none'}
+                      onValueChange={v => setRecurring(v === 'none' ? null : (v as 'monthly' | 'quarterly' | 'yearly'))}
+                      style={{ color: hennaColors.ink }}
+                      dropdownIconColor={hennaColors.muted}
+                    >
+                      {RECURRING_FREQS.map(f => (
+                        <Picker.Item key={f.key ?? 'none'} value={f.key ?? 'none'} label={f.label} />
+                      ))}
+                    </Picker>
+                  </View>
+                </>
+              )}
+
+              {isMedCat && (
+                <>
+                  <HennaInput
+                    ref={dosageRef}
+                    label="Dosage (optional)"
+                    placeholder="e.g. 500mg, 1 tablet"
+                    value={dosage}
+                    onChangeText={setDosage}
+                    containerStyle={{ marginTop: 10 }}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => medDurationRef.current?.focus()}
+                  />
+                  <HennaInput
+                    ref={medDurationRef}
+                    label="Duration (days)"
+                    placeholder="7"
+                    value={medDuration}
+                    onChangeText={t => setMedDuration(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                    keyboardType="numeric"
+                    containerStyle={{ marginTop: 10 }}
+                    returnKeyType="done"
+                    onSubmitEditing={addReminder}
+                  />
+                  <View style={styles.switchRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.switchTitle}>Take with food</Text>
+                      <Text style={styles.switchSub}>Flag this dose</Text>
+                    </View>
+                    <Switch
+                      value={withFood}
+                      onValueChange={setWithFood}
+                      trackColor={{ false: hennaColors.line, true: hennaColors.henna }}
+                      thumbColor={hennaColors.paper}
+                    />
+                  </View>
+                </>
+              )}
+
+              <HennaButton
+                title={isMedCat ? `+ Schedule ${medDuration || 1} doses` : '+ Add reminder'}
+                variant="primary"
+                full
+                onPress={addReminder}
+                style={{ marginTop: 14 }}
+              />
+            </HennaCard>
+          </View>
         )}
 
-        <Button
-          title={isMedCat ? `+ Schedule ${medDuration || 1} Doses` : '+ Add Reminder'}
-          variant="gold"
-          full
-          onPress={addReminder}
-          style={{ marginTop: 14 }}
-        />
-      </Card>
+        {/* List */}
+        {!allLoaded && (
+          <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+            <SkeletonCardRow />
+          </View>
+        )}
 
-      {/* Reminders List */}
-      <Divider label={`${filter === 'all' ? 'All Reminders' : filter === 'bills' ? 'Bills' : filter === 'medication' ? 'Medication' : 'Other'} · ${sorted.length} ${sorted.length === 1 ? 'item' : 'items'}`} />
+        {allLoaded && sorted.length === 0 && (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>
+              {filter === 'all' ? 'All caught up for today.' : 'Nothing in this category.'}
+            </Text>
+            <Text style={styles.emptyHint}>Add one above and we'll nudge you in time.</Text>
+          </View>
+        )}
 
-      {!allLoaded && (
-        <>
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-        </>
-      )}
-
-      {allLoaded && !sorted.length && (
-        <EmptyState
-          icon="🔔"
-          text={filter === 'all' ? 'All caught up for now ✨' : 'No reminders in this category.'}
-          hint={filter === 'all' ? 'Add one above and we’ll nudge you in time.' : undefined}
-        />
-      )}
-
-      {allLoaded && sorted.map(r => {
-        const st = remStatus(r);
-        const until = daysUntil(r.date, r.time);
-        const isPast = !until;
-        const bp = badgeProps(st.cls);
-        const isBill = BILL_CATS.includes(r.cat);
-        const isMed = r.cat === MEDICATION_CAT;
-
-        return (
-          <SwipeableRow
-            key={r.id}
-            itemLabel={r.title}
-            actions={[
-              { kind: 'done', onPress: () => toggleDone(r.id) },
-              { kind: 'delete', onPress: () => deleteReminder(r.id) },
-            ]}
-          >
-          <Card
-            style={{
-              ...styles.remCard,
-              ...(isPast || r.isDone ? { opacity: 0.6 } : {}),
-            }}
-          >
-            <View style={styles.remRow}>
-              <View
-                style={[
-                  styles.remIcon,
-                  { backgroundColor: colors.purpleBg },
-                ]}
-              >
-                <Text style={{ fontSize: 19 }}>{r.cat.split(' ')[0] || '📋'}</Text>
-              </View>
-
-              <View style={styles.remContent}>
-                <View style={styles.titleRow}>
-                  <Text
-                    style={[
-                      styles.remTitle,
-                      { color: colors.deep },
-                      r.isDone && styles.doneTitle,
-                    ]}
-                  >
-                    {r.title}
-                  </Text>
-                  {isBill && r.amount !== undefined && (
-                    <Text style={[styles.remAmount, { color: colors.gold }]}>
-                      {pkrF(r.amount)}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.badgeRow}>
-                  {r.isDone ? (
-                    <Badge text="✅ Done" bg={colors.greenBg} color={colors.green} />
-                  ) : (
-                    <Badge text={st.label} bg={bp.bg} color={bp.color} />
-                  )}
-                  {r.recurring && (
-                    <Badge text={`🔁 ${r.recurring}`} bg={colors.blueBg} color={colors.blue} />
-                  )}
-                  {isMed && r.withFood && (
-                    <Badge text="🍽 with food" bg={colors.goldBg} color={colors.gold} />
-                  )}
-                </View>
-
-                <Text style={[styles.remMeta, { color: colors.muted }]}>
-                  {fmtISO(r.date)}
-                  {r.time ? ' at ' + r.time : ''}
-                  {until && !r.isDone ? ' · ' + until : ''}
-                </Text>
-                <Text style={[styles.remCat, { color: colors.muted }]}>{r.cat}</Text>
-                {isMed && r.dosage ? (
-                  <Text style={[styles.remDosage, { color: colors.purple }]}>💊 {r.dosage}</Text>
-                ) : null}
-              </View>
-
-              <TouchableOpacity
-                onPress={() => toggleDone(r.id)}
-                style={styles.actionBtn}
-                accessibilityLabel={r.isDone ? `Mark ${r.title} as not done` : `Mark ${r.title} as done`}
-                accessibilityRole="button"
-              >
-                <Text style={{ fontSize: 18 }}>{r.isDone ? '↩️' : '✅'}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => deleteReminder(r.id)}
-                style={styles.actionBtn}
-                accessibilityLabel={`Delete reminder ${r.title}`}
-                accessibilityRole="button"
-              >
-                <Text style={{ fontSize: 18 }}>🗑</Text>
-              </TouchableOpacity>
+        {/* Grouped list */}
+        <View style={styles.listWrap}>
+          {grouped.map(([dateIso, items]) => (
+            <View key={dateIso} style={{ marginBottom: 10 }}>
+              <Text style={[hennaTextStyles.eyebrow, styles.dateEyebrow]}>
+                {sectionLabel(dateIso)}
+              </Text>
+              <HennaCard padding={0}>
+                {items.map((r, i) => {
+                  const t = reminderType(r.cat);
+                  const tintBg =
+                    t === 'bill' ? hennaColors.hennaBg : t === 'med' ? hennaColors.plumBg : hennaColors.bronzeBg;
+                  const tintFg =
+                    t === 'bill' ? hennaColors.henna : t === 'med' ? hennaColors.plum : hennaColors.bronze;
+                  return (
+                    <SwipeableRow
+                      key={r.id}
+                      itemLabel={r.title}
+                      actions={[
+                        { kind: 'done', onPress: () => toggleDone(r.id) },
+                        { kind: 'delete', onPress: () => deleteReminder(r.id) },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.remRow,
+                          i < items.length - 1 && {
+                            borderBottomWidth: 1,
+                            borderBottomColor: hennaColors.line,
+                          },
+                          r.isDone && { opacity: 0.55 },
+                        ]}
+                      >
+                        <View style={[styles.remIcon, { backgroundColor: tintBg }]}>
+                          <HennaIcon name={iconForReminder(r.cat)} size={17} color={tintFg} />
+                        </View>
+                        <View style={styles.remInfo}>
+                          <View style={styles.remTitleRow}>
+                            <Text
+                              style={[
+                                styles.remTitle,
+                                r.isDone && { textDecorationLine: 'line-through' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {r.title}
+                            </Text>
+                            {r.amount !== undefined && (
+                              <Text style={styles.remAmount}>{pkrF(r.amount)}</Text>
+                            )}
+                          </View>
+                          <View style={styles.remMetaRow}>
+                            {r.time ? (
+                              <View style={styles.metaItem}>
+                                <HennaIcon name="clock" size={10} color={hennaColors.muted} />
+                                <Text style={styles.metaText}>{r.time}</Text>
+                              </View>
+                            ) : null}
+                            {r.recurring ? <Text style={styles.metaText}>· {r.recurring}</Text> : null}
+                            {r.dosage ? <Text style={styles.metaText}>· {r.dosage}</Text> : null}
+                            {r.withFood ? <Text style={styles.metaText}>· with food</Text> : null}
+                          </View>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={r.isDone ? `Reopen ${r.title}` : `Mark ${r.title} done`}
+                          onPress={() => toggleDone(r.id)}
+                          hitSlop={6}
+                          style={styles.checkBtn}
+                        >
+                          {r.isDone ? (
+                            <HennaIcon name="check" size={14} color={hennaColors.sage} />
+                          ) : null}
+                        </Pressable>
+                      </View>
+                    </SwipeableRow>
+                  );
+                })}
+              </HennaCard>
             </View>
-
-            {!isPast && !r.isDone && (
-              <View style={styles.notifyRow}>
-                {new Date(r.date + (r.time ? 'T' + r.time : 'T23:59')).getTime() - Date.now() >
-                  24 * 3600 * 1000 && (
-                  <View style={[styles.notifyTag, { backgroundColor: colors.purpleBg }]}>
-                    <Text style={[styles.notifyText, { color: colors.purple }]}>🔔 1 day before</Text>
-                  </View>
-                )}
-                {new Date(r.date + (r.time ? 'T' + r.time : 'T23:59')).getTime() - Date.now() >
-                  12 * 3600 * 1000 && (
-                  <View style={[styles.notifyTag, { backgroundColor: colors.goldBg }]}>
-                    <Text style={[styles.notifyText, { color: colors.gold }]}>⏰ 12 hrs before</Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </Card>
-          </SwipeableRow>
-        );
-      })}
-
-      <View style={styles.bottomPad} />
-    </ScrollView>
-    <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+          ))}
+        </View>
+      </ScrollView>
+      <Toast toast={toast} dismiss={dismissToast} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 180 },
+
+  // Hero
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
   },
-  content: {
-    padding: 20,
-    paddingBottom: 120,
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 20, paddingHorizontal: 22, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroLine: {
+    marginTop: 6,
+    fontFamily: hennaFonts.serif,
+    fontSize: 22,
+    color: hennaColors.ink,
   },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: {
+  heroMeta: {
+    marginTop: 6,
+    fontFamily: hennaFonts.ui,
     fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
+    color: hennaColors.ink2,
   },
-  heroCount: {
-    fontFamily: 'PlayfairDisplay-ExtraBold',
-    fontSize: 42,
-    lineHeight: 48,
-    marginBottom: 2,
+  heroBtnRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+
+  // Filter
+  filterRail: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 6,
+    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  heroSub: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-  },
-  filterRow: { flexGrow: 0, marginBottom: 12 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginRight: 8, minHeight: 44, justifyContent: 'center' },
-  filterPillText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  formLabel: {
-    fontFamily: 'PlayfairDisplay-Bold',
+
+  // Form
+  formCardWrap: { paddingHorizontal: 16, paddingTop: 12 },
+  formTitle: {
+    fontFamily: hennaFonts.serif,
     fontSize: 18,
+    color: hennaColors.ink,
     marginBottom: 14,
   },
-  fieldLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  dateButton: {
-    borderWidth: 0,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 6,
-  },
-  dateText: {
-    fontSize: 17,
-    fontFamily: 'Outfit-Regular',
-  },
-  timeRow: {
+  fieldLabel: { marginTop: 10, marginBottom: 8 },
+  dateBtn: {
     flexDirection: 'row',
-    gap: 8,
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 8,
+    backgroundColor: hennaColors.paper2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    minHeight: 44,
   },
+  dateBtnText: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 13,
+    color: hennaColors.ink,
+  },
+  timeRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   clearBtn: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: hennaColors.paper2,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
   },
   pickerWrap: {
-    borderWidth: 0,
-    borderRadius: 16,
+    backgroundColor: hennaColors.paper2,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
     overflow: 'hidden',
-    marginBottom: 6,
+    minHeight: 50,
+    justifyContent: 'center',
   },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  switchTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
-  switchSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  remCard: {
-    marginBottom: 10,
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
   },
+  switchTitle: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  switchSub: { fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, marginTop: 2 },
+
+  // Empty
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
+
+  // List
+  listWrap: { paddingHorizontal: 16, paddingTop: 12 },
+  dateEyebrow: { paddingHorizontal: 6, paddingTop: 6, paddingBottom: 8 },
   remRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
   remIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  remContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  remInfo: { flex: 1, minWidth: 0 },
+  remTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   remTitle: {
     flex: 1,
-    fontFamily: 'Outfit-SemiBold',
-    fontSize: 16,
-    marginBottom: 4,
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 14,
+    color: hennaColors.ink,
   },
-  remAmount: { fontFamily: 'Outfit-Bold', fontSize: 15, marginBottom: 4 },
-  doneTitle: {
-    textDecorationLine: 'line-through',
+  remAmount: {
+    fontFamily: hennaFonts.serif,
+    fontSize: 14,
+    color: hennaColors.henna,
   },
-  badgeRow: {
+  remMetaRow: {
     flexDirection: 'row',
-    marginBottom: 4,
-    gap: 6,
     flexWrap: 'wrap',
+    marginTop: 3,
+    gap: 4,
+    alignItems: 'center',
   },
-  remMeta: {
-    fontSize: 13,
-    fontFamily: 'Outfit-Regular',
-    lineHeight: 17,
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 11,
+    color: hennaColors.muted,
   },
-  remCat: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 2,
-  },
-  remDosage: { fontSize: 13, fontFamily: 'Outfit-SemiBold', marginTop: 4 },
-  actionBtn: {
-    minWidth: 44,
-    minHeight: 44,
+  checkBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: hennaColors.lineStrong,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  notifyRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 8,
-    paddingTop: 8,
-    flexWrap: 'wrap',
-  },
-  notifyTag: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  notifyText: {
-    fontSize: 11,
-    fontFamily: 'Outfit-SemiBold',
-  },
-  bottomPad: {
-    height: 40,
   },
 });
