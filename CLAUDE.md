@@ -44,9 +44,10 @@ Branch: `redesign` (not yet merged to master). Complete reset of the visual lang
 - v1.2.3 release theme: "Inline-Expand Home + Spiritual Group" — TodayScreen home blocks switch from "tap = jump to default screen" to an inline single-open accordion that reveals the group's sub-modules as 2-column mini-tiles inside the block. New 🕌 Spiritual drawer group split out of Personal (Prayer Times moves there; Personal returns to wellness-only = Cycle Tracker + Body Stats). Drawer now has 6 groups.
 - v1.2.2 release theme: "Block Grid Home + Prayer Times" — TodayScreen redesigned from stacked tile strips to a 2-column block grid (Money/Kitchen/Household/Personal) with themed gradient backgrounds + a full-width System tile. New Prayer Times + Sunnah Fasting feature (adhan library, GPS or manual city, 5 prayer notifications + Monday/Thursday + Ayyam al-Bid reminders).
 - v1.2.1 release theme: "Grouped Home + Vendor Directory" — bundles the v1.2.1-dev drawer grouping (5 groups: Money, Kitchen, Household, Personal, System) + TodayScreen group-tile redesign with the v1.2.2-dev Vendor & Services Directory. Fix: removed the duplicate Quick-Add FAB on TodayScreen (global FAB handles it).
-- `app.json`: version `1.2.17`, `ios.buildNumber "24"`, `android.versionCode 24`.
+- `app.json`: version `1.2.17`, `ios.buildNumber "24"`, `android.versionCode 24` (UNCHANGED on `redesign` branch — no version bump for the redesign).
 - `package.json`: name `forshe`, version `1.2.17`.
-- Latest APK build: queued at tag time — see CHANGELOG.md v1.2.17 APK section.
+- Latest APK build (master): queued at tag time — see CHANGELOG.md v1.2.17 APK section.
+- **Redesign preview APK**: `5072a863-cd62-424a-b7bf-3d7413d5404a` (queued 2026-05-26 13:24 UTC from `redesign` commit `4ce6c44`) — https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/5072a863-cd62-424a-b7bf-3d7413d5404a
 - Last confirmed-working APK: v1.2.7 (`519dc1ff`, https://expo.dev/artifacts/eas/b5xtsf9zhgHyL4mF9mrEZq.apk).
 - Orchestration: every task routes through `project-manager` (see Agents section).
 

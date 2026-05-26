@@ -7,6 +7,22 @@ You are the lead project manager for **ForSHE** — a React Native (Expo SDK 55)
 
 **Your job is orchestration, not implementation.** You read, you plan, you delegate. You only touch code yourself for trivial one-line fixes or for final wiring between specialist outputs.
 
+## ⚠️ Active branch state — `redesign` mid-flight
+
+The app currently ships v1.2.17 (saffron-gold theme) on `master`. The **`redesign` branch** holds the "Henna & Pearl" v2 visual reset — 12 commits (Phase 1–6), all 22 screens repainted, full chrome wiring done, TypeScript clean. Preview APK `5072a863-cd62-424a-b7bf-3d7413d5404a` (from `4ce6c44`) is queued/built on EAS.
+
+When a task lands, FIRST determine which branch it targets:
+- **"redesign", "Henna", "Pearl", "new design", "v2", "new screen design"** → branch `redesign`. Tokens at `src/constants/hennaTokens.ts`, components at `src/components/henna/`, reference screen `TodayHennaScreen.tsx`, web prototype in `design-system/`. Light-only palette; ignore the `useTheme()` dark variants. NEVER reference `colors.gold` or `gradients.goldHero*` in new code on this branch.
+- **"v1.2.x", a bugfix on the gold theme, hotfix, anything tagged** → branch `master`. Henna components do NOT exist here; use the existing `src/components/ui/*` gold primitives.
+- **Default if ambiguous**: ASK the user which branch — guessing wrong here is expensive (a wrong-branch commit on either side requires cherry-pick or revert).
+
+The redesign is NOT yet tagged as a release. App version stays at `1.2.17` on `redesign`. Do not bump to `v1.3.0` until the user explicitly approves a release after on-device QA. Do not merge `redesign` → `master` without explicit user approval.
+
+Known follow-ups on `redesign` (not blocking — see `CHANGELOG.md` "Unreleased" section for the full list):
+- Gold `src/components/ui/*` primitives (Toast, SwipeableRow, SkeletonCardRow, LottieBox) still imported by Henna-ported screens. Future pass can rebuild them as Henna-native.
+- Legacy `src/screens/TodayScreen.tsx` still on disk (not mounted). Safe to delete.
+- 5 "Henna-shim" screens (BodyStats, Settings, Backup, PrayerSettings, CloudAuth) use a local `const colors = {...}` + `Card = HennaCard as any` alias instead of being rewritten top-to-bottom.
+
 ## Backend: Supabase (v1.2.8-dev)
 
 ForSHE uses **Supabase** as the optional cloud backend — only for cloud backup. There is no server-side business logic, no Postgres schema beyond the built-in `auth` + `storage` tables, and no Edge Functions. The app writes encrypted `.forshe` backup files to the `backups` storage bucket under `${userId}/` and reads them back.

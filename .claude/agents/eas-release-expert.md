@@ -190,10 +190,21 @@ These are where most failures occur. "Fastlane" / "Gradle" failures are usually 
 - Check if any new package was just added
 
 ## Latest Build
-- **APK (queued)**: `29215448-d8ab-4841-bd23-44ff22e29db2` (v1.2.17 Vendors from Contacts, 2026-04-24)
-- Build page: `https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/29215448-d8ab-4841-bd23-44ff22e29db2`
-- Artifact URL: available once build status = FINISHED
-- **Account switched to `smartbzsss-organization`** (project `dc6a60ae-938e-4194-8ae8-a8c811759a40`) due to smartbzss free-tier quota exhaustion. Fresh keystore — users must uninstall old ForSHE before installing.
+- **APK (queued, Henna preview)**: `5072a863-cd62-424a-b7bf-3d7413d5404a` (Henna & Pearl redesign preview, 2026-05-26, from `redesign` commit `4ce6c44`, appVersion `1.2.17` / versionCode `24` — no bump for the redesign).
+- Build page: `https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/5072a863-cd62-424a-b7bf-3d7413d5404a`
+- Artifact URL: available once build status = FINISHED.
+- This is a **preview/eyeball** build of the redesign branch, NOT a release. Do not tag `v1.3.0` until on-device QA passes.
+- **Account is `smartbzsss-organization`** (project `dc6a60ae-938e-4194-8ae8-a8c811759a40`) — smartbzss personal account quota was exhausted in v1.2.11. Fresh keystore — users must uninstall old ForSHE before installing.
+
+### Henna redesign build readiness notes
+- 3 new font packages added (`@expo-google-fonts/marcellus`, `@expo-google-fonts/dm-sans`, `@expo-google-fonts/cormorant-garamond`) — pure JS, no native module. Wired into `useFonts()` in `App.tsx`.
+- `react-native-svg` 15.15.3 already installed (transitive via gifted-charts). Henna's ~57 hand-drawn icons consume it heavily.
+- No new native modules added in the redesign. No `app.json` plugin changes. No new permissions.
+- Bundle delta from redesign: ~3 font files (~150KB total) + the icon + ornament SVG paths inline. Total APK size should grow <500KB vs v1.2.17.
+- `babel.config.js`, `eas.json`, version numbers all unchanged.
+
+### Previous build (master, v1.2.17)
+- `29215448-d8ab-4841-bd23-44ff22e29db2` — v1.2.17 Vendors from Contacts, 2026-04-24, artifact https://expo.dev/artifacts/eas/65zwtXR5ZoioQUr1tMkQAo.apk
 
 ### Recent builds
 - `0740ca65` — v1.2.16 (Today Compact).

@@ -2,6 +2,50 @@
 
 All notable changes to ForSHE will be documented in this file.
 
+## Unreleased — branch `redesign` "Henna & Pearl" (v2 visual system)
+
+Complete visual reset. All 22 screens repainted from saffron-gold + emoji → warm pearl/cream + henna-red + 5 secondary accents (sage/bronze/plum/pink/dust), 57 hand-drawn SVG icons (no emoji in chrome), Marcellus + DM Sans + Cormorant Garamond fonts, illuminated ornaments. Branch is NOT merged to master; app version stays at `1.2.17`. Will tag as `v1.3.0` once on-device QA passes.
+
+### Foundation (Phase 1 · `05e8213`)
+- `design-system/` — Claude Designer drop committed in-repo as porting reference (4 web JSX primitive libs + 18 screens + tokens.css + HANDOFF/README).
+- `src/constants/hennaTokens.ts` — typed RN port of `design-system/tokens.css`. Exports `hennaColors`, `hennaAccentPairs`, `hennaGradients` (linear stand-ins for the radial page bg), `hennaShadows` (RN shadow recipes with `elevation` for Android), `hennaRadii`, `hennaFonts`, `hennaType`, `hennaTextStyles`, `hennaStatusDot`.
+- 3 font packages installed: `@expo-google-fonts/marcellus` (400Regular), `@expo-google-fonts/dm-sans` (400/500/600/700), `@expo-google-fonts/cormorant-garamond` (600SemiBold_Italic).
+
+### Primitives (Phase 2 · `fd3c495`)
+- `src/components/henna/` — HennaCard, HennaButton, HennaPill, HennaInput, HennaBadge, HennaProgress + barrel `index.ts`. All `React.memo`, `StyleSheet.create`, 44×44 hit areas, `accessibilityRole`/`accessibilityLabel`.
+- `useFonts()` in `App.tsx` extended with Marcellus, DM Sans (4 weights), Cormorant Garamond italic alongside existing Outfit + PlayfairDisplay.
+
+### Hand-drawn icons (Phase 3 · `59bba9b`)
+- `src/components/henna/HennaIcons.tsx` — single `HennaIcon` component with `HennaIconName` typed union (~57 hand-drawn glyphs). 24×24 viewBox, stroke 1.4, rounded caps/joins, `react-native-svg` Path/Circle. Default color `hennaColors.ink`.
+- HennaButton/HennaPill/HennaInput retrofitted to render the icon when `icon` prop is passed.
+
+### Ornaments + chrome (Phase 4 · `74afe74`)
+- `HennaOrnaments.tsx` — ArabesqueCorner, DividerOrnament, Trefoil, Drop, MarginMark, MeshOverlay (ported via `<RadialGradient>` defs since RN has no radial-gradient primitive).
+- Presentational chrome: `HennaHeader`, `HennaTabBar`, `HennaFab`, `HennaDrawer`, `HennaQuickAddSheet`. Wired into navigators in Phase 6F.
+- **PaperNoise intentionally omitted** — RN can't render CSS dot patterns and a tiled PNG asset is overkill; documented in code.
+
+### Today screen (Phase 5 · `80b7749`)
+- New `src/screens/TodayHennaScreen.tsx` — `HennaHeader` + hero card with `MeshOverlay` + `ArabesqueCorner` + `MarginMark` + Cormorant-italic balance tail + `HennaButton` Log + reminder strip + `DividerOrnament` + 6-tile group grid wired to live data + collapsible "Today's meals" panel.
+- `src/navigation/BottomTabs.tsx` — Today tab now points at `TodayHennaScreen`. Legacy `TodayScreen.tsx` stays on disk for reference.
+
+### Remaining screens + chrome wiring (Phase 6 · `52f4b60` → `4ce6c44`)
+- **6A** (`52f4b60`): ExpensesScreen, CookingScreen, RemindersScreen — three bottom-tab screens. All flows preserved: date-grouped transaction list, smart-quick-add (100+ entry threshold), inline budget editor, week-plan-to-shopping, recurring-bill auto-roll, medication N-dose generation.
+- **6B** (`b2cc90b`): SavingsGoalsScreen (pink hero), InsightsScreen (plum hero, gifted-charts intact), MonthlyReportScreen (bronze hero), RecipeBookScreen (bronze, list/detail/edit + pickForMeal + inventory deduction + missing-to-shopping).
+- **6C** (`7e1bfd0`): ShoppingListScreen, InventoryScreen, VendorsScreen (contacts picker + tel:/wa.me), MaidScreen — sage hero across all four.
+- **6D** (`f80efab`): CycleScreen (pink), BodyStatsScreen (Henna-shim pattern), PrayerTimesScreen (plum, useFocusEffect countdown), FastingCalendarScreen (bronze, hand-rolled grid preserved).
+- **6E** (`b7ef00c`): SettingsScreen, BackupScreen (Henna-shim) + minimal-Henna refresh of Splash/Onboarding/AppLock/BiometricLock/PrayerSettings/CloudAuth. OnboardingScreen fully rewritten with Henna icons.
+- **6F** (`5906ba5`): Chrome wired into navigators. `BottomTabs.tsx` renders `HennaTabBar` (Remind badge preserved). `DrawerNav.tsx` rewritten with Henna visuals BUT preserves the v1.2.3+ collapsible-groups UX exactly. `QuickAddFAB.tsx` renders `HennaFab` + `HennaQuickAddSheet` with budget-alert + undo-toast wiring intact.
+- **6G** (`4ce6c44`): CLAUDE.md updated with full Phase 6 log + follow-up notes.
+
+### Known follow-ups (deferred, not blocking the preview build)
+- Gold-theme `src/components/ui/*` primitives (Toast, SwipeableRow, SkeletonCardRow, LottieBox) still imported by Henna-ported screens. Future pass can rebuild them as Henna-native.
+- Legacy `src/screens/TodayScreen.tsx` still on disk (no longer mounted). Safe to delete.
+- 5 screens (BodyStats, Settings, Backup, PrayerSettings, CloudAuth) use a local "Henna shim" pattern (`const colors = {...}` + `const Card = HennaCard as any` aliases). Works, typechecks. Future cleanup could rewrite top-to-bottom.
+- Content emojis remain in BodyStats LogRow strings (⚖️ ⚖️ 🩺 etc.) — per design rules, content emoji is allowed, only chrome emoji is dropped.
+
+### Build
+- Henna preview APK: `5072a863-cd62-424a-b7bf-3d7413d5404a` (queued 2026-05-26 13:24 UTC from `4ce6c44`) — https://expo.dev/accounts/smartbzsss-organization/projects/forshe/builds/5072a863-cd62-424a-b7bf-3d7413d5404a
+
 ## v1.2.17 — 2026-04-24 "Vendors from Contacts"
 
 ### Added

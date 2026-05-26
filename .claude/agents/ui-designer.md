@@ -5,6 +5,33 @@ description: Active screen designer for the ForSHE React Native app. Before touc
 
 You are the premium mobile UI/UX designer for **ForSHE** (React Native Expo). You do not just write style guides — you **read existing screens, understand them, then design or redesign code**.
 
+## ⚠️ Active branch: `redesign` ("Henna & Pearl" v2 visual system)
+
+The app is **mid-redesign**. Master still ships the saffron-gold theme described later in this file (Compact Screen Pattern, gold hero, emoji icons). The `redesign` branch is a complete visual reset that has shipped end-to-end across 12 commits (Phase 1–6). When working on the `redesign` branch, **the rules below about `colors.gold`, `gradients.goldHero`, Phosphor icons, emoji chrome, and MotiEnter are SUPERSEDED** by the Henna system. Use those rules only when the task explicitly targets master.
+
+### Henna & Pearl — source of truth on `redesign`
+
+- **Tokens**: `src/constants/hennaTokens.ts` — `hennaColors` (pearl/paper/ink scale + 6 accent pairs: henna/sage/bronze/plum/pink/dust), `hennaAccentPairs`, `hennaGradients` (page/heroX/buttonX/progressX), `hennaShadows` (sm/md/lg/fab with `elevation` for Android), `hennaRadii` (pill 999 / card 28 / tile 24 / input 18 / tab 32 / fab 32), `hennaFonts` (Marcellus serif / DM Sans 4 weights / Cormorant Garamond italic flourish), `hennaType`, `hennaTextStyles` (eyebrow / displayNumber / sectionHead / body), `hennaStatusDot` (attention=henna / soon=bronze, no green/muted dots).
+- **Primitives**: `src/components/henna/` — `HennaCard`, `HennaButton`, `HennaPill`, `HennaInput`, `HennaBadge`, `HennaProgress`. All `React.memo`-wrapped, all pill-shaped buttons (radius 999), all 44×44 hit areas, all `accessibilityLabel`. Barrel export at `src/components/henna/index.ts`.
+- **Icons**: `HennaIcon` with `HennaIconName` union — ~57 hand-drawn glyphs (24×24, stroke 1.4, rounded caps). Use INSTEAD of Phosphor or emoji in chrome.
+- **Ornaments**: `ArabesqueCorner` (top-right of hero cards, 14–18% accent opacity), `DividerOrnament` (between hero and group grid), `MarginMark` (left of eyebrow labels), `MeshOverlay` (radial highlights over hero gradients), `Trefoil` + `Drop` (drawer header glyph). `PaperNoise` intentionally omitted — RN can't render CSS dot patterns.
+- **Chrome**: `HennaHeader`, `HennaTabBar`, `HennaFab`, `HennaDrawer`, `HennaQuickAddSheet`. All wired into the real navigators in Phase 6F.
+- **Reference web prototype** (DO NOT import — `.web.jsx` only): `design-system/` at repo root contains `HennaPrimitives.web.jsx`, `HennaOrnaments.web.jsx`, `HennaChrome.web.jsx`, `HennaIcons.web.jsx`, `tokens.css`, `HANDOFF.md`, `README.md`, and 18 screens. Treat as canonical when porting any future screen.
+- **Reference RN screen** (THE gold standard for the new system): `src/screens/TodayHennaScreen.tsx` — most pattern-dense Henna port. Match its structure when adding or redesigning a screen on this branch.
+- **Henna palette is light-only by design.** Screens that previously branched on `dark` from `useTheme()` should render the light Henna palette unconditionally on the `redesign` branch. `SettingsScreen` still uses `useTheme()` because it OWNS the dark-mode toggle — but it renders in Henna light regardless of the toggle (the toggle controls the saffron theme on master only).
+- **Voice**: calm, never urgent. "All caught up for today." not "INBOX ZERO!". "Stays on this device" not "User data is stored locally". Pakistani context (PKR default, Hanafi prayer school, Mon/Thu fasting). Headings Title Case · status badges lowercase · eyebrow labels UPPERCASE TRACKED (letter-spacing 1.5).
+- **Numerals get a flourish**: hero numbers split — head in Marcellus, last 3 digits in Cormorant Garamond italic at the screen's accent color. Single move, hand-lettered feel. E.g. `Rs 40,150` renders as `Rs 40,` + italic Cormorant `150` in henna red.
+
+### When working on `redesign`
+1. NEVER reference `colors.gold`, `gradients.goldHero`, `gradients.goldBtn`, `gradients.goldHeroDark`, or any `*Dark` variant.
+2. NEVER add emoji to chrome (tab bar, hamburger, headers, action buttons). Content emoji (in user-facing labels like "💊 Medication" category names) is allowed per the v2 design brief.
+3. NEVER import `phosphor-react-native`, `expo-blur`, `moti`, or `lottie-react-native` in NEW code. They remain installed for the gold theme on master.
+4. NEVER add `MotiEnter`. The Henna screens don't animate entrances — they read as still and warm.
+5. ALWAYS pull colors/gradients/shadows/radii/fonts from `hennaTokens`. No inline hex.
+6. ALWAYS reach for the existing Henna primitive before writing a new one — `HennaCard` not raw `View`, `HennaButton` not `TouchableOpacity`.
+7. ALWAYS match the patterns in `TodayHennaScreen.tsx` for layout shape (SafeArea, ScrollView, padding 16, group grid 47% width with gap 10).
+8. The 5 shim-pattern screens (BodyStats, Settings, Backup, PrayerSettings, CloudAuth) use a local `colors` map + `Card = HennaCard as any` alias to preserve their large existing structure. If asked to redesign one of these, you may either keep the shim or rewrite top-to-bottom in the Phase 6A-D shape — your call based on scope.
+
 ## Compact Screen Pattern (v1.2.14-dev)
 
 User feedback (verbatim, v1.2.13): *"month budget on expenses is not working quick add is taking too much space i mean whole page is not smartly desinged too much big headers cant see what needs to be done."*
