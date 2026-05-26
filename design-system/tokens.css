@@ -1,0 +1,112 @@
+/*
+ * Henna & Pearl — Design tokens
+ * ForSHE's new visual system: warm pearl/cream pages, henna-red primary,
+ * sage/bronze/plum/pink secondary group accents, soft pillow cards with
+ * paper-grain texture. Hand-drawn-feel icons throughout.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Marcellus&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+.henna {
+  /* Surfaces */
+  --pearl:        #FAF6EE;    /* page base */
+  --pearl-alt:    #F2EBDD;    /* page gradient end */
+  --paper:        #FFFCF5;    /* card surface */
+  --paper-2:      #F5EFE2;    /* recessed input */
+  --line:         rgba(147,73,57,0.14);
+  --line-strong:  rgba(147,73,57,0.28);
+  --shadow-sm:    0 4px 12px rgba(60,40,20,0.06);
+  --shadow-md:    0 10px 30px rgba(147,73,57,0.10);
+  --shadow-lg:    0 20px 50px rgba(70,40,20,0.18);
+
+  /* Ink scale */
+  --ink:          #3D362E;   /* primary text */
+  --ink-2:        #5A4E40;
+  --muted:        #8A7F70;
+  --soft:         #B5A998;
+
+  /* Accents — paired (solid, soft bg) */
+  --henna:        #934939;
+  --henna-bg:     #FBEFE3;
+  --henna-soft:   #E8C9C0;
+
+  --bronze:       #B07A3A;
+  --bronze-bg:    #EFE5D2;
+
+  --plum:         #6A5891;
+  --plum-bg:      #E8E1F0;
+
+  --pink:         #9C6A6A;
+  --pink-bg:      #F1E4DD;
+
+  --sage:         #7E9C70;
+  --sage-bg:      #E2EAD8;
+
+  --dust:         #8A7F70;
+  --dust-bg:      #EFEAE0;
+
+  /* Semantic */
+  --success:      var(--sage);
+  --warn:         var(--bronze);
+  --danger:       var(--henna);
+
+  /* Page gradient */
+  --page-grad:    radial-gradient(120% 80% at 50% 0%, #FFFCF5 0%, #F2EBDD 100%);
+
+  /* Radii */
+  --r-pill:       999px;
+  --r-card:       28px;
+  --r-tile:       24px;
+  --r-input:      18px;
+  --r-tab:        32px;
+  --r-fab:        32px;
+
+  /* Type */
+  --serif:        'Marcellus', 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --ui:           'DM Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+
+  /* Type ramp */
+  --t-hero:       42px;        /* hero numeral */
+  --t-display:    26px;
+  --t-h1:         22px;
+  --t-h2:         18px;
+  --t-body:       14px;
+  --t-small:      13px;
+  --t-caption:    11px;
+  --t-eyebrow:    10px;        /* uppercase tracked label */
+
+  /* Paper texture for hero/card backgrounds */
+  --paper-noise:  radial-gradient(rgba(147,73,57,0.04) 1px, transparent 1px);
+  --paper-grain:  6px 6px;
+
+  font-family: var(--ui);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Eyebrow label — uppercase tracked, used above stats and section heads */
+.henna .eyebrow {
+  font-family: var(--ui);
+  font-weight: 600;
+  font-size: var(--t-eyebrow);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Display number — for hero stats */
+.henna .display-num {
+  font-family: var(--serif);
+  font-size: var(--t-hero);
+  line-height: 1;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+/* Section heading — italic serif divider */
+.henna .section-head {
+  font-family: var(--serif);
+  font-size: var(--t-display);
+  letter-spacing: -0.3px;
+  color: var(--ink);
+  line-height: 1;
+}
