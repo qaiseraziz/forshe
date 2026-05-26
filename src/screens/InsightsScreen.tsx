@@ -1,32 +1,63 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
-import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { useCurrency } from '../context/CurrencyContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
-import { MONTHS, CAT_KEYS, CAT_COLORS } from '../constants/data';
+import { MONTHS, CAT_KEYS } from '../constants/data';
 import { parseDMY } from '../utils/dates';
 import { SkeletonChart } from '../components/ui/Skeleton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaCard,
+  HennaBadge,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+  DividerOrnament,
+} from '../components/henna';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+// Henna palette for category breakdown — cycles through the 6 accents.
+const HENNA_CHART_COLORS = [
+  hennaColors.henna,
+  hennaColors.sage,
+  hennaColors.bronze,
+  hennaColors.plum,
+  hennaColors.pink,
+  hennaColors.dust,
+];
+
+function splitFlourish(formatted: string): { head: string; tail: string } {
+  if (formatted.length <= 3) return { head: '', tail: formatted };
+  return { head: formatted.slice(0, -3), tail: formatted.slice(-3) };
+}
+
 export default function InsightsScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { history, allLoaded } = useData();
   const { pkrF } = useCurrency();
 
   const now = useMemo(() => new Date(), []);
 
-  // ---- 6-month trend ----
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
   const trend = useMemo(() => {
     const months: { label: string; total: number; year: number; month: number }[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -50,7 +81,6 @@ export default function InsightsScreen() {
 
   const maxTrend = useMemo(() => Math.max(1, ...trend.map(t => t.total)), [trend]);
 
-  // ---- Category breakdown (current month) ----
   const catBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
     history.forEach(h => {
@@ -64,7 +94,6 @@ export default function InsightsScreen() {
 
   const totalThisMonth = useMemo(() => catBreakdown.reduce((s, [, v]) => s + v, 0), [catBreakdown]);
 
-  // ---- Top 5 expenses this month ----
   const top5 = useMemo(() => {
     return history
       .filter(h => {
@@ -76,7 +105,6 @@ export default function InsightsScreen() {
       .slice(0, 5);
   }, [history, now]);
 
-  // ---- Month-over-month comparison ----
   const compare = useMemo(() => {
     const current = trend[trend.length - 1]?.total || 0;
     const prev = trend[trend.length - 2]?.total || 0;
@@ -85,110 +113,154 @@ export default function InsightsScreen() {
     return { current, prev, delta, pct };
   }, [trend]);
 
-  // ---- Daily average (based on day-of-month so far) ----
   const dailyAvg = useMemo(() => {
     const day = now.getDate();
     if (day === 0) return 0;
     return compare.current / day;
   }, [compare.current, now]);
 
-  // Chart data for gifted-charts
-  const barData = useMemo(() => trend.map(t => ({
-    value: t.total,
-    label: t.label,
-    frontColor: colors.gold,
-    topLabelComponent: t.total > 0 ? (() => (
-      <Text style={{ color: colors.muted, fontSize: 9, fontFamily: 'Outfit-Regular', marginBottom: 2 }}>
-        {Math.round(t.total / 1000) + 'k'}
-      </Text>
-    )) : undefined,
-  })), [trend, colors.gold, colors.muted]);
+  const barData = useMemo(
+    () =>
+      trend.map(t => ({
+        value: t.total,
+        label: t.label,
+        frontColor: hennaColors.henna,
+        topLabelComponent:
+          t.total > 0
+            ? () => (
+                <Text
+                  style={{
+                    color: hennaColors.muted,
+                    fontSize: 9,
+                    fontFamily: hennaFonts.ui,
+                    marginBottom: 2,
+                  }}
+                >
+                  {Math.round(t.total / 1000) + 'k'}
+                </Text>
+              )
+            : undefined,
+      })),
+    [trend],
+  );
 
-  const pieData = useMemo(() => catBreakdown.map(([cat, val], i) => {
-    const catIdx = CAT_KEYS.indexOf(cat);
-    const color = catIdx >= 0 ? CAT_COLORS[catIdx % CAT_COLORS.length] : CAT_COLORS[i % CAT_COLORS.length];
-    return { value: val, color, text: totalThisMonth > 0 ? Math.round((val / totalThisMonth) * 100) + '%' : '' };
-  }), [catBreakdown, totalThisMonth]);
+  const pieData = useMemo(
+    () =>
+      catBreakdown.map(([cat, val], i) => {
+        const catIdx = CAT_KEYS.indexOf(cat);
+        const idx = catIdx >= 0 ? catIdx % HENNA_CHART_COLORS.length : i % HENNA_CHART_COLORS.length;
+        const color = HENNA_CHART_COLORS[idx];
+        return {
+          value: val,
+          color,
+          text: totalThisMonth > 0 ? Math.round((val / totalThisMonth) * 100) + '%' : '',
+        };
+      }),
+    [catBreakdown, totalThisMonth],
+  );
 
-  // Arrow + color for comparison
   const arrow = compare.delta > 0 ? '↑' : compare.delta < 0 ? '↓' : '→';
-  const compareColor = compare.delta > 0 ? colors.red : compare.delta < 0 ? colors.green : colors.muted;
+  const compareColor =
+    compare.delta > 0 ? hennaColors.henna : compare.delta < 0 ? hennaColors.sage : hennaColors.muted;
 
   const hasAnyExpenses = history.some(h => h.type === 'expense');
   const chartWidth = screenWidth - 80;
+  const currentSplit = splitFlourish(pkrF(compare.current));
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Card gradient={dark ? gradients.purpleHeroDark : gradients.purpleHero}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.purple }]}>📈 Insights</Text>
-              <Text style={[styles.heroNum, { color: colors.purple }]}>{pkrF(compare.current)}</Text>
-              <Text style={[styles.heroSub, { color: colors.sub }]}>
-                {MONTHS[now.getMonth()]} {now.getFullYear()} · {dailyAvg > 0 ? `${pkrF(dailyAvg)}/day` : 'No spending yet'}
+        <HennaHeader
+          title="Insights"
+          subtitle={`${MONTHS[now.getMonth()]} ${now.getFullYear()}`}
+          onMenu={onMenu}
+        />
+
+        {/* Hero — plum */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroPlum}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.plum} opacity={0.18} />
+            </View>
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.plum} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.plum }]}>This month</Text>
+              </View>
+              <Text style={styles.heroNum}>
+                {currentSplit.head}
+                <Text style={styles.heroNumTail}>{currentSplit.tail}</Text>
+              </Text>
+              <Text style={styles.heroSub}>
+                {dailyAvg > 0 ? `${pkrF(dailyAvg)}/day on average` : 'No spending yet'}
               </Text>
             </View>
           </View>
-        </Card>
+        </View>
 
         {!allLoaded ? (
-          <>
+          <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
             <SkeletonChart />
             <SkeletonChart />
-          </>
+          </View>
         ) : !hasAnyExpenses ? (
-          <EmptyState
-            icon="📈"
-            text="No expense data yet — log a few and your trends will appear here."
-            hint="Insights get sharper after a full month."
-          />
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>Insights need data.</Text>
+            <Text style={styles.emptyHint}>Log a few expenses and trends will appear here.</Text>
+          </View>
         ) : (
-          <>
-            {/* Comparison widget */}
-            <Card>
-              <Text style={[styles.sectionLabel, { color: colors.muted }]}>THIS MONTH vs LAST</Text>
+          <View style={styles.body}>
+            {/* Comparison */}
+            <HennaCard padding={18} style={{ marginBottom: 14 }}>
+              <Text style={[hennaTextStyles.eyebrow, { marginBottom: 14 }]}>
+                This month vs last
+              </Text>
               <View style={styles.compareRow}>
                 <View style={styles.compareBox}>
-                  <Text style={[styles.compareVal, { color: colors.deep }]}>{pkrF(compare.current)}</Text>
-                  <Text style={[styles.compareLbl, { color: colors.muted }]}>This month</Text>
+                  <Text style={styles.compareVal}>{pkrF(compare.current)}</Text>
+                  <Text style={styles.compareLbl}>This month</Text>
                 </View>
                 <Text style={[styles.arrow, { color: compareColor }]}>{arrow}</Text>
                 <View style={styles.compareBox}>
-                  <Text style={[styles.compareVal, { color: colors.sub }]}>{pkrF(compare.prev)}</Text>
-                  <Text style={[styles.compareLbl, { color: colors.muted }]}>Last month</Text>
+                  <Text style={[styles.compareVal, { color: hennaColors.muted }]}>{pkrF(compare.prev)}</Text>
+                  <Text style={styles.compareLbl}>Last month</Text>
                 </View>
               </View>
               {compare.pct !== null && (
                 <View style={styles.deltaRow}>
-                  <Badge
-                    text={`${compare.delta >= 0 ? '+' : ''}${compare.pct}%`}
-                    bg={compare.delta > 0 ? colors.redBg : compare.delta < 0 ? colors.greenBg : colors.bg3}
-                    color={compareColor}
-                  />
-                  <Text style={[styles.deltaText, { color: colors.sub }]}>
+                  <HennaBadge accent={compare.delta > 0 ? 'henna' : compare.delta < 0 ? 'sage' : 'dust'}>
+                    {`${compare.delta >= 0 ? '+' : ''}${compare.pct}%`}
+                  </HennaBadge>
+                  <Text style={styles.deltaText}>
                     {compare.delta > 0
-                      ? `Spending up by ${pkrF(Math.abs(compare.delta))}`
+                      ? `Up by ${pkrF(Math.abs(compare.delta))}`
                       : compare.delta < 0
-                        ? `Saved ${pkrF(Math.abs(compare.delta))} vs last month`
+                        ? `Saved ${pkrF(Math.abs(compare.delta))}`
                         : 'Same as last month'}
                   </Text>
                 </View>
               )}
-              <View style={[styles.avgRow, { borderTopColor: colors.border }]}>
-                <Text style={[styles.avgLbl, { color: colors.muted }]}>Daily average</Text>
-                <Text style={[styles.avgVal, { color: colors.gold }]}>{pkrF(dailyAvg)}</Text>
+              <View style={styles.avgRow}>
+                <Text style={styles.avgLbl}>Daily average</Text>
+                <Text style={styles.avgVal}>{pkrF(dailyAvg)}</Text>
               </View>
-            </Card>
+            </HennaCard>
 
             {/* Trend bar chart */}
-            <Divider label="6-Month Spending Trend" />
-            <Card>
+            <DividerOrnament color={hennaColors.plum} />
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>6-month trend</Text>
+            <HennaCard padding={18} style={{ marginBottom: 14 }}>
               {maxTrend > 0 ? (
                 <View style={styles.chartWrap}>
                   <BarChart
@@ -198,10 +270,14 @@ export default function InsightsScreen() {
                     barWidth={24}
                     spacing={20}
                     barBorderRadius={6}
-                    yAxisColor={colors.border}
-                    xAxisColor={colors.border}
-                    yAxisTextStyle={{ color: colors.muted, fontSize: 10 }}
-                    xAxisLabelTextStyle={{ color: colors.muted, fontSize: 11, fontFamily: 'Outfit-SemiBold' }}
+                    yAxisColor={hennaColors.line}
+                    xAxisColor={hennaColors.line}
+                    yAxisTextStyle={{ color: hennaColors.muted, fontSize: 10 }}
+                    xAxisLabelTextStyle={{
+                      color: hennaColors.muted,
+                      fontSize: 11,
+                      fontFamily: hennaFonts.uiSemi,
+                    }}
                     noOfSections={4}
                     maxValue={maxTrend * 1.15}
                     hideRules
@@ -211,119 +287,179 @@ export default function InsightsScreen() {
                   />
                 </View>
               ) : (
-                <Text style={[styles.emptyNote, { color: colors.muted }]}>Not enough data yet.</Text>
+                <Text style={styles.emptyNote}>Not enough data yet.</Text>
               )}
-            </Card>
+            </HennaCard>
 
             {/* Category pie */}
             {pieData.length > 0 && (
               <>
-                <Divider label={`Category Breakdown · ${MONTHS[now.getMonth()]}`} />
-                <Card>
+                <DividerOrnament color={hennaColors.henna} />
+                <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>
+                  Category breakdown · {MONTHS[now.getMonth()]}
+                </Text>
+                <HennaCard padding={18} style={{ marginBottom: 14 }}>
                   <View style={styles.pieWrap}>
                     <PieChart
                       data={pieData}
                       radius={90}
                       innerRadius={50}
-                      innerCircleColor={colors.bg2}
+                      innerCircleColor={hennaColors.paper}
                       centerLabelComponent={() => (
                         <View style={{ alignItems: 'center' }}>
-                          <Text style={[styles.pieCenterVal, { color: colors.deep }]}>{pkrF(totalThisMonth)}</Text>
-                          <Text style={[styles.pieCenterLbl, { color: colors.muted }]}>Total</Text>
+                          <Text style={styles.pieCenterVal}>{pkrF(totalThisMonth)}</Text>
+                          <Text style={styles.pieCenterLbl}>Total</Text>
                         </View>
                       )}
                       showText={false}
                       strokeWidth={1}
-                      strokeColor={colors.bg2}
+                      strokeColor={hennaColors.paper}
                     />
                   </View>
                   <View style={styles.legendWrap}>
                     {catBreakdown.map(([cat, val], i) => {
                       const catIdx = CAT_KEYS.indexOf(cat);
-                      const color = catIdx >= 0 ? CAT_COLORS[catIdx % CAT_COLORS.length] : CAT_COLORS[i % CAT_COLORS.length];
+                      const idx = catIdx >= 0 ? catIdx % HENNA_CHART_COLORS.length : i % HENNA_CHART_COLORS.length;
+                      const color = HENNA_CHART_COLORS[idx];
                       const pct = totalThisMonth > 0 ? Math.round((val / totalThisMonth) * 100) : 0;
                       return (
                         <View key={cat} style={styles.legendRow}>
                           <View style={[styles.legendDot, { backgroundColor: color }]} />
-                          <Text style={[styles.legendLabel, { color: colors.sub }]} numberOfLines={1}>{cat}</Text>
-                          <Text style={[styles.legendVal, { color: colors.deep }]}>{pkrF(val)}</Text>
-                          <Text style={[styles.legendPct, { color: colors.muted }]}>{pct}%</Text>
+                          <Text style={styles.legendLabel} numberOfLines={1}>{cat}</Text>
+                          <Text style={styles.legendVal}>{pkrF(val)}</Text>
+                          <Text style={styles.legendPct}>{pct}%</Text>
                         </View>
                       );
                     })}
                   </View>
-                </Card>
+                </HennaCard>
               </>
             )}
 
             {/* Top 5 */}
             {top5.length > 0 && (
               <>
-                <Divider label="Top 5 Expenses This Month" />
-                <Card>
+                <DividerOrnament color={hennaColors.bronze} />
+                <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>
+                  Top 5 expenses this month
+                </Text>
+                <HennaCard padding={0} style={{ marginBottom: 14 }}>
                   {top5.map((h, i) => (
                     <View
                       key={h.id}
                       style={[
                         styles.topRow,
-                        i < top5.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                        i < top5.length - 1 && {
+                          borderBottomWidth: 1,
+                          borderBottomColor: hennaColors.line,
+                        },
                       ]}
                     >
-                      <Text style={[styles.topRank, { color: colors.purple }]}>#{i + 1}</Text>
+                      <Text style={styles.topRank}>#{i + 1}</Text>
                       <View style={styles.topInfo}>
-                        <Text style={[styles.topName, { color: colors.deep }]} numberOfLines={1}>{h.label}</Text>
-                        <Text style={[styles.topCat, { color: colors.muted }]}>{h.cat} · {h.date}</Text>
+                        <Text style={styles.topName} numberOfLines={1}>{h.label}</Text>
+                        <Text style={styles.topCat}>{h.cat} · {h.date}</Text>
                       </View>
-                      <Text style={[styles.topAmt, { color: colors.red }]}>{pkrF(h.amount)}</Text>
+                      <Text style={styles.topAmt}>{pkrF(h.amount)}</Text>
                     </View>
                   ))}
-                </Card>
+                </HennaCard>
               </>
             )}
-          </>
+          </View>
         )}
-
-        <View style={styles.bottomPad} />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 140 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
-  heroNum: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 38, lineHeight: 44 },
-  heroSub: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  sectionLabel: { fontSize: 11, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 14 },
+  scrollContent: { paddingBottom: 180 },
+
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
+  },
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroNum: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 36,
+    lineHeight: 40,
+    color: hennaColors.ink,
+    letterSpacing: -0.5,
+  },
+  heroNumTail: { fontFamily: hennaFonts.flourish, color: hennaColors.plum },
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
+
+  body: { paddingHorizontal: 16, paddingTop: 18 },
+  sectionEyebrow: { paddingHorizontal: 8, paddingBottom: 10, paddingTop: 10 },
+
   compareRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   compareBox: { flex: 1, alignItems: 'center' },
-  compareVal: { fontSize: 20, fontFamily: 'Outfit-Bold' },
-  compareLbl: { fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
-  arrow: { fontSize: 32, fontFamily: 'Outfit-Bold' },
+  compareVal: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink },
+  compareLbl: {
+    marginTop: 2,
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 10,
+    color: hennaColors.muted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  arrow: { fontSize: 28, fontFamily: hennaFonts.uiSemi },
   deltaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-  deltaText: { fontSize: 13, fontFamily: 'Outfit-Regular', flex: 1 },
-  avgRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
-  avgLbl: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  avgVal: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  deltaText: { flex: 1, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+  avgRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: hennaColors.line,
+  },
+  avgLbl: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.ink2 },
+  avgVal: { fontFamily: hennaFonts.serif, fontSize: 16, color: hennaColors.henna },
+
   chartWrap: { alignItems: 'center' },
-  emptyNote: { fontSize: 13, fontFamily: 'Outfit-Regular', fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
+  emptyNote: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: hennaColors.muted,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
   pieWrap: { alignItems: 'center', marginBottom: 16 },
-  pieCenterVal: { fontSize: 16, fontFamily: 'Outfit-Bold' },
-  pieCenterLbl: { fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase', letterSpacing: 0.8 },
+  pieCenterVal: { fontFamily: hennaFonts.serif, fontSize: 15, color: hennaColors.ink },
+  pieCenterLbl: { fontFamily: hennaFonts.uiSemi, fontSize: 10, color: hennaColors.muted, marginTop: 2 },
   legendWrap: { marginTop: 8 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { flex: 1, fontSize: 13, fontFamily: 'Outfit-Regular' },
-  legendVal: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  legendPct: { fontSize: 11, fontFamily: 'Outfit-Regular', width: 36, textAlign: 'right' },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  topRank: { fontSize: 16, fontFamily: 'Outfit-Bold', width: 28 },
+  legendLabel: { flex: 1, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+  legendVal: { fontFamily: hennaFonts.uiSemi, fontSize: 12, color: hennaColors.ink },
+  legendPct: { width: 36, textAlign: 'right', fontFamily: hennaFonts.ui, fontSize: 10, color: hennaColors.muted },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  topRank: { width: 28, fontFamily: hennaFonts.serif, fontSize: 15, color: hennaColors.plum },
   topInfo: { flex: 1, minWidth: 0 },
-  topName: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
-  topCat: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  topAmt: { fontSize: 15, fontFamily: 'Outfit-Bold' },
-  bottomPad: { height: 40 },
+  topName: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.ink },
+  topCat: { fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, marginTop: 2 },
+  topAmt: { fontFamily: hennaFonts.serif, fontSize: 14, color: hennaColors.henna },
 });

@@ -2,27 +2,58 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../context/ThemeContext';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { ProgressBar } from '../components/ui/ProgressBar';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Button } from '../components/ui/Button';
-import { MONTHS, CAT_KEYS, CAT_COLORS, SAVINGS_CAT } from '../constants/data';
 import { useCurrency } from '../context/CurrencyContext';
+import { MONTHS, CAT_KEYS, SAVINGS_CAT } from '../constants/data';
 import { parseDMY } from '../utils/dates';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaProgress,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+  DividerOrnament,
+} from '../components/henna';
+
+const HENNA_CHART_COLORS = [
+  hennaColors.henna,
+  hennaColors.sage,
+  hennaColors.bronze,
+  hennaColors.plum,
+  hennaColors.pink,
+  hennaColors.dust,
+];
+
+function splitFlourish(formatted: string): { head: string; tail: string } {
+  if (formatted.length <= 3) return { head: '', tail: formatted };
+  return { head: formatted.slice(0, -3), tail: formatted.slice(-3) };
+}
 
 export default function MonthlyReportScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { history, budget } = useData();
   const { pkr, pkrF } = useCurrency();
 
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
+
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   const data = useMemo(() => {
     const monthExpenses = history.filter(h => {
@@ -40,7 +71,6 @@ export default function MonthlyReportScreen() {
     const totalRec = monthTopups.reduce((s, h) => s + h.amount, 0);
     const net = totalRec - totalExp;
 
-    // Category breakdown
     const catMap: Record<string, number> = {};
     monthExpenses.forEach(h => {
       catMap[h.cat] = (catMap[h.cat] || 0) + h.amount;
@@ -48,7 +78,6 @@ export default function MonthlyReportScreen() {
     const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
     const maxCat = cats.length ? cats[0][1] : 1;
 
-    // Daily spending
     const dailyMap: Record<number, number> = {};
     monthExpenses.forEach(h => {
       const p = parseDMY(h.date);
@@ -57,225 +86,339 @@ export default function MonthlyReportScreen() {
     const dailyEntries = Object.entries(dailyMap).sort((a, b) => +a[0] - +b[0]);
     const maxDaily = dailyEntries.length ? Math.max(...dailyEntries.map(d => d[1])) : 1;
 
-    // Top expenses
     const topExpenses = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
-
-    const avgDaily = monthExpenses.length > 0 ? totalExp / Math.max(Object.keys(dailyMap).length, 1) : 0;
-
-    // v1.2 — Savings this month (transactions in Savings category)
+    const avgDaily =
+      monthExpenses.length > 0 ? totalExp / Math.max(Object.keys(dailyMap).length, 1) : 0;
     const savingsThisMonth = monthExpenses
       .filter(h => h.cat === SAVINGS_CAT)
       .reduce((s, h) => s + h.amount, 0);
 
-    return { totalExp, totalRec, net, cats, maxCat, dailyEntries, maxDaily, topExpenses, avgDaily, expCount: monthExpenses.length, savingsThisMonth };
+    return {
+      totalExp,
+      totalRec,
+      net,
+      cats,
+      maxCat,
+      dailyEntries,
+      maxDaily,
+      topExpenses,
+      avgDaily,
+      expCount: monthExpenses.length,
+      savingsThisMonth,
+    };
   }, [history, month, year]);
 
   const budgetPct = budget > 0 ? Math.min(Math.round((data.totalExp / budget) * 100), 100) : 0;
 
   const prevMonth = useCallback(() => {
-    if (month === 0) { setMonth(11); setYear(y => y - 1); }
-    else setMonth(m => m - 1);
+    Haptics.selectionAsync();
+    if (month === 0) {
+      setMonth(11);
+      setYear(y => y - 1);
+    } else setMonth(m => m - 1);
   }, [month]);
   const nextMonth = useCallback(() => {
-    if (month === 11) { setMonth(0); setYear(y => y + 1); }
-    else setMonth(m => m + 1);
+    Haptics.selectionAsync();
+    if (month === 11) {
+      setMonth(0);
+      setYear(y => y + 1);
+    } else setMonth(m => m + 1);
   }, [month]);
 
+  const netSplit = splitFlourish(pkrF(data.net));
+
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Card */}
-        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.gold }]}>📊 Monthly Report</Text>
-              <Text style={[styles.title, { color: colors.deep }]}>
-                {MONTHS[month]} {year}
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.sub }]}>
-                {data.expCount} {data.expCount === 1 ? 'expense' : 'expenses'} tracked
-              </Text>
-            </View>
-          </View>
+        <HennaHeader
+          title="Monthly Report"
+          subtitle={`${data.expCount} ${data.expCount === 1 ? 'expense' : 'expenses'} tracked`}
+          onMenu={onMenu}
+        />
 
-          {/* Month Navigator */}
-          <View style={styles.monthNav}>
-            <Button title="← Prev" variant="outline" small onPress={prevMonth} />
-            <Button title="Next →" variant="outline" small onPress={nextMonth} />
-          </View>
-          <View style={styles.overviewGrid}>
-            <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
-              <Text style={[styles.overviewVal, { color: colors.green }]}>{pkrF(data.totalRec)}</Text>
-              <Text style={[styles.overviewLbl, { color: colors.muted }]}>Received</Text>
+        {/* Hero — bronze */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroBronze}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.bronze} opacity={0.18} />
             </View>
-            <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
-              <Text style={[styles.overviewVal, { color: colors.red }]}>{pkrF(data.totalExp)}</Text>
-              <Text style={[styles.overviewLbl, { color: colors.muted }]}>Spent</Text>
-            </View>
-            <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
-              <Text style={[styles.overviewVal, { color: data.net >= 0 ? colors.green : colors.red }]}>
-                {pkrF(data.net)}
-              </Text>
-              <Text style={[styles.overviewLbl, { color: colors.muted }]}>
-                {data.net >= 0 ? 'Saved' : 'Deficit'}
-              </Text>
-            </View>
-            <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
-              <Text style={[styles.overviewVal, { color: colors.gold }]}>{pkrF(data.avgDaily)}</Text>
-              <Text style={[styles.overviewLbl, { color: colors.muted }]}>Avg/Day</Text>
-            </View>
-            <View style={[styles.overviewBox, { backgroundColor: colors.bg2 }]}>
-              <Text style={[styles.overviewVal, { color: colors.pink }]}>{pkrF(data.savingsThisMonth)}</Text>
-              <Text style={[styles.overviewLbl, { color: colors.muted }]}>Savings</Text>
-            </View>
-          </View>
-
-          {budget > 0 && (
-            <View style={[styles.budgetSection, { borderTopColor: colors.border }]}>
-              <View style={styles.budgetRow}>
-                <Text style={[styles.budgetLabel, { color: colors.sub }]}>Budget</Text>
-                <Text style={[styles.budgetVal, { color: colors.gold }]}>
-                  {budgetPct}% used
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.bronze} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.bronze }]}>
+                  {MONTHS[month]} {year}
                 </Text>
               </View>
-              <ProgressBar
-                percent={budgetPct}
-                fillColor={budgetPct > 90 ? colors.red : budgetPct > 70 ? colors.gold : colors.green}
-                bgColor={colors.border}
-                height={8}
-              />
-            </View>
-          )}
-        </Card>
+              <Text
+                style={[
+                  styles.heroNum,
+                  { color: data.net < 0 ? hennaColors.henna : hennaColors.ink },
+                ]}
+              >
+                {netSplit.head}
+                <Text style={[
+                  styles.heroNumTail,
+                  { color: data.net < 0 ? hennaColors.henna : hennaColors.bronze },
+                ]}>{netSplit.tail}</Text>
+              </Text>
+              <Text style={styles.heroSub}>
+                {data.net >= 0 ? 'Saved this month' : 'Deficit'}
+              </Text>
 
-        {/* Category Breakdown */}
+              {/* Overview grid (5 boxes) */}
+              <View style={styles.overviewGrid}>
+                <View style={styles.overviewBox}>
+                  <Text style={[styles.overviewVal, { color: hennaColors.sage }]}>{pkr(data.totalRec)}</Text>
+                  <Text style={styles.overviewLbl}>Received</Text>
+                </View>
+                <View style={styles.overviewBox}>
+                  <Text style={[styles.overviewVal, { color: hennaColors.henna }]}>{pkr(data.totalExp)}</Text>
+                  <Text style={styles.overviewLbl}>Spent</Text>
+                </View>
+                <View style={styles.overviewBox}>
+                  <Text style={[styles.overviewVal, { color: hennaColors.bronze }]}>{pkr(data.avgDaily)}</Text>
+                  <Text style={styles.overviewLbl}>Avg/day</Text>
+                </View>
+                <View style={styles.overviewBox}>
+                  <Text style={[styles.overviewVal, { color: hennaColors.pink }]}>{pkr(data.savingsThisMonth)}</Text>
+                  <Text style={styles.overviewLbl}>Savings</Text>
+                </View>
+              </View>
+
+              {budget > 0 && (
+                <View style={styles.budgetSection}>
+                  <View style={styles.budgetRow}>
+                    <Text style={styles.budgetLabel}>Budget</Text>
+                    <Text style={styles.budgetVal}>{budgetPct}% used</Text>
+                  </View>
+                  <HennaProgress
+                    value={data.totalExp}
+                    max={budget}
+                    accent={budgetPct > 90 ? 'henna' : budgetPct > 70 ? 'bronze' : 'sage'}
+                    height={8}
+                  />
+                </View>
+              )}
+
+              <View style={styles.navRow}>
+                <HennaButton title="← Prev" variant="outline" size="sm" onPress={prevMonth} />
+                <View style={{ flex: 1 }} />
+                <HennaButton title="Next →" variant="outline" size="sm" onPress={nextMonth} />
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Category breakdown */}
         {data.cats.length > 0 && (
           <>
-            <Divider label="Category Breakdown" />
-            <Card>
-              {data.cats.map((c, i) => {
-                const catColor = CAT_COLORS[CAT_KEYS.indexOf(c[0]) % CAT_COLORS.length] || colors.gold;
-                const pct = Math.round((c[1] / data.maxCat) * 100);
-                const share = data.totalExp > 0 ? Math.round((c[1] / data.totalExp) * 100) : 0;
-                return (
-                  <View key={i} style={styles.catRow}>
-                    <View style={styles.catHeader}>
-                      <Text style={[styles.catName, { color: colors.sub }]}>{c[0]}</Text>
-                      <Text style={[styles.catAmt, { color: colors.deep }]}>{pkrF(c[1])} ({share}%)</Text>
+            <DividerOrnament color={hennaColors.henna} />
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Category breakdown</Text>
+            <View style={styles.body}>
+              <HennaCard padding={18} style={{ marginBottom: 14 }}>
+                {data.cats.map((c, i) => {
+                  const catIdx = CAT_KEYS.indexOf(c[0]);
+                  const colorIdx = catIdx >= 0 ? catIdx % HENNA_CHART_COLORS.length : i % HENNA_CHART_COLORS.length;
+                  const accent: 'henna' | 'sage' | 'bronze' | 'plum' = (() => {
+                    const a = HENNA_CHART_COLORS[colorIdx];
+                    if (a === hennaColors.sage) return 'sage';
+                    if (a === hennaColors.bronze) return 'bronze';
+                    if (a === hennaColors.plum) return 'plum';
+                    return 'henna';
+                  })();
+                  const share = data.totalExp > 0 ? Math.round((c[1] / data.totalExp) * 100) : 0;
+                  return (
+                    <View key={c[0]} style={styles.catRow}>
+                      <View style={styles.catHeader}>
+                        <Text style={styles.catName}>{c[0]}</Text>
+                        <Text style={styles.catAmt}>
+                          {pkrF(c[1])} · {share}%
+                        </Text>
+                      </View>
+                      <HennaProgress value={c[1]} max={data.maxCat} accent={accent} height={6} />
                     </View>
-                    <ProgressBar percent={pct} fillColor={catColor} bgColor={colors.border} height={8} />
-                  </View>
-                );
-              })}
-            </Card>
+                  );
+                })}
+              </HennaCard>
+            </View>
           </>
         )}
 
-        {/* Daily Spending Chart */}
+        {/* Daily spending */}
         {data.dailyEntries.length > 0 && (
           <>
-            <Divider label="Daily Spending" />
-            <Card>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.dailyChart}>
-                  {data.dailyEntries.map(([day, amt]) => {
-                    const h = Math.max((amt / data.maxDaily) * 120, 8);
-                    return (
-                      <View key={day} style={styles.dailyBar}>
-                        <Text style={[styles.dailyAmt, { color: colors.sub }]}>{pkr(amt)}</Text>
-                        <View style={[styles.dailyFill, { height: h, backgroundColor: colors.gold }]} />
-                        <Text style={[styles.dailyDay, { color: colors.muted }]}>{day}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </Card>
+            <DividerOrnament color={hennaColors.bronze} />
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Daily spending</Text>
+            <View style={styles.body}>
+              <HennaCard padding={18} style={{ marginBottom: 14 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.dailyChart}>
+                    {data.dailyEntries.map(([day, amt]) => {
+                      const h = Math.max((amt / data.maxDaily) * 120, 8);
+                      return (
+                        <View key={day} style={styles.dailyBar}>
+                          <Text style={styles.dailyAmt}>{pkr(amt)}</Text>
+                          <View style={[styles.dailyFill, { height: h }]} />
+                          <Text style={styles.dailyDay}>{day}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </HennaCard>
+            </View>
           </>
         )}
 
-        {/* Top Expenses */}
+        {/* Top 5 */}
         {data.topExpenses.length > 0 && (
           <>
-            <Divider label="Top 5 Expenses" />
-            <Card>
-              {data.topExpenses.map((h, i) => (
-                <View key={h.id} style={[styles.topRow, i < data.topExpenses.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                  <Text style={[styles.topRank, { color: colors.gold }]}>#{i + 1}</Text>
-                  <View style={styles.topInfo}>
-                    <Text style={[styles.topName, { color: colors.deep }]} numberOfLines={1}>{h.label}</Text>
-                    <Text style={[styles.topCat, { color: colors.muted }]}>{h.cat} · {h.date}</Text>
+            <DividerOrnament color={hennaColors.plum} />
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Top 5 expenses</Text>
+            <View style={styles.body}>
+              <HennaCard padding={0} style={{ marginBottom: 14 }}>
+                {data.topExpenses.map((h, i) => (
+                  <View
+                    key={h.id}
+                    style={[
+                      styles.topRow,
+                      i < data.topExpenses.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: hennaColors.line,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.topRank}>#{i + 1}</Text>
+                    <View style={styles.topInfo}>
+                      <Text style={styles.topName} numberOfLines={1}>{h.label}</Text>
+                      <Text style={styles.topCat}>{h.cat} · {h.date}</Text>
+                    </View>
+                    <Text style={styles.topAmt}>{pkrF(h.amount)}</Text>
                   </View>
-                  <Text style={[styles.topAmt, { color: colors.red }]}>{pkrF(h.amount)}</Text>
-                </View>
-              ))}
-            </Card>
+                ))}
+              </HennaCard>
+            </View>
           </>
         )}
 
         {data.expCount === 0 && (
-          <EmptyState icon="📊" text={`No expenses recorded for ${MONTHS[month]} ${year}`} />
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>Nothing logged this month.</Text>
+            <Text style={styles.emptyHint}>Add an expense and the report will fill in.</Text>
+          </View>
         )}
-
-        <View style={styles.bottomPad} />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 120 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  titleSection: { flex: 1 },
-  title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 30, lineHeight: 36 },
-  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  monthNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 16, marginBottom: 16,
+  scrollContent: { paddingBottom: 180 },
+
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
   },
-  heroLabel: {
-    fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
-    letterSpacing: 1.5, marginBottom: 6,
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroNum: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 32,
+    lineHeight: 36,
+    color: hennaColors.ink,
+    letterSpacing: -0.5,
   },
-  overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  heroNumTail: { fontFamily: hennaFonts.flourish, color: hennaColors.bronze },
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+
+  overviewGrid: {
+    marginTop: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   overviewBox: {
-    flexGrow: 1, flexBasis: '46%', borderRadius: 16, padding: 14, alignItems: 'center',
+    flexGrow: 1,
+    flexBasis: '46%',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
   },
-  overviewVal: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  overviewVal: { fontFamily: hennaFonts.serif, fontSize: 16 },
   overviewLbl: {
-    fontSize: 11, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase',
-    letterSpacing: 0.8, marginTop: 2,
+    marginTop: 2,
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 10,
+    color: hennaColors.muted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  budgetSection: { marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
+
+  budgetSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: hennaColors.line,
+  },
   budgetRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  budgetLabel: { fontSize: 14, fontFamily: 'Outfit-SemiBold' },
-  budgetVal: { fontSize: 14, fontFamily: 'Outfit-Bold' },
+  budgetLabel: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.ink2 },
+  budgetVal: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.bronze },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+
+  body: { paddingHorizontal: 16 },
+  sectionEyebrow: { paddingHorizontal: 24, paddingBottom: 10, paddingTop: 10 },
+
   catRow: { marginBottom: 14 },
-  catHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6,
-  },
-  catName: { fontSize: 14, fontFamily: 'Outfit-Regular' },
-  catAmt: { fontSize: 14, fontFamily: 'Outfit-Bold' },
+  catHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  catName: { fontFamily: hennaFonts.ui, fontSize: 13, color: hennaColors.ink2 },
+  catAmt: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.ink },
+
   dailyChart: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingVertical: 10 },
   dailyBar: { alignItems: 'center', width: 40 },
-  dailyAmt: { fontSize: 9, fontFamily: 'Outfit-Regular', marginBottom: 4 },
-  dailyFill: { width: 24, borderRadius: 6 },
-  dailyDay: { fontSize: 11, fontFamily: 'Outfit-SemiBold', marginTop: 4 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  topRank: { fontSize: 16, fontFamily: 'Outfit-Bold', width: 28 },
-  topInfo: { flex: 1 },
-  topName: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
-  topCat: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  topAmt: { fontSize: 16, fontFamily: 'Outfit-Bold' },
-  bottomPad: { height: 40 },
+  dailyAmt: { fontFamily: hennaFonts.ui, fontSize: 9, color: hennaColors.muted, marginBottom: 4 },
+  dailyFill: { width: 18, borderRadius: 4, backgroundColor: hennaColors.henna },
+  dailyDay: { fontFamily: hennaFonts.uiSemi, fontSize: 10, color: hennaColors.muted, marginTop: 4 },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  topRank: { width: 28, fontFamily: hennaFonts.serif, fontSize: 15, color: hennaColors.bronze },
+  topInfo: { flex: 1, minWidth: 0 },
+  topName: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  topCat: { fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, marginTop: 2 },
+  topAmt: { fontFamily: hennaFonts.serif, fontSize: 15, color: hennaColors.henna },
+
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
 });

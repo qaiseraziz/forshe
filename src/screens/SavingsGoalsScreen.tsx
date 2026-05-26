@@ -3,7 +3,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Modal,
   Alert,
@@ -13,25 +13,37 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { useCurrency } from '../context/CurrencyContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ProgressBar } from '../components/ui/ProgressBar';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { LottieBox } from '../components/ui/LottieBox';
 import { SAVINGS_CAT } from '../constants/data';
 import { dateToISO, fmtISO, todayISO, todayStr } from '../utils/dates';
 import { SavingsGoal, Transaction } from '../types';
 import { SwipeableRow } from '../components/ui/SwipeableRow';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaBadge,
+  HennaProgress,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
 
 function daysBetweenISO(aISO: string, bISO: string): number {
   const [ay, am, ad] = aISO.split('-').map(Number);
@@ -41,9 +53,14 @@ function daysBetweenISO(aISO: string, bISO: string): number {
   return Math.round((b - a) / 86400000);
 }
 
+function splitFlourish(formatted: string): { head: string; tail: string } {
+  if (formatted.length <= 3) return { head: '', tail: formatted };
+  return { head: formatted.slice(0, -3), tail: formatted.slice(-3) };
+}
+
 export default function SavingsGoalsScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { savingsGoals, setSavingsGoals, setHistory } = useData();
   const { pkrF, currencyCode } = useCurrency();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
@@ -52,7 +69,6 @@ export default function SavingsGoalsScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [contribModal, setContribModal] = useState<{ id: number | null; visible: boolean }>({ id: null, visible: false });
 
-  // Form state
   const [fName, setFName] = useState('');
   const [fTarget, setFTarget] = useState('');
   const [fSaved, setFSaved] = useState('0');
@@ -60,20 +76,20 @@ export default function SavingsGoalsScreen() {
   const [fNotes, setFNotes] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Contribution state
   const [contribAmt, setContribAmt] = useState('');
   const [contribLogExpense, setContribLogExpense] = useState(true);
 
-  // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
   const sNameRef = useRef<TextInput | null>(null);
   const sTargetRef = useRef<TextInput | null>(null);
   const sSavedRef = useRef<TextInput | null>(null);
   const sNotesRef = useRef<TextInput | null>(null);
 
-  // v1.2.4-dev: one-shot Lottie celebration overlay when a goal hits 100%.
-  // `setTimeout` is a cleaned-up one-shot (not a long-lived interval) so it's
-  // battery-safe. Dismissed automatically once the animation finishes.
   const [celebrateVisible, setCelebrateVisible] = useState(false);
+
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   const resetForm = useCallback(() => {
     setFName('');
@@ -157,7 +173,7 @@ export default function SavingsGoalsScreen() {
   const deleteGoal = useCallback((id: number) => {
     const target = savingsGoals.find(g => g.id === id);
     if (!target) return;
-    Alert.alert('Delete Goal', `Delete "${target.name}"? Progress will be lost.`, [
+    Alert.alert('Delete Goal', `Delete "${target.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -185,7 +201,6 @@ export default function SavingsGoalsScreen() {
       Alert.alert('Invalid amount', 'Contribution must be greater than zero.');
       return;
     }
-
     const goalBefore = savingsGoals.find(g => g.id === contribModal.id);
     if (!goalBefore) return;
 
@@ -211,9 +226,8 @@ export default function SavingsGoalsScreen() {
     }
 
     if (nowComplete) {
-      showToast(`🎉 ${goalBefore.name} completed!`);
+      showToast(`${goalBefore.name} achieved`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // v1.2.4-dev: play the one-shot celebrate Lottie
       setCelebrateVisible(true);
     } else {
       showToast(`+ ${pkrF(amt)} saved`);
@@ -239,125 +253,170 @@ export default function SavingsGoalsScreen() {
 
   const totalSaved = useMemo(() => savingsGoals.reduce((s, g) => s + g.savedAmount, 0), [savingsGoals]);
   const totalTarget = useMemo(() => savingsGoals.reduce((s, g) => s + g.targetAmount, 0), [savingsGoals]);
+  const totalPct = totalTarget > 0 ? Math.min(100, Math.round((totalSaved / totalTarget) * 100)) : 0;
+
+  const totalSavedSplit = splitFlourish(pkrF(totalSaved));
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Card gradient={dark ? gradients.pinkHeroDark : gradients.pinkHero}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.pink }]}>💰 Savings Goals</Text>
-              <Text style={[styles.heroNum, { color: colors.pink }]}>{pkrF(totalSaved)}</Text>
-              <Text style={[styles.heroSub, { color: colors.sub }]}>
+        <HennaHeader
+          title="Savings Goals"
+          subtitle={
+            savingsGoals.length === 0
+              ? 'Dream big, save quietly'
+              : `${savingsGoals.length} ${savingsGoals.length === 1 ? 'goal' : 'goals'} · ${totalPct}% complete`
+          }
+          onMenu={onMenu}
+        />
+
+        {/* Hero — pink */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroPink}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.pink} opacity={0.18} />
+            </View>
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.pink} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.pink }]}>Total saved</Text>
+              </View>
+              <Text style={styles.heroNum}>
+                {totalSavedSplit.head}
+                <Text style={styles.heroNumTail}>{totalSavedSplit.tail}</Text>
+              </Text>
+              <Text style={styles.heroSub}>
                 {savingsGoals.length === 0
-                  ? 'No goals yet'
+                  ? 'Tap + to set your first goal'
                   : `of ${pkrF(totalTarget)} across ${savingsGoals.length} ${savingsGoals.length === 1 ? 'goal' : 'goals'}`}
               </Text>
+              <View style={{ marginTop: 14 }}>
+                <HennaButton title="+ New goal" icon="plus" variant="primary" size="sm" onPress={openAdd} />
+              </View>
             </View>
           </View>
-        </Card>
-
-        <Button title="+ New Goal" variant="pink" onPress={openAdd} style={{ marginBottom: 12 }} />
+        </View>
 
         {sortedGoals.length === 0 ? (
-          <EmptyState
-            icon="💰"
-            text="Dream big. Tap + to start your first savings goal."
-            hint="Set a target, a deadline, and a friendly nudge."
-          />
-        ) : sortedGoals.map(g => {
-          const pct = Math.min(100, Math.round((g.savedAmount / g.targetAmount) * 100));
-          const remaining = Math.max(0, g.targetAmount - g.savedAmount);
-          const daysLeft = g.deadline ? daysBetweenISO(todayISO(), g.deadline) : null;
-          return (
-            <SwipeableRow
-              key={g.id}
-              itemLabel={g.name}
-              actions={[
-                { kind: 'edit', onPress: () => openEdit(g) },
-                { kind: 'delete', onPress: () => deleteGoal(g.id) },
-              ]}
-            >
-            <Card>
-              <View style={styles.goalHeader}>
-                <Text style={[styles.goalName, { color: colors.deep }]} numberOfLines={1}>
-                  {g.name}
-                </Text>
-                {g.completed && <Badge text="Achieved ✓" bg={colors.greenBg} color={colors.green} />}
-              </View>
-              <View style={styles.progressRow}>
-                <Text style={[styles.progressMain, { color: colors.deep }]}>
-                  {pkrF(g.savedAmount)}
-                </Text>
-                <Text style={[styles.progressOf, { color: colors.muted }]}>
-                  / {pkrF(g.targetAmount)}
-                </Text>
-              </View>
-              <ProgressBar
-                percent={pct}
-                fillColor={g.completed ? colors.green : colors.pink}
-                bgColor={colors.border}
-                height={10}
-              />
-              <View style={styles.progressMeta}>
-                <Text style={[styles.progressPct, { color: colors.pink }]}>{pct}%</Text>
-                <Text style={[styles.progressRemaining, { color: colors.muted }]}>
-                  {g.completed
-                    ? '🎉 Goal achieved!'
-                    : `${pkrF(remaining)} to go`}
-                </Text>
-              </View>
-              {g.deadline && !g.completed && (
-                <Text style={[styles.deadlineText, {
-                  color: daysLeft !== null && daysLeft < 0 ? colors.red : colors.sub,
-                }]}>
-                  📅 {fmtISO(g.deadline)}
-                  {daysLeft !== null
-                    ? daysLeft > 0 ? ` · ${daysLeft} days left` : daysLeft === 0 ? ' · due today' : ` · ${Math.abs(daysLeft)} days overdue`
-                    : ''}
-                </Text>
-              )}
-              {g.notes ? (
-                <Text style={[styles.notesText, { color: colors.muted }]} numberOfLines={2}>
-                  {g.notes}
-                </Text>
-              ) : null}
-
-              <View style={styles.goalActions}>
-                {!g.completed && (
-                  <Button title="+ Contribute" variant="pink" small onPress={() => openContrib(g.id)} style={{ flex: 1 }} />
-                )}
-                <Button title="✏️ Edit" variant="outline" small onPress={() => openEdit(g)} style={{ flex: 1 }} />
-                <Button title="🗑" variant="outline" small onPress={() => deleteGoal(g.id)} />
-              </View>
-            </Card>
-            </SwipeableRow>
-          );
-        })}
-
-        <View style={styles.bottomPad} />
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>Your dreams need a home.</Text>
+            <Text style={styles.emptyHint}>Set a target, a deadline, and the app holds them safely.</Text>
+          </View>
+        ) : (
+          <View style={styles.listWrap}>
+            {sortedGoals.map(g => {
+              const pct = Math.min(100, Math.round((g.savedAmount / g.targetAmount) * 100));
+              const remaining = Math.max(0, g.targetAmount - g.savedAmount);
+              const daysLeft = g.deadline ? daysBetweenISO(todayISO(), g.deadline) : null;
+              return (
+                <SwipeableRow
+                  key={g.id}
+                  itemLabel={g.name}
+                  actions={[
+                    { kind: 'edit', onPress: () => openEdit(g) },
+                    { kind: 'delete', onPress: () => deleteGoal(g.id) },
+                  ]}
+                >
+                  <HennaCard padding={18} style={{ marginBottom: 12 }}>
+                    <View style={styles.goalHeader}>
+                      <Text style={styles.goalName} numberOfLines={1}>
+                        {g.name}
+                      </Text>
+                      {g.completed ? <HennaBadge accent="sage">achieved</HennaBadge> : null}
+                    </View>
+                    <View style={styles.progressRow}>
+                      <Text style={styles.progressMain}>{pkrF(g.savedAmount)}</Text>
+                      <Text style={styles.progressOf}>/ {pkrF(g.targetAmount)}</Text>
+                    </View>
+                    <HennaProgress
+                      value={g.savedAmount}
+                      max={g.targetAmount}
+                      accent={g.completed ? 'sage' : 'henna'}
+                      height={10}
+                    />
+                    <View style={styles.progressMeta}>
+                      <Text style={[styles.progressPct, { color: g.completed ? hennaColors.sage : hennaColors.henna }]}>{pct}%</Text>
+                      <Text style={styles.progressRemaining}>
+                        {g.completed ? 'Goal achieved' : `${pkrF(remaining)} to go`}
+                      </Text>
+                    </View>
+                    {g.deadline && !g.completed ? (
+                      <Text
+                        style={[
+                          styles.deadlineText,
+                          {
+                            color:
+                              daysLeft !== null && daysLeft < 0
+                                ? hennaColors.henna
+                                : hennaColors.muted,
+                          },
+                        ]}
+                      >
+                        {fmtISO(g.deadline)}
+                        {daysLeft !== null
+                          ? daysLeft > 0
+                            ? ` · ${daysLeft} days left`
+                            : daysLeft === 0
+                              ? ' · due today'
+                              : ` · ${Math.abs(daysLeft)} days overdue`
+                          : ''}
+                      </Text>
+                    ) : null}
+                    {g.notes ? (
+                      <Text style={styles.notesText} numberOfLines={2}>
+                        {g.notes}
+                      </Text>
+                    ) : null}
+                    <View style={styles.goalActions}>
+                      {!g.completed && (
+                        <HennaButton
+                          title="+ Contribute"
+                          variant="primary"
+                          size="sm"
+                          onPress={() => openContrib(g.id)}
+                          style={{ flex: 1 }}
+                        />
+                      )}
+                      <HennaButton
+                        title="Edit"
+                        icon="pencil"
+                        variant="outline"
+                        size="sm"
+                        onPress={() => openEdit(g)}
+                      />
+                    </View>
+                  </HennaCard>
+                </SwipeableRow>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       {/* Add / Edit Modal */}
       <Modal visible={editModal} transparent animationType="slide" onRequestClose={closeEdit}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.bg2 }]}>
+          <View style={styles.modalBox}>
             <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={[styles.modalTitle, { color: colors.deep }]}>
-                {editingId !== null ? 'Edit Goal' : 'New Savings Goal'}
-              </Text>
-              <Input
+              <Text style={styles.modalTitle}>{editingId !== null ? 'Edit goal' : 'New savings goal'}</Text>
+              <HennaInput
                 ref={sNameRef}
                 label="Name"
-                placeholder="e.g. Umrah, Car, School Fees"
+                placeholder="e.g. Umrah, Car, School fees"
                 value={fName}
                 onChangeText={setFName}
-                style={{ marginBottom: 10 }}
+                containerStyle={{ marginBottom: 10 }}
                 autoFocus
                 returnKeyType="next"
                 blurOnSubmit={false}
@@ -365,7 +424,7 @@ export default function SavingsGoalsScreen() {
               />
               <View style={styles.row2}>
                 <View style={{ flex: 1 }}>
-                  <Input
+                  <HennaInput
                     ref={sTargetRef}
                     label={`Target (${currencyCode})`}
                     placeholder="50000"
@@ -378,7 +437,7 @@ export default function SavingsGoalsScreen() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Input
+                  <HennaInput
                     ref={sSavedRef}
                     label={`Saved (${currencyCode})`}
                     placeholder="0"
@@ -392,24 +451,27 @@ export default function SavingsGoalsScreen() {
                 </View>
               </View>
 
-              <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 12 }]}>DEADLINE (OPTIONAL)</Text>
+              <Text style={[hennaTextStyles.eyebrow, { marginTop: 14, marginBottom: 8 }]}>Deadline (optional)</Text>
               <View style={styles.deadlineRow}>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setShowDatePicker(true)}
-                  style={[styles.dateBtn, { backgroundColor: colors.bg3 }]}
+                  style={styles.dateBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pick deadline"
                 >
-                  <Text style={[styles.dateText, { color: colors.text }]}>
-                    📅 {fDeadline ? fmtISO(dateToISO(fDeadline)) : 'No deadline'}
+                  <HennaIcon name="calendar" size={14} color={hennaColors.ink2} />
+                  <Text style={styles.dateBtnText}>
+                    {fDeadline ? fmtISO(dateToISO(fDeadline)) : 'No deadline'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
                 {fDeadline && (
-                  <TouchableOpacity
+                  <Pressable
                     onPress={() => setFDeadline(null)}
-                    style={[styles.clearBtn, { backgroundColor: colors.bg3 }]}
+                    style={styles.clearBtn}
                     accessibilityLabel="Clear deadline"
                   >
-                    <Text style={{ color: colors.muted, fontSize: 14 }}>✕</Text>
-                  </TouchableOpacity>
+                    <HennaIcon name="close" size={13} color={hennaColors.muted} />
+                  </Pressable>
                 )}
               </View>
               {showDatePicker && (
@@ -421,21 +483,26 @@ export default function SavingsGoalsScreen() {
                 />
               )}
 
-              <Input
+              <HennaInput
                 ref={sNotesRef}
                 label="Notes (optional)"
                 placeholder="why this matters"
                 value={fNotes}
                 onChangeText={setFNotes}
                 multiline
-                style={{ marginTop: 12 }}
+                containerStyle={{ marginTop: 12 }}
                 returnKeyType="done"
                 onSubmitEditing={saveGoal}
               />
 
               <View style={styles.modalBtns}>
-                <Button title="Cancel" variant="outline" small onPress={closeEdit} style={{ flex: 1 }} />
-                <Button title={editingId !== null ? 'Save' : 'Create'} variant="pink" small onPress={saveGoal} style={{ flex: 1 }} />
+                <HennaButton title="Cancel" variant="outline" onPress={closeEdit} style={{ flex: 1 }} />
+                <HennaButton
+                  title={editingId !== null ? 'Save' : 'Create'}
+                  variant="primary"
+                  onPress={saveGoal}
+                  style={{ flex: 1 }}
+                />
               </View>
             </ScrollView>
           </View>
@@ -443,28 +510,43 @@ export default function SavingsGoalsScreen() {
       </Modal>
 
       {/* Contribution Modal */}
-      <Modal visible={contribModal.visible} transparent animationType="fade" onRequestClose={() => setContribModal({ id: null, visible: false })}>
+      <Modal
+        visible={contribModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setContribModal({ id: null, visible: false })}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.bg2 }]}>
-            <Text style={[styles.modalTitle, { color: colors.deep }]}>Add Contribution</Text>
-            <Input label={`Amount (${currencyCode})`} placeholder="1000" value={contribAmt} onChangeText={setContribAmt} keyboardType="numeric" autoFocus />
-            <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <View style={styles.modalBoxSm}>
+            <Text style={styles.modalTitle}>Add contribution</Text>
+            <HennaInput
+              label={`Amount (${currencyCode})`}
+              placeholder="1000"
+              value={contribAmt}
+              onChangeText={setContribAmt}
+              keyboardType="numeric"
+              autoFocus
+            />
+            <View style={styles.switchRow}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: colors.deep }]}>Log as expense</Text>
-                <Text style={[styles.switchSub, { color: colors.muted }]}>
-                  Adds to your history under {SAVINGS_CAT}
-                </Text>
+                <Text style={styles.switchTitle}>Log as expense</Text>
+                <Text style={styles.switchSub}>Records under {SAVINGS_CAT}</Text>
               </View>
               <Switch
                 value={contribLogExpense}
                 onValueChange={setContribLogExpense}
-                trackColor={{ false: colors.border, true: colors.pink }}
-                thumbColor="#fff"
+                trackColor={{ false: hennaColors.line, true: hennaColors.henna }}
+                thumbColor={hennaColors.paper}
               />
             </View>
             <View style={styles.modalBtns}>
-              <Button title="Cancel" variant="outline" small onPress={() => setContribModal({ id: null, visible: false })} style={{ flex: 1 }} />
-              <Button title="Add" variant="pink" small onPress={saveContrib} style={{ flex: 1 }} />
+              <HennaButton
+                title="Cancel"
+                variant="outline"
+                onPress={() => setContribModal({ id: null, visible: false })}
+                style={{ flex: 1 }}
+              />
+              <HennaButton title="Add" variant="primary" onPress={saveContrib} style={{ flex: 1 }} />
             </View>
           </View>
         </View>
@@ -472,9 +554,6 @@ export default function SavingsGoalsScreen() {
 
       <Toast toast={toast} dismiss={dismissToast} />
 
-      {/* v1.2.4-dev: one-shot celebration overlay when a goal hits 100%.
-          LottieBox hard-codes loop={false}; the onAnimationFinish callback
-          auto-dismisses the overlay so there's no lingering render. */}
       {celebrateVisible && (
         <View style={styles.celebrateOverlay} pointerEvents="none">
           <LottieBox
@@ -485,43 +564,136 @@ export default function SavingsGoalsScreen() {
           />
         </View>
       )}
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 140 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
-  heroNum: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 38, lineHeight: 44 },
-  heroSub: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  goalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10 },
-  goalName: { flex: 1, fontSize: 17, fontFamily: 'Outfit-Bold' },
+  scrollContent: { paddingBottom: 180 },
+
+  // Hero
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
+  },
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroNum: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 36,
+    lineHeight: 40,
+    color: hennaColors.ink,
+    letterSpacing: -0.5,
+  },
+  heroNumTail: {
+    fontFamily: hennaFonts.flourish,
+    color: hennaColors.pink,
+  },
+  heroSub: {
+    marginTop: 6,
+    fontFamily: hennaFonts.ui,
+    fontSize: 12,
+    color: hennaColors.ink2,
+  },
+
+  // Empty
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
+
+  // List
+  listWrap: { paddingHorizontal: 16, paddingTop: 18 },
+  goalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  goalName: { flex: 1, fontFamily: hennaFonts.serif, fontSize: 17, color: hennaColors.ink },
   progressRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 8 },
-  progressMain: { fontSize: 22, fontFamily: 'Outfit-Bold' },
-  progressOf: { fontSize: 14, fontFamily: 'Outfit-Regular' },
+  progressMain: { fontFamily: hennaFonts.serif, fontSize: 20, color: hennaColors.ink },
+  progressOf: { fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted },
   progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  progressPct: { fontSize: 14, fontFamily: 'Outfit-Bold' },
-  progressRemaining: { fontSize: 13, fontFamily: 'Outfit-Regular' },
-  deadlineText: { fontSize: 13, fontFamily: 'Outfit-Regular', marginTop: 8 },
-  notesText: { fontSize: 13, fontFamily: 'Outfit-Regular', fontStyle: 'italic', marginTop: 6 },
+  progressPct: { fontFamily: hennaFonts.uiSemi, fontSize: 13 },
+  progressRemaining: { fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted },
+  deadlineText: { fontFamily: hennaFonts.ui, fontSize: 12, marginTop: 8 },
+  notesText: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: hennaColors.muted,
+    marginTop: 6,
+  },
   goalActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalBox: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '88%' },
-  modalTitle: { fontSize: 22, fontFamily: 'PlayfairDisplay-Bold', marginBottom: 18 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(60,40,20,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalBox: {
+    backgroundColor: hennaColors.pearl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '88%',
+  },
+  modalBoxSm: {
+    backgroundColor: hennaColors.pearl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontFamily: hennaFonts.serif,
+    fontSize: 22,
+    color: hennaColors.ink,
+    marginBottom: 16,
+  },
   row2: { flexDirection: 'row', gap: 10 },
-  fieldLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
   deadlineRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  dateBtn: { flex: 1, borderRadius: 16, padding: 16, minHeight: 54, justifyContent: 'center' },
-  dateText: { fontSize: 16, fontFamily: 'Outfit-Regular' },
-  clearBtn: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  switchTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
-  switchSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 18 },
-  bottomPad: { height: 40 },
+  dateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: hennaColors.paper2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    minHeight: 44,
+  },
+  dateBtnText: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 13,
+    color: hennaColors.ink,
+  },
+  clearBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: hennaColors.paper2,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+  },
+  switchTitle: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  switchSub: { fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, marginTop: 2 },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 18 },
+
   celebrateOverlay: {
     position: 'absolute',
     top: 0,
