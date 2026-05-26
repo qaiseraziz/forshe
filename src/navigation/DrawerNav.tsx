@@ -2,17 +2,15 @@ import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ScrollView,
-  Image,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../context/ThemeContext';
 import { BottomTabs } from './BottomTabs';
 import MaidScreen from '../screens/MaidScreen';
 import CycleScreen from '../screens/CycleScreen';
@@ -30,88 +28,89 @@ import PrayerTimesScreen from '../screens/PrayerTimesScreen';
 import PrayerSettingsScreen from '../screens/PrayerSettingsScreen';
 import FastingCalendarScreen from '../screens/FastingCalendarScreen';
 import CloudAuthScreen from '../screens/CloudAuthScreen';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import { HennaIcon } from '../components/henna';
+import type { HennaIconName } from '../components/henna';
 
-// Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const Drawer = createDrawerNavigator();
 
-type DrawerItemDef = { name: string; icon: string; label: string };
-type DrawerGroup = { title: string; icon: string; items: DrawerItemDef[] };
+type DrawerItemDef = { name: string; label: string; icon: HennaIconName };
+type DrawerGroup = { title: string; icon: HennaIconName; items: DrawerItemDef[] };
 
-// v1.2.3-dev: 6 grouped sections (Today stays outside, standalone at the top).
-// Spiritual split out of Personal — Islamic features get their own home (Qibla, Duas, Quran
-// bookmarks, Zakat calc, Islamic events will land here). Personal goes back to wellness-only.
+// Phase 6F: Henna drawer with collapsible groups preserved. Icons are
+// Henna hand-drawn glyphs instead of emoji.
 export const DRAWER_GROUPS: DrawerGroup[] = [
   {
     title: 'Money',
-    icon: '💰',
+    icon: 'money',
     items: [
-      { name: 'Expenses', icon: '💸', label: 'Expenses' },
-      { name: 'SavingsGoals', icon: '🎯', label: 'Savings Goals' },
-      { name: 'Insights', icon: '📈', label: 'Insights' },
-      { name: 'MonthlyReport', icon: '📊', label: 'Monthly Report' },
+      { name: 'Expenses',      icon: 'wallet', label: 'Expenses' },
+      { name: 'SavingsGoals',  icon: 'goal',   label: 'Savings Goals' },
+      { name: 'Insights',      icon: 'chart',  label: 'Insights' },
+      { name: 'MonthlyReport', icon: 'report', label: 'Monthly Report' },
     ],
   },
   {
     title: 'Kitchen',
-    icon: '🍽️',
+    icon: 'pot',
     items: [
-      { name: 'Cooking', icon: '🍳', label: 'Cooking' },
-      { name: 'Recipes', icon: '📖', label: 'Recipe Book' },
-      { name: 'Shopping', icon: '🛒', label: 'Shopping List' },
-      { name: 'Inventory', icon: '📦', label: 'Inventory' },
+      { name: 'Cooking',   icon: 'utensils', label: 'Cooking' },
+      { name: 'Recipes',   icon: 'book',     label: 'Recipe Book' },
+      { name: 'Shopping',  icon: 'cart',     label: 'Shopping List' },
+      { name: 'Inventory', icon: 'box',      label: 'Inventory' },
     ],
   },
   {
     title: 'Household',
-    icon: '🏠',
+    icon: 'house',
     items: [
-      { name: 'MaidTasks', icon: '🧹', label: 'Maid Tasks' },
-      { name: 'Remind', icon: '🔔', label: 'Reminders' },
-      { name: 'Vendors', icon: '💼', label: 'Vendors' },
+      { name: 'MaidTasks', icon: 'broom', label: 'Maid Tasks' },
+      { name: 'Remind',    icon: 'bell',  label: 'Reminders' },
+      { name: 'Vendors',   icon: 'list',  label: 'Vendors' },
     ],
   },
   {
     title: 'Personal',
-    icon: '💝',
+    icon: 'heart',
     items: [
-      { name: 'CycleTracker', icon: '🌸', label: 'Cycle Tracker' },
-      { name: 'BodyStats', icon: '💪', label: 'Body Stats' },
+      { name: 'CycleTracker', icon: 'cycle', label: 'Cycle Tracker' },
+      { name: 'BodyStats',    icon: 'body',  label: 'Body Stats' },
     ],
   },
   {
     title: 'Spiritual',
-    icon: '🕌',
+    icon: 'mosque',
     items: [
-      { name: 'PrayerTimes', icon: '🕌', label: 'Prayer Times' },
-      { name: 'Fasting', icon: '🌙', label: 'Fasting' },
+      { name: 'PrayerTimes', icon: 'prayer', label: 'Prayer Times' },
+      { name: 'Fasting',     icon: 'moon',   label: 'Fasting' },
     ],
   },
   {
     title: 'System',
-    icon: '⚙️',
+    icon: 'gear',
     items: [
-      { name: 'Backup', icon: '💾', label: 'Backup & Restore' },
-      { name: 'Settings', icon: '⚙️', label: 'Settings' },
+      { name: 'Backup',   icon: 'box',  label: 'Backup & Restore' },
+      { name: 'Settings', icon: 'gear', label: 'Settings' },
     ],
   },
 ];
 
-const TODAY_ITEM: DrawerItemDef = { name: 'Home', icon: '🏠', label: 'Today' };
-
-// Tab-names inside BottomTabs (hosted under Drawer route "Home")
+const TODAY_ITEM: DrawerItemDef = { name: 'Home', icon: 'home', label: 'Today' };
 const TAB_NAMES = new Set(['Today', 'Expenses', 'Cooking', 'Remind']);
 
 const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) {
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { state, navigation } = props;
   const currentDrawerRoute = state.routes[state.index].name;
 
-  // Resolve the currently active leaf route — if drawer is on "Home", look at the nested tab
   let activeRoute = currentDrawerRoute;
   if (currentDrawerRoute === 'Home') {
     const homeState = state.routes[state.index].state;
@@ -122,7 +121,6 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
     }
   }
 
-  // Default: all groups expanded
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const toggleGroup = useCallback((title: string) => {
@@ -132,7 +130,6 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
 
   const navigateTo = useCallback(
     (routeName: string) => {
-      // Tab routes live inside the "Home" drawer screen — nest the navigation
       if (TAB_NAMES.has(routeName)) {
         navigation.navigate('Home', { screen: routeName });
       } else {
@@ -143,96 +140,104 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
   );
 
   return (
-    <View style={[styles.drawerContainer, { backgroundColor: colors.bg }]}>
-      <View style={[styles.drawerHeader, { paddingTop: insets.top + 20 }]}>
-        <Image source={require('../../assets/logo.png')} style={styles.drawerLogoImg} resizeMode="contain" />
-        <Text style={[styles.drawerTitle, { color: colors.deep }]}>ForSHE</Text>
-        <Text style={[styles.drawerSlogan, { color: colors.muted }]}>Your home, your way</Text>
+    <View style={[styles.container, { paddingTop: insets.top + 18 }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.logo}>
+          <HennaIcon name="sparkle" size={22} color={hennaColors.henna} />
+        </View>
+        <View>
+          <Text style={styles.brand}>ForSHE</Text>
+          <Text style={styles.tagline}>Your home, your way</Text>
+        </View>
       </View>
 
-      <View style={[styles.drawerDivider, { backgroundColor: colors.border }]} />
-
-      <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
-        {/* Today — standalone row above groups */}
-        {(() => {
-          const isActive = activeRoute === 'Today';
-          return (
-            <TouchableOpacity
-              key={TODAY_ITEM.name}
+      {/* Today standalone */}
+      {(() => {
+        const isActive = activeRoute === 'Today';
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Today home"
+            accessibilityState={{ selected: isActive }}
+            onPress={() => navigateTo('Today')}
+            style={({ pressed }) => [
+              styles.todayRow,
+              isActive && { backgroundColor: hennaColors.hennaBg },
+              { opacity: pressed ? 0.92 : 1 },
+            ]}
+          >
+            <HennaIcon
+              name={TODAY_ITEM.icon}
+              size={18}
+              color={isActive ? hennaColors.henna : hennaColors.ink2}
+            />
+            <Text
               style={[
-                styles.drawerItem,
-                styles.drawerItemTop,
-                isActive && { backgroundColor: 'rgba(200,134,10,0.1)' },
+                styles.todayText,
+                { color: isActive ? hennaColors.henna : hennaColors.ink2 },
               ]}
-              activeOpacity={0.7}
-              onPress={() => navigateTo('Today')}
-              accessibilityRole="button"
-              accessibilityLabel="Today home"
             >
-              <Text style={styles.drawerItemIcon}>{TODAY_ITEM.icon}</Text>
-              <Text
-                style={[
-                  styles.drawerItemLabel,
-                  { color: isActive ? colors.gold : colors.sub },
-                ]}
-              >
-                {TODAY_ITEM.label}
-              </Text>
-              {isActive && (
-                <View style={[styles.activeIndicator, { backgroundColor: colors.gold }]} />
-              )}
-            </TouchableOpacity>
-          );
-        })()}
+              {TODAY_ITEM.label}
+            </Text>
+            {isActive ? <View style={styles.activeBar} /> : null}
+          </Pressable>
+        );
+      })()}
 
-        {/* 5 groups */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {DRAWER_GROUPS.map(group => {
           const isCollapsed = !!collapsed[group.title];
           return (
             <View key={group.title} style={styles.group}>
-              <TouchableOpacity
-                style={styles.groupHeader}
-                activeOpacity={0.7}
-                onPress={() => toggleGroup(group.title)}
+              <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.title}`}
+                onPress={() => toggleGroup(group.title)}
+                style={styles.groupHeader}
               >
-                <Text style={styles.groupIcon}>{group.icon}</Text>
-                <Text style={[styles.groupTitle, { color: colors.sub }]}>{group.title}</Text>
-                <Text style={[styles.groupChevron, { color: colors.muted }]}>
-                  {isCollapsed ? '▸' : '▾'}
+                <HennaIcon name={group.icon} size={14} color={hennaColors.henna} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.henna, flex: 1 }]}>
+                  {group.title}
                 </Text>
-              </TouchableOpacity>
+                <HennaIcon
+                  name={isCollapsed ? 'chev-right' : 'chev-down'}
+                  size={12}
+                  color={hennaColors.muted}
+                />
+              </Pressable>
 
               {!isCollapsed &&
                 group.items.map(item => {
                   const isActive = activeRoute === item.name;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={item.name}
-                      style={[
-                        styles.drawerItem,
-                        styles.drawerItemNested,
-                        isActive && { backgroundColor: 'rgba(200,134,10,0.1)' },
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => navigateTo(item.name)}
                       accessibilityRole="button"
                       accessibilityLabel={item.label}
+                      accessibilityState={{ selected: isActive }}
+                      onPress={() => navigateTo(item.name)}
+                      style={({ pressed }) => [
+                        styles.itemRow,
+                        isActive && { backgroundColor: hennaColors.hennaBg },
+                        { opacity: pressed ? 0.92 : 1 },
+                      ]}
                     >
-                      <Text style={styles.drawerItemIcon}>{item.icon}</Text>
+                      <HennaIcon
+                        name={item.icon}
+                        size={16}
+                        color={isActive ? hennaColors.henna : hennaColors.ink2}
+                      />
                       <Text
                         style={[
-                          styles.drawerItemLabel,
-                          { color: isActive ? colors.gold : colors.sub },
+                          styles.itemText,
+                          { color: isActive ? hennaColors.henna : hennaColors.ink2 },
                         ]}
                       >
                         {item.label}
                       </Text>
-                      {isActive && (
-                        <View style={[styles.activeIndicator, { backgroundColor: colors.gold }]} />
-                      )}
-                    </TouchableOpacity>
+                      {isActive ? <View style={styles.activeBar} /> : null}
+                    </Pressable>
                   );
                 })}
             </View>
@@ -240,8 +245,8 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
         })}
       </ScrollView>
 
-      <View style={[styles.drawerFooter, { borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={[styles.footerText, { color: colors.muted }]}>ForSHE v1.2.17</Text>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <Text style={styles.footerText}>ForSHE v1.2.17</Text>
       </View>
     </View>
   );
@@ -250,8 +255,6 @@ const CustomDrawerContent = React.memo(function CustomDrawerContent(props: any) 
 const renderDrawerContent = (props: any) => <CustomDrawerContent {...props} />;
 
 export function DrawerNav() {
-  const { colors } = useTheme();
-
   return (
     <Drawer.Navigator
       drawerContent={renderDrawerContent}
@@ -259,10 +262,10 @@ export function DrawerNav() {
         headerShown: false,
         drawerType: 'front',
         drawerStyle: {
-          width: 280,
-          backgroundColor: colors.bg,
+          width: 290,
+          backgroundColor: hennaColors.pearl,
         },
-        overlayColor: 'rgba(0,0,0,0.4)',
+        overlayColor: 'rgba(60,40,20,0.45)',
       }}
     >
       <Drawer.Screen name="Home" component={BottomTabs} />
@@ -287,107 +290,100 @@ export function DrawerNav() {
 }
 
 const styles = StyleSheet.create({
-  drawerContainer: {
+  container: {
     flex: 1,
+    backgroundColor: hennaColors.pearl,
   },
-  drawerHeader: {
+  header: {
     paddingHorizontal: 24,
-    paddingBottom: 20,
-  },
-  drawerLogoImg: {
-    width: 64,
-    height: 64,
-    marginBottom: 8,
-  },
-  drawerTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 26,
-  },
-  drawerSlogan: {
-    fontFamily: 'Outfit-Regular',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  drawerDivider: {
-    height: 1,
-    marginHorizontal: 20,
-    marginBottom: 8,
-  },
-  drawerScroll: {
-    flex: 1,
-    paddingHorizontal: 12,
-  },
-  drawerItem: {
+    paddingBottom: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    marginBottom: 4,
-    position: 'relative',
-    minHeight: 44,
+    gap: 12,
   },
-  drawerItemTop: {
-    marginTop: 4,
-    marginBottom: 8,
+  logo: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: hennaColors.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: hennaColors.line,
   },
-  drawerItemNested: {
-    marginLeft: 8,
-    paddingVertical: 12,
-  },
-  drawerItemIcon: {
+  brand: {
+    fontFamily: hennaFonts.serif,
     fontSize: 22,
-    marginRight: 16,
+    color: hennaColors.ink,
   },
-  drawerItemLabel: {
-    fontFamily: 'Outfit-SemiBold',
-    fontSize: 16,
+  tagline: {
+    marginTop: 1,
+    fontFamily: hennaFonts.ui,
+    fontSize: 11,
+    color: hennaColors.muted,
+  },
+
+  todayRow: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 44,
+    position: 'relative',
+  },
+  todayText: {
     flex: 1,
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 14,
   },
-  activeIndicator: {
-    width: 4,
-    height: 24,
-    borderRadius: 2,
-    position: 'absolute',
-    right: 8,
-  },
-  group: {
-    marginTop: 6,
-    marginBottom: 4,
-  },
+
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 16 },
+  group: { marginTop: 14 },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     minHeight: 44,
   },
-  groupIcon: {
-    fontSize: 14,
-    marginRight: 10,
+  itemRow: {
+    width: '100%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 44,
+    position: 'relative',
   },
-  groupTitle: {
+  itemText: {
     flex: 1,
-    fontFamily: 'Outfit-Bold',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    fontFamily: hennaFonts.uiMedium,
+    fontSize: 13,
   },
-  groupChevron: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Bold',
-    marginLeft: 6,
-    width: 16,
-    textAlign: 'center',
+  activeBar: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: hennaColors.henna,
   },
-  drawerFooter: {
+
+  footer: {
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 14,
     borderTopWidth: 1,
+    borderTopColor: hennaColors.line,
   },
   footerText: {
-    fontFamily: 'Outfit-Regular',
-    fontSize: 12,
+    fontFamily: hennaFonts.ui,
+    fontSize: 11,
+    color: hennaColors.muted,
   },
 });
