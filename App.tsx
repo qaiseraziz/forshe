@@ -15,6 +15,14 @@ import {
   Outfit_600SemiBold,
   Outfit_700Bold,
 } from '@expo-google-fonts/outfit';
+import { Marcellus_400Regular } from '@expo-google-fonts/marcellus';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+} from '@expo-google-fonts/dm-sans';
+import { CormorantGaramond_600SemiBold_Italic } from '@expo-google-fonts/cormorant-garamond';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { DataProvider, useData } from './src/context/DataContext';
@@ -129,6 +137,14 @@ export default function App() {
     'Outfit-Medium': Outfit_500Medium,
     'Outfit-SemiBold': Outfit_600SemiBold,
     'Outfit-Bold': Outfit_700Bold,
+    // Henna & Pearl redesign (phase 2) — keys match @expo-google-fonts export names
+    // so hennaTokens.ts can reference them directly.
+    Marcellus_400Regular,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
+    CormorantGaramond_600SemiBold_Italic,
   });
 
   const onLayoutRootView = useCallback(async () => {
