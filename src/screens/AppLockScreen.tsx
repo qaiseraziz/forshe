@@ -2,7 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Vibration, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../context/ThemeContext';
+import { hennaColors, hennaFonts, hennaGradients } from '../constants/hennaTokens';
+
+const colors = {
+  deep: hennaColors.ink,
+  muted: hennaColors.muted,
+  border: hennaColors.line,
+  bg3: hennaColors.paper2,
+  surfaceMuted: hennaColors.paper2,
+  gold: hennaColors.henna,
+  red: hennaColors.henna,
+};
 
 interface Props {
   onUnlock: () => void;
@@ -13,7 +23,6 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 30_000; // 30 seconds
 
 export default function AppLockScreen({ onUnlock, storedPin }: Props) {
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
@@ -74,7 +83,7 @@ export default function AppLockScreen({ onUnlock, storedPin }: Props) {
   const deleteLast = () => setPin(p => p.slice(0, -1));
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
       <View style={[styles.inner, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
         <Image source={require('../../assets/logo.png')} style={styles.lockLogo} resizeMode="contain" />
         <Text style={[styles.title, { color: colors.deep }]}>ForSHE</Text>
@@ -134,13 +143,13 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   inner: { flex: 1, alignItems: 'center', paddingHorizontal: 30 },
   lockLogo: { width: 100, height: 100, marginBottom: 16 },
-  title: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 28, marginBottom: 4 },
-  subtitle: { fontFamily: 'Outfit-Regular', fontSize: 15, marginBottom: 40 },
+  title: { fontFamily: hennaFonts.serif, fontSize: 28, marginBottom: 4 },
+  subtitle: { fontFamily: hennaFonts.ui, fontSize: 14, marginBottom: 40 },
   pinDots: { flexDirection: 'row', gap: 20, marginBottom: 16 },
   pinDot: {
     width: 16, height: 16, borderRadius: 8, borderWidth: 2,
   },
-  errorText: { fontFamily: 'Outfit-SemiBold', fontSize: 14, marginBottom: 20 },
+  errorText: { fontFamily: hennaFonts.uiSemi, fontSize: 13, marginBottom: 20 },
   numPad: {
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center',
     maxWidth: 300, gap: 16, marginTop: 24,
@@ -150,5 +159,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   numKeyEmpty: { backgroundColor: 'transparent' },
-  numKeyText: { fontFamily: 'Outfit-Bold', fontSize: 26 },
+  numKeyText: { fontFamily: hennaFonts.serif, fontSize: 24 },
 });

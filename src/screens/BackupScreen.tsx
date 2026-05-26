@@ -2,13 +2,9 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Alert, StyleSheet, Modal, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '../context/ThemeContext';
+import { useNavigation, useFocusEffect, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Divider } from '../components/ui/Divider';
 import { Toast, useToast } from '../components/ui/Toast';
 import {
   exportBackup, exportEncryptedBackup, exportCSV, importBackup,
@@ -19,8 +15,67 @@ import { useCloudSession } from '../hooks/useCloudSession';
 import { supabase } from '../lib/supabase';
 import { DAYS } from '../constants/data';
 import { useCurrency } from '../context/CurrencyContext';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { BackupData } from '../types';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+  DividerOrnament,
+} from '../components/henna';
+
+const colors = {
+  gold: hennaColors.henna,
+  goldBg: hennaColors.hennaBg,
+  green: hennaColors.sage,
+  greenBg: hennaColors.sageBg,
+  red: hennaColors.henna,
+  redBg: hennaColors.hennaBg,
+  blue: hennaColors.plum,
+  blueBg: hennaColors.plumBg,
+  purple: hennaColors.plum,
+  purpleBg: hennaColors.plumBg,
+  pink: hennaColors.pink,
+  pinkBg: hennaColors.pinkBg,
+  deep: hennaColors.ink,
+  text: hennaColors.ink,
+  sub: hennaColors.ink2,
+  muted: hennaColors.muted,
+  border: hennaColors.line,
+  bg: hennaColors.pearl,
+  bg2: hennaColors.paper,
+  bg3: hennaColors.paper2,
+  surfaceMuted: hennaColors.paper2,
+};
+
+const Card = HennaCard as any;
+const Button = HennaButton as any;
+const Divider = ({ label }: { label: string }) => (
+  <View style={{ paddingHorizontal: 8, paddingVertical: 14 }}>
+    <DividerOrnament color={hennaColors.henna} />
+    <Text style={{
+      marginTop: 8,
+      textAlign: 'center',
+      fontFamily: hennaFonts.uiSemi,
+      fontSize: 10,
+      color: hennaColors.muted,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+    }}>{label}</Text>
+  </View>
+);
+const DrawerMenuButton = () => null;
 
 type PwModalMode =
   | { kind: 'export' }
@@ -29,7 +84,6 @@ type PwModalMode =
   | { kind: 'cloudRestore'; fileName: string };
 
 export default function BackupScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user, loading: sessionLoading } = useCloudSession();
@@ -345,15 +399,21 @@ export default function BackupScreen() {
 
   const needsConfirmField = pwModal?.kind === 'export' || pwModal?.kind === 'cloudUpload';
 
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
+    <HennaHeader title="Backup" subtitle="Keep your data safe" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[styles.content, { paddingTop: 0 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Hero Card */}
-      <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
+      <Card>
         <View style={styles.heroHeaderRow}>
           <DrawerMenuButton />
           <View style={styles.heroHeaderText}>

@@ -3,9 +3,16 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { useTheme } from '../context/ThemeContext';
-import { Button } from '../components/ui/Button';
 import { LottieBox } from '../components/ui/LottieBox';
+import { hennaColors, hennaFonts, hennaGradients } from '../constants/hennaTokens';
+import { HennaButton, HennaIcon } from '../components/henna';
+
+const colors = {
+  deep: hennaColors.ink,
+  muted: hennaColors.muted,
+  sub: hennaColors.ink2,
+  gold: hennaColors.henna,
+};
 
 interface Props {
   onUnlock: () => void;
@@ -20,7 +27,6 @@ interface Props {
  * cancel/failure without re-rendering the whole tree.
  */
 export default function BiometricLockScreen({ onUnlock, onFallbackToPin, hasPinFallback }: Props) {
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<'idle' | 'prompting' | 'failed' | 'unavailable'>('idle');
 
@@ -54,7 +60,7 @@ export default function BiometricLockScreen({ onUnlock, onFallbackToPin, hasPinF
   }, [runAuth]);
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
       <View style={[styles.inner, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
         <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
         <Text style={[styles.title, { color: colors.deep }]}>ForSHE</Text>
@@ -66,7 +72,7 @@ export default function BiometricLockScreen({ onUnlock, onFallbackToPin, hasPinF
           {status === 'prompting' ? (
             <LottieBox animation="pulse" size={120} fallbackEmoji="🔐" />
           ) : (
-            <Text style={styles.bigIcon}>🔒</Text>
+            <HennaIcon name="lock" size={64} color={hennaColors.henna} />
           )}
         </View>
 
@@ -78,7 +84,7 @@ export default function BiometricLockScreen({ onUnlock, onFallbackToPin, hasPinF
         </Text>
 
         {status !== 'prompting' && (
-          <Button title="🔐 Try Biometric" variant="gold" full onPress={runAuth} style={styles.btn} />
+          <HennaButton title="Try biometric" icon="lock" variant="primary" full onPress={runAuth} style={styles.btn} />
         )}
 
         {hasPinFallback && onFallbackToPin && (
@@ -100,12 +106,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   inner: { flex: 1, paddingHorizontal: 32, alignItems: 'center' },
   logo: { width: 80, height: 80, marginBottom: 12 },
-  title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 32 },
-  subtitle: { fontFamily: 'Outfit-Regular', fontSize: 13, marginTop: 2, marginBottom: 40 },
+  title: { fontFamily: hennaFonts.serif, fontSize: 28 },
+  subtitle: { fontFamily: hennaFonts.ui, fontSize: 13, marginTop: 2, marginBottom: 40 },
   iconWrap: { marginVertical: 32 },
-  bigIcon: { fontSize: 72 },
-  hint: { fontSize: 14, fontFamily: 'Outfit-Regular', textAlign: 'center', marginBottom: 24, minHeight: 22 },
+  hint: { fontFamily: hennaFonts.ui, fontSize: 13, textAlign: 'center', marginBottom: 24, minHeight: 22 },
   btn: { marginBottom: 12 },
   linkBtn: { minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  linkText: { fontFamily: 'Outfit-SemiBold', fontSize: 14 },
+  linkText: { fontFamily: hennaFonts.uiSemi, fontSize: 13 },
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
 import { LottieBox } from '../components/ui/LottieBox';
+import { hennaColors } from '../constants/hennaTokens';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,7 +16,6 @@ interface Props {
  * The 2.5s dismiss timer covers the animation + fade.
  */
 export default function SplashScreen({ onFinish }: Props) {
-  const { colors } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1.1)).current;
 
@@ -39,7 +38,7 @@ export default function SplashScreen({ onFinish }: Props) {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.gradientStart }]}>
+    <View style={[styles.container, { backgroundColor: hennaColors.pearl }]}>
       <Animated.Image
         source={require('../../assets/splash.png')}
         style={[styles.splashImage, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}

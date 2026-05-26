@@ -6,14 +6,50 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
-import { useTheme } from '../context/ThemeContext';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
-import { gradients } from '../constants/colors';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaInput,
+  DividerOrnament,
+} from '../components/henna';
+
+const colors = {
+  gold: hennaColors.henna,
+  goldBg: hennaColors.hennaBg,
+  green: hennaColors.sage,
+  greenBg: hennaColors.sageBg,
+  red: hennaColors.henna,
+  redBg: hennaColors.hennaBg,
+  blue: hennaColors.plum,
+  blueBg: hennaColors.plumBg,
+  purple: hennaColors.plum,
+  purpleBg: hennaColors.plumBg,
+  pink: hennaColors.pink,
+  pinkBg: hennaColors.pinkBg,
+  deep: hennaColors.ink,
+  text: hennaColors.ink,
+  sub: hennaColors.ink2,
+  muted: hennaColors.muted,
+  border: hennaColors.line,
+  bg: hennaColors.pearl,
+  bg2: hennaColors.paper,
+  bg3: hennaColors.paper2,
+};
+
+const Card = HennaCard as any;
+const Button = HennaButton as any;
+const Input = HennaInput as any;
+const DrawerMenuButton = () => null;
 import {
   METHOD_OPTIONS,
   HIGH_LAT_OPTIONS,
@@ -42,8 +78,12 @@ const HIJRI_OFFSET_OPTIONS: { key: HijriOffset; label: string }[] = [
 ];
 
 export default function PrayerSettingsScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
   const { prayerSettings, setPrayerSettings } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -211,14 +251,15 @@ export default function PrayerSettingsScreen() {
   }, [prayerSettings, setPrayerSettings, showToast]);
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
+      <HennaHeader title="Prayer Settings" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 140 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 0, paddingBottom: 140 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
-        <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero}>
+        <Card>
           <View style={styles.heroHeaderRow}>
             <DrawerMenuButton />
             <View style={styles.heroHeaderText}>

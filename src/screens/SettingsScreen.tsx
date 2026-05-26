@@ -2,30 +2,83 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Platform, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import { Card } from '../components/ui/Card';
-import { gradients } from '../constants/colors';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Divider } from '../components/ui/Divider';
 import { Toast, useToast } from '../components/ui/Toast';
 import { Picker } from '@react-native-picker/picker';
 import { useSecureStorage } from '../hooks/useSecureStorage';
 import { useStorage } from '../hooks/useStorage';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { CAT_KEYS } from '../constants/data';
 import { CURRENCIES } from '../constants/currencies';
 import { useCurrency } from '../context/CurrencyContext';
 import { scheduleBodyStatsReminder, cancelBodyStatsReminder } from '../utils/bodyStatsNotifications';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+  DividerOrnament,
+} from '../components/henna';
+
+// Henna color shim — keeps the existing screen body unchanged while the
+// visual layer is fully Henna. (Settings still depends on useTheme for the
+// dark-mode toggle, but renders in light Henna palette regardless.)
+const colors = {
+  gold: hennaColors.henna,
+  goldBg: hennaColors.hennaBg,
+  deep: hennaColors.ink,
+  text: hennaColors.ink,
+  sub: hennaColors.ink2,
+  muted: hennaColors.muted,
+  border: hennaColors.line,
+  bg: hennaColors.pearl,
+  bg2: hennaColors.paper,
+  bg3: hennaColors.paper2,
+};
+
+const Card = HennaCard as any;
+const Button = HennaButton as any;
+const Input = HennaInput as any;
+const Divider = ({ label }: { label: string }) => (
+  <View style={{ paddingHorizontal: 8, paddingVertical: 14 }}>
+    <DividerOrnament color={hennaColors.henna} />
+    <Text style={{
+      marginTop: 8,
+      textAlign: 'center',
+      fontFamily: hennaFonts.uiSemi,
+      fontSize: 10,
+      color: hennaColors.muted,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+    }}>{label}</Text>
+  </View>
+);
+const DrawerMenuButton = () => null;
 
 export default function SettingsScreen() {
-  const { colors, dark, setDark } = useTheme();
+  const { dark, setDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
   const { recurring, setRecurring, bodyStatsSettings, setBodyStatsSettings, prayerSettings } = useData();
   const { pkrF, currencyCode, currency, setCurrency } = useCurrency();
   const systemScheme = useColorScheme();
@@ -193,23 +246,13 @@ export default function SettingsScreen() {
   }, []);
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
+      <HennaHeader title="Settings" subtitle="Preferences" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 0 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Card */}
-        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.gold }]}>⚙️ Preferences</Text>
-              <Text style={[styles.title, { color: colors.deep }]}>Settings</Text>
-              <Text style={[styles.subtitle, { color: colors.muted }]}>Customize your experience</Text>
-            </View>
-          </View>
-        </Card>
 
         {/* Appearance */}
         <Card>

@@ -10,22 +10,49 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../context/ThemeContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
-import { gradients } from '../constants/colors';
 import { supabase } from '../lib/supabase';
+import { hennaColors, hennaFonts, hennaGradients } from '../constants/hennaTokens';
+import { HennaHeader, HennaButton, HennaCard, HennaInput } from '../components/henna';
+
+const colors = {
+  gold: hennaColors.henna,
+  goldBg: hennaColors.hennaBg,
+  green: hennaColors.sage,
+  greenBg: hennaColors.sageBg,
+  red: hennaColors.henna,
+  redBg: hennaColors.hennaBg,
+  blue: hennaColors.plum,
+  blueBg: hennaColors.plumBg,
+  purple: hennaColors.plum,
+  purpleBg: hennaColors.plumBg,
+  deep: hennaColors.ink,
+  text: hennaColors.ink,
+  sub: hennaColors.ink2,
+  muted: hennaColors.muted,
+  border: hennaColors.line,
+  bg: hennaColors.pearl,
+  bg2: hennaColors.paper,
+  bg3: hennaColors.paper2,
+  surfaceMuted: hennaColors.paper2,
+};
+
+const Card = HennaCard as any;
+const Button = HennaButton as any;
+const Input = HennaInput as any;
+const DrawerMenuButton = () => null;
 
 type Mode = 'signin' | 'signup';
 
 export default function CloudAuthScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const [mode, setMode] = useState<Mode>('signin');
@@ -110,18 +137,16 @@ export default function CloudAuthScreen() {
   const modeLabel = mode === 'signin' ? 'Sign In' : 'Sign Up';
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
+      <HennaHeader title="Cloud" subtitle="Backup & restore" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 0 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {/* Hero */}
-        <Card
-          gradient={dark ? gradients.purpleHeroDark : gradients.purpleHero}
-          style={{ backgroundColor: colors.purpleBg, borderColor: colors.purpleBorder }}
-        >
+        <Card>
           <View style={styles.heroHeaderRow}>
             <DrawerMenuButton />
             <View style={styles.heroHeaderText}>
