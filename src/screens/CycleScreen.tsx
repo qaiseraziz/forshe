@@ -3,32 +3,46 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Platform,
   StyleSheet,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useTheme } from '../context/ThemeContext';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { ProgressBar } from '../components/ui/ProgressBar';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
 import { SYMPTOM_OPTIONS, FLOW_OPTIONS } from '../constants/data';
 import { fmtISO, daysBetween, addDays, dateToISO } from '../utils/dates';
 import { PeriodLog } from '../types';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaPill,
+  HennaProgress,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+  DividerOrnament,
+} from '../components/henna';
 
 export default function CycleScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { periods, setPeriods } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -40,34 +54,30 @@ export default function CycleScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
   const toggleSym = useCallback(
     (sym: string) =>
       setSymptoms(s => (s.includes(sym) ? s.filter(x => x !== sym) : [...s, sym])),
     [],
   );
 
-  // Consolidated cycle calculations
   const { avgCycle, avgDur, predictions } = useMemo(() => {
     const sorted = [...periods].sort((a, b) => a.start.localeCompare(b.start));
-
     const durations = sorted.filter(p => p.end).map(p => daysBetween(p.start, p.end) + 1);
-
     const cycles: number[] = [];
     for (let i = 1; i < sorted.length; i++) {
       cycles.push(daysBetween(sorted[i - 1].start, sorted[i].start));
     }
-
-    const avgCycle = cycles.length
-      ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length)
-      : null;
-    const avgDur = durations.length
-      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-      : null;
-
-    let predictions = null;
-    if (sorted.length >= 2 && avgCycle) {
+    const avgC = cycles.length ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : null;
+    const avgD = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+    let preds = null;
+    if (sorted.length >= 2 && avgC) {
       const last = sorted[sorted.length - 1];
-      const nextStart = addDays(last.start, avgCycle);
+      const nextStart = addDays(last.start, avgC);
       const ovulation = addDays(nextStart, -14);
       const fertileStart = addDays(ovulation, -2);
       const fertileEnd = addDays(ovulation, 2);
@@ -76,21 +86,16 @@ export default function CycleScreen() {
       const now = new Date();
       const lastDate = new Date(last.start);
       const dayInCycle = Math.round((now.getTime() - lastDate.getTime()) / 86400000);
-      const cyclePct = Math.min(Math.round((dayInCycle / avgCycle) * 100), 100);
-      const daysUntilNext = Math.round(
-        (new Date(nextStart).getTime() - now.getTime()) / 86400000,
-      );
-
-      predictions = { nextStart, ovulation, fertileStart, fertileEnd, pmsStart, dayInCycle, cyclePct, daysUntilNext };
+      const cyclePct = Math.min(Math.round((dayInCycle / avgC) * 100), 100);
+      const daysUntilNext = Math.round((new Date(nextStart).getTime() - now.getTime()) / 86400000);
+      preds = { nextStart, ovulation, fertileStart, fertileEnd, pmsStart, dayInCycle, cyclePct, daysUntilNext };
     }
-
-    return { avgCycle, avgDur, predictions };
+    return { avgCycle: avgC, avgDur: avgD, predictions: preds };
   }, [periods]);
 
   const addLog = useCallback(() => {
     const start = dateToISO(startDate);
     const end = endDate ? dateToISO(endDate) : '';
-
     if (end && end < start) {
       Alert.alert('Invalid Dates', "End date can't be before start date.");
       return;
@@ -99,7 +104,6 @@ export default function CycleScreen() {
       Alert.alert('Duplicate', 'An entry for this start date already exists.');
       return;
     }
-
     const log: PeriodLog = {
       id: Date.now(),
       start,
@@ -108,10 +112,7 @@ export default function CycleScreen() {
       flow,
       symptoms: [...symptoms],
     };
-
-    setPeriods(l =>
-      [log, ...l].sort((a, b) => b.start.localeCompare(a.start)),
-    );
+    setPeriods(l => [log, ...l].sort((a, b) => b.start.localeCompare(a.start)));
     setEndDate(null);
     setNotes('');
     setFlow('');
@@ -120,7 +121,7 @@ export default function CycleScreen() {
 
   const deleteLog = useCallback(
     (id: number) => {
-      Alert.alert('Delete Entry', 'Are you sure you want to delete this period log?', [
+      Alert.alert('Delete entry', 'Delete this period log?', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -150,40 +151,28 @@ export default function CycleScreen() {
     if (selected) setEndDate(selected);
   }, []);
 
-  // descending for display
   const displayPeriods = useMemo(
     () => [...periods].sort((a, b) => b.start.localeCompare(a.start)),
     [periods],
   );
 
-  // Memoized prediction rows — avoids recreating the array every render
   const predictionRows = useMemo(() => {
     if (!predictions) return [];
     return [
       {
-        color: colors.pink,
-        label: 'Next Period',
-        value:
-          fmtISO(predictions.nextStart) +
-          (avgDur ? ` – ${fmtISO(addDays(predictions.nextStart, avgDur - 1))}` : ''),
+        color: hennaColors.pink,
+        label: 'Next period',
+        value: fmtISO(predictions.nextStart) + (avgDur ? ` – ${fmtISO(addDays(predictions.nextStart, avgDur - 1))}` : ''),
       },
+      { color: hennaColors.bronze, label: 'Ovulation', value: fmtISO(predictions.ovulation) },
       {
-        color: colors.gold,
-        label: 'Ovulation (est.)',
-        value: fmtISO(predictions.ovulation),
-      },
-      {
-        color: colors.green,
-        label: 'Fertile Window',
+        color: hennaColors.sage,
+        label: 'Fertile window',
         value: `${fmtISO(predictions.fertileStart)} – ${fmtISO(predictions.fertileEnd)}`,
       },
-      {
-        color: colors.purple,
-        label: 'PMS (est.)',
-        value: `from ${fmtISO(predictions.pmsStart)}`,
-      },
+      { color: hennaColors.plum, label: 'PMS', value: `from ${fmtISO(predictions.pmsStart)}` },
     ];
-  }, [predictions, avgDur, colors.pink, colors.gold, colors.green, colors.purple]);
+  }, [predictions, avgDur]);
 
   const openSetEndDate = useCallback(() => {
     setEndDate(new Date());
@@ -191,497 +180,364 @@ export default function CycleScreen() {
   }, []);
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Hero Card */}
-      <Card gradient={dark ? gradients.pinkHeroDark : gradients.pinkHero} style={{ backgroundColor: colors.pinkBg, borderColor: colors.pinkBorder }}>
-        <View style={styles.heroHeaderRow}>
-          <DrawerMenuButton />
-          <View style={styles.heroHeaderText}>
-            <Text style={[styles.heroLabel, { color: colors.pink }]}>🌸 Next Period</Text>
-            <Text style={[styles.heroDate, { color: colors.pink }]}>
-              {predictions ? fmtISO(predictions.nextStart) : '—'}
-            </Text>
-            <Text style={[styles.heroSub, { color: colors.sub }]}>
-              {predictions
-                ? predictions.daysUntilNext > 0
-                  ? `In ${predictions.daysUntilNext} days`
-                  : predictions.daysUntilNext === 0
-                    ? 'Today!'
-                    : `${Math.abs(predictions.daysUntilNext)} days ago`
-                : 'Log at least 2 cycles to predict'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statVal, { color: colors.pink }]}>
-              {avgCycle ? avgCycle + 'd' : '—'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.muted }]}>Avg Cycle</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statVal, { color: colors.pink }]}>
-              {avgDur ? avgDur + 'd' : '—'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.muted }]}>Avg Duration</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statVal, { color: colors.pink }]}>{periods.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.muted }]}>Logged</Text>
-          </View>
-        </View>
-      </Card>
-
-      {/* Prediction Card */}
-      {predictions && (
-        <Card>
-          <Text style={[styles.sectionTitle, { color: colors.pink }]}>📊 Cycle Insights</Text>
-
-          {/* Cycle Progress */}
-          <View style={styles.progressSection}>
-            <View style={styles.progressLabels}>
-              <Text style={[styles.progressLabel, { color: colors.muted }]}>Day 1</Text>
-              <Text style={[styles.progressLabel, { color: colors.muted }]}>Day {avgCycle}</Text>
-            </View>
-            <ProgressBar
-              percent={predictions.cyclePct}
-              fillColor={colors.pink}
-              bgColor={colors.pinkBg}
-              height={10}
-            />
-            <Text style={[styles.progressMeta, { color: colors.muted }]}>
-              Day {predictions.dayInCycle} of ~{avgCycle}-day cycle
-            </Text>
-          </View>
-
-          {/* Prediction Rows */}
-          {predictionRows.map(row => (
-            <View key={row.label} style={styles.predictRow}>
-              <View style={[styles.predictDot, { backgroundColor: row.color }]} />
-              <Text style={[styles.predictLabel, { color: colors.sub }]}>{row.label}</Text>
-              <Text style={[styles.predictValue, { color: colors.deep }]}>{row.value}</Text>
-            </View>
-          ))}
-
-          <View style={[styles.disclaimer, { backgroundColor: `${colors.pink}12` }]}>
-            <Text style={[styles.disclaimerText, { color: colors.sub }]}>
-              ⚠️ Predictions are estimates based on your logged data. Consult a healthcare
-              professional for medical advice.
-            </Text>
-          </View>
-        </Card>
-      )}
-
-      {/* Log Form */}
-      <Card>
-        <Text style={[styles.sectionTitle, { color: colors.pink }]}>🌸 Log Period</Text>
-
-        <Text style={[styles.fieldLabel, { color: colors.muted }]}>START DATE</Text>
-        <TouchableOpacity
-          onPress={() => setShowStartPicker(true)}
-          style={[styles.dateButton, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-        >
-          <Text style={[styles.dateText, { color: colors.text }]}>
-            📅 {fmtISO(dateToISO(startDate))}
-          </Text>
-        </TouchableOpacity>
-        {showStartPicker && (
-          <DateTimePicker
-            value={startDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onStartChange}
-          />
-        )}
-
-        <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 10 }]}>
-          END DATE (OPTIONAL)
-        </Text>
-        {endDate ? (
-          <View style={styles.dateRow}>
-            <TouchableOpacity
-              onPress={() => setShowEndPicker(true)}
-              style={[
-                styles.dateButton,
-                { backgroundColor: colors.bg3, borderColor: colors.border, flex: 1 },
-              ]}
-            >
-              <Text style={[styles.dateText, { color: colors.text }]}>
-                📅 {fmtISO(dateToISO(endDate))}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setEndDate(null)}
-              style={[styles.clearBtn, { backgroundColor: colors.bg3, borderColor: colors.border }]}
-            >
-              <Text style={{ fontSize: 14, color: colors.muted }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Button
-            title="Set End Date"
-            icon="📅"
-            variant="outline"
-            small
-            onPress={openSetEndDate}
-            style={{ alignSelf: 'flex-start', marginBottom: 4 }}
-          />
-        )}
-        {showEndPicker && endDate && (
-          <DateTimePicker
-            value={endDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onEndChange}
-          />
-        )}
-
-        <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 12 }]}>
-          FLOW INTENSITY
-        </Text>
-        <View style={styles.chipRow}>
-          {FLOW_OPTIONS.map(f => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFlow(flow === f ? '' : f)}
-              style={[
-                styles.flowBtn,
-                {
-                  backgroundColor: flow === f ? colors.pink : colors.bg3,
-                  borderColor: flow === f ? colors.pink : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.flowText,
-                  { color: flow === f ? '#fff' : colors.sub },
-                ]}
-              >
-                {f}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={[styles.fieldLabel, { color: colors.muted, marginTop: 12 }]}>SYMPTOMS</Text>
-        <View style={styles.chipRow}>
-          {SYMPTOM_OPTIONS.map(s => (
-            <TouchableOpacity
-              key={s}
-              onPress={() => toggleSym(s)}
-              style={[
-                styles.symChip,
-                {
-                  backgroundColor: symptoms.includes(s) ? colors.pink : colors.bg3,
-                  borderColor: symptoms.includes(s) ? colors.pink : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.symText,
-                  { color: symptoms.includes(s) ? '#fff' : colors.sub },
-                ]}
-              >
-                {s}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Input
-          label="Notes (optional)"
-          placeholder="Anything else to note..."
-          value={notes}
-          onChangeText={setNotes}
-          style={{ marginTop: 12, marginBottom: 14 }}
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <HennaHeader
+          title="Cycle"
+          subtitle={
+            predictions
+              ? predictions.daysUntilNext > 0
+                ? `Next in ${predictions.daysUntilNext} days`
+                : predictions.daysUntilNext === 0
+                  ? 'Today'
+                  : `${Math.abs(predictions.daysUntilNext)} days ago`
+              : 'Log 2 cycles to predict'
+          }
+          onMenu={onMenu}
         />
 
-        <Button title="+ Log Period" variant="pink" full onPress={addLog} />
-      </Card>
-
-      {/* Period History */}
-      <Divider label={`Period History · ${periods.length} entries`} />
-
-      {!periods.length && (
-        <EmptyState icon="🌸" text="No periods logged yet. Start tracking above!" />
-      )}
-
-      {displayPeriods.map((p, i) => {
-        const dur = p.end ? daysBetween(p.start, p.end) + 1 : null;
-        // cycle length: days between this start and next entry's start (next in desc order = i+1)
-        const nextEntry = i < displayPeriods.length - 1 ? displayPeriods[i + 1] : null;
-        const cycleLen = nextEntry ? daysBetween(nextEntry.start, p.start) : null;
-
-        return (
-          <Card key={p.id} style={styles.logCard}>
-            <View style={styles.logRow}>
-              <View style={[styles.logIcon, { backgroundColor: colors.pinkBg }]}>
-                <Text style={{ fontSize: 19 }}>🌸</Text>
-              </View>
-
-              <View style={styles.logContent}>
-                <Text style={[styles.logTitle, { color: colors.deep }]}>
-                  {fmtISO(p.start)}
-                  {p.end ? ' → ' + fmtISO(p.end) : ''}
-                </Text>
-                <Text style={[styles.logMeta, { color: colors.muted }]}>
-                  {[
-                    dur ? dur + ' days' : null,
-                    p.flow || null,
-                    cycleLen ? 'Cycle: ' + cycleLen + 'd' : null,
-                    p.symptoms?.length
-                      ? p.symptoms.map(s => s.split(' ')[0]).join(' ')
-                      : null,
-                    p.notes || null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => deleteLog(p.id)}
-                style={styles.deleteBtn}
-                accessibilityLabel={`Delete period log from ${fmtISO(p.start)}`}
-                accessibilityRole="button"
-              >
-                <Text style={{ fontSize: 18 }}>🗑</Text>
-              </TouchableOpacity>
+        {/* Hero — pink */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroPink}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.pink} opacity={0.18} />
             </View>
-          </Card>
-        );
-      })}
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.pink} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.pink }]}>Next period</Text>
+              </View>
+              <Text style={styles.heroDate}>{predictions ? fmtISO(predictions.nextStart) : '—'}</Text>
+              <Text style={styles.heroSub}>
+                {predictions
+                  ? predictions.daysUntilNext > 0
+                    ? `In ${predictions.daysUntilNext} days`
+                    : predictions.daysUntilNext === 0
+                      ? 'Today'
+                      : `${Math.abs(predictions.daysUntilNext)} days ago`
+                  : 'Log at least 2 cycles to predict'}
+              </Text>
+              <View style={styles.heroStatsRow}>
+                <View style={styles.heroStatBox}>
+                  <Text style={styles.heroStatVal}>{avgCycle ? `${avgCycle}d` : '—'}</Text>
+                  <Text style={styles.heroStatLbl}>Avg cycle</Text>
+                </View>
+                <View style={styles.heroStatBox}>
+                  <Text style={styles.heroStatVal}>{avgDur ? `${avgDur}d` : '—'}</Text>
+                  <Text style={styles.heroStatLbl}>Avg duration</Text>
+                </View>
+                <View style={styles.heroStatBox}>
+                  <Text style={styles.heroStatVal}>{periods.length}</Text>
+                  <Text style={styles.heroStatLbl}>Logged</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
 
-      {/* Medical Disclaimer */}
-      <View style={[styles.medicalDisclaimer, { backgroundColor: `${colors.pink}10` }]}>
-        <Text style={[styles.medicalText, { color: colors.muted }]}>
-          ⚠️ This tracker is for informational purposes only. It does not replace professional
-          medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider
-          with questions about your health.
+        {/* Predictions */}
+        {predictions && (
+          <>
+            <DividerOrnament color={hennaColors.pink} />
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Cycle insights</Text>
+            <View style={styles.body}>
+              <HennaCard padding={18} style={{ marginBottom: 14 }}>
+                <View style={styles.progressLabels}>
+                  <Text style={styles.progressLabel}>Day 1</Text>
+                  <Text style={styles.progressLabel}>Day {avgCycle}</Text>
+                </View>
+                <HennaProgress value={predictions.cyclePct} max={100} accent="henna" height={8} />
+                <Text style={styles.progressMeta}>
+                  Day {predictions.dayInCycle} of ~{avgCycle}-day cycle
+                </Text>
+                <View style={{ marginTop: 14 }}>
+                  {predictionRows.map(row => (
+                    <View key={row.label} style={styles.predictRow}>
+                      <View style={[styles.predictDot, { backgroundColor: row.color }]} />
+                      <Text style={styles.predictLabel}>{row.label}</Text>
+                      <Text style={styles.predictValue}>{row.value}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.disclaimerText}>
+                  Predictions are estimates. For medical advice, consult a healthcare professional.
+                </Text>
+              </HennaCard>
+            </View>
+          </>
+        )}
+
+        {/* Log form */}
+        <DividerOrnament color={hennaColors.pink} />
+        <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Log period</Text>
+        <View style={styles.body}>
+          <HennaCard padding={18} style={{ marginBottom: 14 }}>
+            <Text style={[hennaTextStyles.eyebrow, { marginBottom: 8 }]}>Start date</Text>
+            <Pressable onPress={() => setShowStartPicker(true)} style={styles.dateBtn} accessibilityRole="button">
+              <HennaIcon name="calendar" size={14} color={hennaColors.ink2} />
+              <Text style={styles.dateBtnText}>{fmtISO(dateToISO(startDate))}</Text>
+            </Pressable>
+            {showStartPicker && (
+              <DateTimePicker
+                value={startDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onStartChange}
+              />
+            )}
+
+            <Text style={[hennaTextStyles.eyebrow, { marginTop: 14, marginBottom: 8 }]}>
+              End date (optional)
+            </Text>
+            {endDate ? (
+              <View style={styles.dateRow}>
+                <Pressable onPress={() => setShowEndPicker(true)} style={[styles.dateBtn, { flex: 1 }]}>
+                  <HennaIcon name="calendar" size={14} color={hennaColors.ink2} />
+                  <Text style={styles.dateBtnText}>{fmtISO(dateToISO(endDate))}</Text>
+                </Pressable>
+                <Pressable onPress={() => setEndDate(null)} style={styles.clearBtn} accessibilityLabel="Clear end date">
+                  <HennaIcon name="close" size={13} color={hennaColors.muted} />
+                </Pressable>
+              </View>
+            ) : (
+              <HennaButton title="Set end date" icon="calendar" variant="outline" size="sm" onPress={openSetEndDate} />
+            )}
+            {showEndPicker && endDate && (
+              <DateTimePicker
+                value={endDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onEndChange}
+              />
+            )}
+
+            <Text style={[hennaTextStyles.eyebrow, { marginTop: 14, marginBottom: 8 }]}>Flow</Text>
+            <View style={styles.chipRow}>
+              {FLOW_OPTIONS.map(f => (
+                <HennaPill
+                  key={f}
+                  label={f}
+                  active={flow === f}
+                  onPress={() => setFlow(flow === f ? '' : f)}
+                  accent="pink"
+                />
+              ))}
+            </View>
+
+            <Text style={[hennaTextStyles.eyebrow, { marginTop: 14, marginBottom: 8 }]}>Symptoms</Text>
+            <View style={styles.chipRow}>
+              {SYMPTOM_OPTIONS.map(s => (
+                <HennaPill
+                  key={s}
+                  label={s}
+                  active={symptoms.includes(s)}
+                  onPress={() => toggleSym(s)}
+                  accent="pink"
+                />
+              ))}
+            </View>
+
+            <HennaInput
+              label="Notes (optional)"
+              placeholder="Anything else"
+              value={notes}
+              onChangeText={setNotes}
+              containerStyle={{ marginTop: 14 }}
+            />
+
+            <HennaButton title="+ Log period" icon="plus" variant="primary" full onPress={addLog} style={{ marginTop: 14 }} />
+          </HennaCard>
+        </View>
+
+        {/* History */}
+        <DividerOrnament color={hennaColors.pink} />
+        <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>
+          History · {periods.length}
         </Text>
-      </View>
-
-      <View style={styles.bottomPad} />
-    </ScrollView>
-    <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+        <View style={styles.body}>
+          {!periods.length ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No periods logged yet.</Text>
+              <Text style={styles.emptyHint}>Start tracking above.</Text>
+            </View>
+          ) : (
+            displayPeriods.map((p, i) => {
+              const dur = p.end ? daysBetween(p.start, p.end) + 1 : null;
+              const nextEntry = i < displayPeriods.length - 1 ? displayPeriods[i + 1] : null;
+              const cycleLen = nextEntry ? daysBetween(nextEntry.start, p.start) : null;
+              return (
+                <HennaCard key={p.id} padding={16} style={{ marginBottom: 8 }}>
+                  <View style={styles.logRow}>
+                    <View style={styles.logIcon}>
+                      <HennaIcon name="cycle" size={17} color={hennaColors.pink} />
+                    </View>
+                    <View style={styles.logContent}>
+                      <Text style={styles.logTitle}>
+                        {fmtISO(p.start)}
+                        {p.end ? ' → ' + fmtISO(p.end) : ''}
+                      </Text>
+                      <Text style={styles.logMeta}>
+                        {[
+                          dur ? dur + ' days' : null,
+                          p.flow || null,
+                          cycleLen ? 'Cycle: ' + cycleLen + 'd' : null,
+                          p.symptoms?.length ? p.symptoms.join(' · ') : null,
+                          p.notes || null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => deleteLog(p.id)}
+                      style={styles.deleteBtn}
+                      hitSlop={8}
+                      accessibilityLabel={`Delete period log from ${fmtISO(p.start)}`}
+                    >
+                      <HennaIcon name="trash" size={16} color={hennaColors.henna} />
+                    </Pressable>
+                  </View>
+                </HennaCard>
+              );
+            })
+          )}
+          <Text style={styles.medicalText}>
+            For informational purposes only. Always consult a qualified healthcare provider for medical advice.
+          </Text>
+        </View>
+      </ScrollView>
+      <Toast toast={toast} dismiss={dismissToast} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 180 },
+
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
   },
-  content: {
-    padding: 20,
-    paddingBottom: 120,
-  },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroDate: {
-    fontFamily: 'PlayfairDisplay-ExtraBold',
-    fontSize: 42,
-    lineHeight: 48,
-    marginBottom: 2,
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 28,
+    color: hennaColors.ink,
+    letterSpacing: -0.5,
   },
-  heroSub: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-    gap: 16,
-  },
-  statItem: {
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+  heroStatsRow: { flexDirection: 'row', marginTop: 14, gap: 10 },
+  heroStatBox: {
     flex: 1,
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderRadius: 14,
+    paddingVertical: 10,
   },
-  statVal: {
-    fontSize: 18,
-    fontFamily: 'Outfit-Bold',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Regular',
-    textTransform: 'uppercase',
+  heroStatVal: { fontFamily: hennaFonts.serif, fontSize: 16, color: hennaColors.pink },
+  heroStatLbl: {
+    marginTop: 2,
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 9,
+    color: hennaColors.muted,
     letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  sectionTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 18,
-    marginBottom: 14,
-  },
-  progressSection: {
-    marginBottom: 18,
-  },
-  progressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  progressLabel: {
-    fontSize: 10,
-    fontFamily: 'Outfit-Regular',
-  },
-  progressMeta: {
-    fontSize: 10,
-    fontFamily: 'Outfit-Regular',
-    marginTop: 4,
-  },
-  predictRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 10,
-  },
-  predictDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  predictLabel: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Regular',
-    flex: 1,
-  },
-  predictValue: {
-    fontSize: 14,
-    fontFamily: 'Outfit-Bold',
-    textAlign: 'right',
-    flexShrink: 0,
-  },
-  disclaimer: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 10,
-  },
+
+  body: { paddingHorizontal: 16 },
+  sectionEyebrow: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 10 },
+
+  progressLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  progressLabel: { fontFamily: hennaFonts.ui, fontSize: 10, color: hennaColors.muted },
+  progressMeta: { marginTop: 4, fontFamily: hennaFonts.ui, fontSize: 10, color: hennaColors.muted },
+  predictRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 },
+  predictDot: { width: 8, height: 8, borderRadius: 4 },
+  predictLabel: { flex: 1, fontFamily: hennaFonts.ui, fontSize: 13, color: hennaColors.ink2 },
+  predictValue: { fontFamily: hennaFonts.serif, fontSize: 13, color: hennaColors.ink },
+
   disclaimerText: {
+    marginTop: 12,
+    fontFamily: hennaFonts.ui,
     fontSize: 11,
-    fontFamily: 'Outfit-Regular',
+    color: hennaColors.muted,
     lineHeight: 17,
   },
-  fieldLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  dateButton: {
-    borderWidth: 0,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 6,
-  },
-  dateText: {
-    fontSize: 16,
-    fontFamily: 'Outfit-Regular',
-  },
-  dateRow: {
+
+  dateBtn: {
     flexDirection: 'row',
-    gap: 8,
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 8,
+    backgroundColor: hennaColors.paper2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    minHeight: 44,
   },
+  dateBtnText: { fontFamily: hennaFonts.ui, fontSize: 13, color: hennaColors.ink },
+  dateRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   clearBtn: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    borderWidth: 0,
+    backgroundColor: hennaColors.paper2,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  flowBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 0,
-  },
-  flowText: {
-    fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
-  },
-  symChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 0,
-  },
-  symText: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Regular',
-  },
-  logCard: {
-    marginBottom: 8,
-  },
-  logRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+
+  emptyWrap: { paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 16, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
+
+  logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   logIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  logContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  logTitle: {
-    fontFamily: 'Outfit-SemiBold',
-    fontSize: 15,
-    marginBottom: 3,
-  },
-  logMeta: {
-    fontSize: 13,
-    fontFamily: 'Outfit-Regular',
-    lineHeight: 17,
-  },
-  deleteBtn: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  medicalDisclaimer: {
-    marginTop: 12,
-    padding: 14,
+    width: 36,
+    height: 36,
     borderRadius: 14,
+    backgroundColor: hennaColors.pinkBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  logContent: { flex: 1, minWidth: 0 },
+  logTitle: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.ink },
+  logMeta: { marginTop: 4, fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, lineHeight: 16 },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   medicalText: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Regular',
-    lineHeight: 18,
+    marginTop: 16,
+    paddingHorizontal: 8,
+    fontFamily: hennaFonts.ui,
+    fontSize: 10,
+    color: hennaColors.muted,
     textAlign: 'center',
-  },
-  bottomPad: {
-    height: 40,
+    lineHeight: 16,
   },
 });

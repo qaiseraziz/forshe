@@ -9,19 +9,86 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../context/ThemeContext';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { todayISO, fmtISO } from '../utils/dates';
 import { BodyLog, BloodSugarContext } from '../types';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaBadge,
+  HennaPill,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+  DividerOrnament,
+} from '../components/henna';
+
+// Henna color shim — maps the legacy `colors.*` keys this screen still uses
+// to the new Henna palette. This keeps the body of the screen unchanged
+// while the visual layer is fully Henna.
+const colors = {
+  red: hennaColors.henna,
+  redBg: hennaColors.hennaBg,
+  green: hennaColors.sage,
+  greenBg: hennaColors.sageBg,
+  gold: hennaColors.bronze,
+  goldBg: hennaColors.bronzeBg,
+  purple: hennaColors.plum,
+  purpleBg: hennaColors.plumBg,
+  blue: hennaColors.plum,
+  blueBg: hennaColors.plumBg,
+  pink: hennaColors.pink,
+  pinkBg: hennaColors.pinkBg,
+  deep: hennaColors.ink,
+  text: hennaColors.ink,
+  sub: hennaColors.ink2,
+  muted: hennaColors.muted,
+  border: hennaColors.line,
+  bg: hennaColors.pearl,
+  bg2: hennaColors.paper,
+  bg3: hennaColors.paper2,
+};
+
+// Replacements for ui/* components — re-export the Henna primitives under
+// the legacy names this file uses.
+const Card = HennaCard as any;
+const Button = HennaButton as any;
+const Input = HennaInput as any;
+const Divider = ({ label }: { label: string }) => (
+  <View style={{ paddingHorizontal: 8, paddingVertical: 14 }}>
+    <DividerOrnament color={hennaColors.henna} />
+    <Text style={{
+      marginTop: 8,
+      textAlign: 'center',
+      fontFamily: hennaFonts.uiSemi,
+      fontSize: 10,
+      color: hennaColors.muted,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+    }}>{label}</Text>
+  </View>
+);
+const EmptyState = ({ text, hint }: { icon?: string; text: string; hint?: string }) => (
+  <View style={{ paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' }}>
+    <Text style={{ fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' }}>{text}</Text>
+    {hint ? <Text style={{ marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' }}>{hint}</Text> : null}
+  </View>
+);
+const DrawerMenuButton = () => null; // header has its own menu button now
 
 // --- Validation ranges ---
 const RANGES = {
@@ -78,7 +145,7 @@ function inRange(n: number | undefined, range: { min: number; max: number }): bo
 interface LogRowProps {
   log: BodyLog;
   onDelete: (id: number) => void;
-  colors: ReturnType<typeof useTheme>['colors'];
+  colors: typeof colors;
 }
 const LogRow = React.memo(function LogRow({ log, onDelete, colors }: LogRowProps) {
   const handleDelete = useCallback(() => onDelete(log.id), [onDelete, log.id]);
@@ -125,9 +192,12 @@ const LogRow = React.memo(function LogRow({ log, onDelete, colors }: LogRowProps
 });
 
 export default function BodyStatsScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
   const { bodyProfile, setBodyProfile, bodyLogs, setBodyLogs, bodyStatsSettings, reminders, setReminders } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -600,13 +670,15 @@ export default function BodyStatsScreen() {
   // --- Disabled state ---
   if (!enabled) {
     return (
-      <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={styles.container}>
+        <HennaHeader title="Body Stats" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
         <ScrollView
           style={styles.container}
-          contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+          contentContainerStyle={[styles.content, { paddingTop: 0 }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+          <Card>
             <View style={styles.heroHeaderRow}>
               <DrawerMenuButton />
               <View style={styles.heroHeaderText}>
@@ -642,14 +714,15 @@ export default function BodyStatsScreen() {
   // --- Height setup state ---
   if (!hasHeight) {
     return (
-      <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={styles.container}>
+        <HennaHeader title="Body Stats" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
         <ScrollView
           style={styles.container}
-          contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+          contentContainerStyle={[styles.content, { paddingTop: 0 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+          <Card>
             <View style={styles.heroHeaderRow}>
               <DrawerMenuButton />
               <View style={styles.heroHeaderText}>
@@ -730,15 +803,16 @@ export default function BodyStatsScreen() {
 
   // --- Main logging screen ---
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={hennaGradients.page} style={styles.container}>
+      <HennaHeader title="Body Stats" onMenu={onMenu} style={{ paddingTop: insets.top + 6 }} />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 0 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {/* Hero Card */}
-        <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero}>
+        <Card>
           <View style={styles.heroHeaderRow}>
             <DrawerMenuButton />
             <View style={styles.heroHeaderText}>

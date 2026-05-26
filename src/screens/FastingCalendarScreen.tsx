@@ -3,21 +3,17 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Modal,
   StyleSheet,
   Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
-import { gradients } from '../constants/colors';
 import {
   hijriForDate,
   isAyyamAlBid,
@@ -26,53 +22,50 @@ import {
 import { dateToISO, todayISO } from '../utils/dates';
 import { MONTHS } from '../constants/data';
 import type { FastingLog, FastingType } from '../types';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaBadge,
+  HennaPill,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
 
 type FilterKey = 'all' | 'mon_thu' | 'white';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 interface DayCellInfo {
-  iso: string;              // YYYY-MM-DD
-  gregorianDay: number;     // 1-31 (only within the current month)
-  hijriDay: number | null;  // hijri day-of-month (null for padding cells)
-  inMonth: boolean;         // whether the cell belongs to the displayed month
+  iso: string;
+  gregorianDay: number;
+  hijriDay: number | null;
+  inMonth: boolean;
   fastingTypes: FastingType[];
   isToday: boolean;
   isPast: boolean;
 }
 
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-// Cell is memoized so that scrolling / filter toggles don't rerender every
-// cell — only the ones whose props actually change.
 interface DayCellProps {
   cell: DayCellInfo;
   filter: FilterKey;
   observed: boolean;
   onPress: (cell: DayCellInfo) => void;
-  goldBg: string;
-  gold: string;
-  green: string;
-  greenBg: string;
-  muted: string;
-  deep: string;
-  bg3: string;
 }
 
-const DayCell = React.memo(function DayCell({
-  cell,
-  filter,
-  observed,
-  onPress,
-  goldBg,
-  gold,
-  green,
-  greenBg,
-  muted,
-  deep,
-  bg3,
-}: DayCellProps) {
+const DayCell = React.memo(function DayCell({ cell, filter, observed, onPress }: DayCellProps) {
   if (!cell.inMonth) {
     return <View style={[styles.cell, styles.cellEmpty]} />;
   }
@@ -87,64 +80,60 @@ const DayCell = React.memo(function DayCell({
   const isMonThu = cell.fastingTypes.some(t => t === 'monday' || t === 'thursday');
   const isWhite = cell.fastingTypes.some(t => t === 'ayyam_al_bid');
 
-  const bg =
-    showFasting && (filter !== 'all' || cell.fastingTypes.length > 0)
-      ? goldBg
-      : bg3;
+  const bg = showFasting ? hennaColors.bronzeBg : hennaColors.paper2;
+  const numColor = showFasting ? hennaColors.bronze : hennaColors.ink;
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <Pressable
       onPress={() => onPress(cell)}
       accessibilityRole="button"
       accessibilityLabel={`${cell.gregorianDay} ${WEEKDAY_FULL[new Date(cell.iso).getDay()]}${
         showFasting ? ', fasting day' : ''
       }${observed ? ', observed' : ''}`}
-      style={[
+      style={({ pressed }) => [
         styles.cell,
         {
           backgroundColor: bg,
-          opacity: cell.isPast && !observed ? 0.6 : 1,
-          borderColor: cell.isToday ? gold : 'transparent',
+          opacity: pressed ? 0.85 : cell.isPast && !observed ? 0.6 : 1,
+          borderColor: cell.isToday ? hennaColors.henna : 'transparent',
           borderWidth: cell.isToday ? 2 : 0,
         },
       ]}
     >
-      <Text
-        style={[
-          styles.cellGregorian,
-          { color: showFasting ? gold : deep },
-        ]}
-      >
+      <Text style={[styles.cellGregorian, { color: numColor }]}>
         {cell.gregorianDay}
       </Text>
       {cell.hijriDay !== null && (
-        <Text style={[styles.cellHijri, { color: muted }]}>{cell.hijriDay}</Text>
+        <Text style={styles.cellHijri}>{cell.hijriDay}</Text>
       )}
       {showFasting && (
         <View style={styles.cellBadgeRow}>
-          {isMonThu && <Text style={[styles.cellIcon, { color: gold }]}>✨</Text>}
-          {isWhite && <Text style={[styles.cellIcon, { color: gold }]}>🌙</Text>}
+          {isMonThu && <View style={[styles.cellDot, { backgroundColor: hennaColors.bronze }]} />}
+          {isWhite && <View style={[styles.cellDot, { backgroundColor: hennaColors.henna }]} />}
         </View>
       )}
       {observed && (
-        <View style={[styles.observedDot, { backgroundColor: green, borderColor: greenBg }]}>
-          <Text style={styles.observedCheck}>✓</Text>
+        <View style={styles.observedDot}>
+          <HennaIcon name="check" size={8} color={hennaColors.paper} />
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
 export default function FastingCalendarScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { prayerSettings, fastingLogs, setFastingLogs } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   const hijriOffset = prayerSettings.hijriOffset ?? 0;
 
-  // Month being displayed (Gregorian). Starts on the first day of today's month.
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
   const [viewMonth, setViewMonth] = useState<{ y: number; m: number }>(() => {
     const now = new Date();
     return { y: now.getFullYear(), m: now.getMonth() };
@@ -153,7 +142,6 @@ export default function FastingCalendarScreen() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [detail, setDetail] = useState<DayCellInfo | null>(null);
 
-  // Lookup map for O(1) observed check. Keyed by iso.
   const observedMap = useMemo(() => {
     const m = new Map<string, FastingLog>();
     for (const f of fastingLogs) m.set(f.date, f);
@@ -162,22 +150,15 @@ export default function FastingCalendarScreen() {
 
   const todayIso = todayISO();
   const currentGregorianMonthName = MONTHS[viewMonth.m];
-
-  // Hijri-today for the hero subtitle. Recomputed on month change (cheap, but
-  // memoised anyway so no render waste).
   const hijriTodayInfo = useMemo(() => hijriForDate(new Date(), hijriOffset), [hijriOffset]);
 
-  // Expensive: build all 42 day cells for the visible month. useMemo keyed
-  // on `{ year, month, hijriOffset }` so scrolling the parent / toggling the
-  // filter won't recompute.
   const cells = useMemo<DayCellInfo[]>(() => {
     const { y, m } = viewMonth;
     const firstOfMonth = new Date(y, m, 1);
-    const firstDow = firstOfMonth.getDay(); // 0=Sun…6=Sat
+    const firstDow = firstOfMonth.getDay();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const out: DayCellInfo[] = [];
 
-    // leading padding (empty cells before day 1)
     for (let i = 0; i < firstDow; i++) {
       out.push({
         iso: '',
@@ -210,7 +191,6 @@ export default function FastingCalendarScreen() {
       });
     }
 
-    // trailing padding — fill up to a multiple of 7 for a tidy grid
     while (out.length % 7 !== 0) {
       out.push({
         iso: '',
@@ -258,11 +238,6 @@ export default function FastingCalendarScreen() {
     setViewMonth({ y: now.getFullYear(), m: now.getMonth() });
   }, []);
 
-  const setFilterPill = useCallback((k: FilterKey) => {
-    Haptics.selectionAsync();
-    setFilter(k);
-  }, []);
-
   const openDetail = useCallback((cell: DayCellInfo) => {
     if (!cell.inMonth) return;
     Haptics.selectionAsync();
@@ -276,17 +251,7 @@ export default function FastingCalendarScreen() {
       if (cell.fastingTypes.length === 0) return;
       setFastingLogs(prev => {
         const rest = prev.filter(f => f.date !== cell.iso);
-        if (!next) {
-          // set to false (explicit skip)
-          return [
-            ...rest,
-            { date: cell.iso, types: cell.fastingTypes, observed: false },
-          ];
-        }
-        return [
-          ...rest,
-          { date: cell.iso, types: cell.fastingTypes, observed: true },
-        ];
+        return [...rest, { date: cell.iso, types: cell.fastingTypes, observed: next }];
       });
       if (next) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -298,166 +263,119 @@ export default function FastingCalendarScreen() {
     [setFastingLogs, showToast],
   );
 
-  const heroGradient = dark ? gradients.greenHeroDark : gradients.greenHero;
-
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 140 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
-        <Card gradient={heroGradient}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.green }]}>🌙 Fasting Calendar</Text>
-              <Text style={[styles.title, { color: colors.deep }]}>Sunnah Fasting</Text>
-              <Text style={[styles.subtitle, { color: colors.muted }]}>
-                {hijriTodayInfo.day} {hijriTodayInfo.monthName} {hijriTodayInfo.year} AH
-                {prayerSettings.location ? ` · ${prayerSettings.location.name}` : ''}
+        <HennaHeader
+          title="Fasting"
+          subtitle={`${hijriTodayInfo.day} ${hijriTodayInfo.monthName} ${hijriTodayInfo.year} AH`}
+          onMenu={onMenu}
+        />
+
+        {/* Hero — bronze */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroBronze}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.bronze} opacity={0.18} />
+            </View>
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.bronze} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.bronze }]}>
+                  Sunnah fasting
+                </Text>
+              </View>
+              <Text style={styles.heroTitle}>{currentGregorianMonthName} {viewMonth.y}</Text>
+              <Text style={styles.heroSub}>
+                {monthStats.fastingCount} fasting day{monthStats.fastingCount === 1 ? '' : 's'} · {monthStats.observedCount} observed
               </Text>
+              <View style={styles.navRow}>
+                <Pressable onPress={onPrevMonth} hitSlop={8} style={styles.navBtn} accessibilityLabel="Previous month">
+                  <Text style={styles.navBtnText}>‹</Text>
+                </Pressable>
+                <Pressable onPress={onGoToday} style={styles.navTodayBtn} accessibilityLabel="Today">
+                  <Text style={styles.navTodayText}>Today</Text>
+                </Pressable>
+                <Pressable onPress={onNextMonth} hitSlop={8} style={styles.navBtn} accessibilityLabel="Next month">
+                  <Text style={styles.navBtnText}>›</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </Card>
+        </View>
 
-        {/* Month nav */}
-        <Card>
-          <View style={styles.monthNav}>
-            <TouchableOpacity
-              onPress={onPrevMonth}
-              style={styles.navBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Previous month"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={[styles.navBtnText, { color: colors.gold }]}>«</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onGoToday}
-              accessibilityRole="button"
-              accessibilityLabel="Go to current month"
-              style={styles.navLabelBtn}
-            >
-              <Text style={[styles.navLabel, { color: colors.deep }]}>
-                {currentGregorianMonthName} {viewMonth.y}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onNextMonth}
-              style={styles.navBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Next month"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={[styles.navBtnText, { color: colors.gold }]}>»</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Filter pills */}
-          <View style={styles.pillRow}>
-            {(
-              [
-                { k: 'all' as FilterKey, label: 'All' },
-                { k: 'mon_thu' as FilterKey, label: 'Mon–Thu ✨' },
-                { k: 'white' as FilterKey, label: 'Ayyam al-Bid 🌙' },
-              ]
-            ).map(p => {
-              const active = filter === p.k;
-              return (
-                <TouchableOpacity
-                  key={p.k}
-                  onPress={() => setFilterPill(p.k)}
-                  style={[
-                    styles.pill,
-                    { backgroundColor: active ? colors.goldBg : colors.bg3 },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={p.label}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text
-                    style={[
-                      styles.pillText,
-                      { color: active ? colors.gold : colors.sub },
-                    ]}
-                  >
-                    {p.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Card>
+        {/* Filter pills */}
+        <View style={styles.filterRow}>
+          <HennaPill label="All" active={filter === 'all'} onPress={() => setFilter('all')} accent="bronze" />
+          <HennaPill label="Mon–Thu" active={filter === 'mon_thu'} onPress={() => setFilter('mon_thu')} accent="bronze" />
+          <HennaPill label="Ayyam al-Bid" active={filter === 'white'} onPress={() => setFilter('white')} accent="bronze" />
+        </View>
 
         {/* Calendar grid */}
-        <Card>
-          {/* weekday header */}
-          <View style={styles.weekHeaderRow}>
-            {WEEKDAY_LABELS.map((w, i) => (
-              <View key={i} style={styles.weekCell}>
-                <Text style={[styles.weekLabel, { color: colors.muted }]}>{w}</Text>
+        <View style={styles.body}>
+          <HennaCard padding={14} style={{ marginBottom: 14 }}>
+            <View style={styles.weekHeader}>
+              {WEEKDAY_LABELS.map((w, i) => (
+                <View key={i} style={styles.weekCell}>
+                  <Text style={styles.weekLabel}>{w}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.grid}>
+              {cells.map((cell, i) => {
+                const log = cell.inMonth ? observedMap.get(cell.iso) : undefined;
+                return (
+                  <DayCell
+                    key={cell.inMonth ? cell.iso : `pad-${i}`}
+                    cell={cell}
+                    filter={filter}
+                    observed={!!log?.observed}
+                    onPress={openDetail}
+                  />
+                );
+              })}
+            </View>
+          </HennaCard>
+
+          {/* Legend */}
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: hennaColors.bronze }]} />
+              <Text style={styles.legendLabel}>Mon / Thu</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: hennaColors.henna }]} />
+              <Text style={styles.legendLabel}>Ayyam al-Bid</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendObserved]}>
+                <HennaIcon name="check" size={7} color={hennaColors.paper} />
               </View>
-            ))}
-          </View>
-          {/* 6 rows × 7 cols */}
-          <View style={styles.grid}>
-            {cells.map((cell, i) => {
-              const log = cell.inMonth ? observedMap.get(cell.iso) : undefined;
-              return (
-                <DayCell
-                  key={cell.inMonth ? cell.iso : `pad-${i}`}
-                  cell={cell}
-                  filter={filter}
-                  observed={!!log?.observed}
-                  onPress={openDetail}
-                  goldBg={colors.goldBg}
-                  gold={colors.gold}
-                  green={colors.green}
-                  greenBg={colors.greenBg}
-                  muted={colors.muted}
-                  deep={colors.deep}
-                  bg3={colors.bg3}
-                />
-              );
-            })}
-          </View>
-        </Card>
-
-        {/* Summary */}
-        <Card>
-          <Text style={[styles.summaryTitle, { color: colors.deep }]}>This month</Text>
-          <Text style={[styles.summaryText, { color: colors.sub }]}>
-            {monthStats.fastingCount} fasting day{monthStats.fastingCount === 1 ? '' : 's'} · {monthStats.observedCount} observed
-          </Text>
-        </Card>
-
-        {/* Legend */}
-        <View style={styles.legendRow}>
-          <View style={styles.legendItem}>
-            <Text style={[styles.legendIcon, { color: colors.gold }]}>✨</Text>
-            <Text style={[styles.legendLabel, { color: colors.muted }]}>Mon / Thu</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <Text style={[styles.legendIcon, { color: colors.gold }]}>🌙</Text>
-            <Text style={[styles.legendLabel, { color: colors.muted }]}>Ayyam al-Bid</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
-            <Text style={[styles.legendLabel, { color: colors.muted }]}>Observed</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendBox, { borderColor: colors.gold }]} />
-            <Text style={[styles.legendLabel, { color: colors.muted }]}>Today</Text>
+              <Text style={styles.legendLabel}>Observed</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendBox} />
+              <Text style={styles.legendLabel}>Today</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Detail modal — solid scrim, no BlurView (v1.2.5 rule). */}
+      {/* Detail modal */}
       <Modal visible={!!detail} transparent animationType="slide" onRequestClose={closeDetail}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.bg }]}>
+          <View style={styles.modalSheet}>
             {detail && (
               <DetailModalBody
                 cell={detail}
@@ -465,7 +383,6 @@ export default function FastingCalendarScreen() {
                 onClose={closeDetail}
                 onToggle={v => toggleObserved(detail, v)}
                 hijriOffset={hijriOffset}
-                colors={colors}
                 insetsBottom={insets.bottom}
               />
             )}
@@ -474,11 +391,9 @@ export default function FastingCalendarScreen() {
       </Modal>
 
       <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+    </View>
   );
 }
-
-// ---- Detail modal body (separate component so its `useMemo` below is cheap) ----
 
 interface DetailModalBodyProps {
   cell: DayCellInfo;
@@ -486,11 +401,10 @@ interface DetailModalBodyProps {
   onClose: () => void;
   onToggle: (v: boolean) => void;
   hijriOffset: number;
-  colors: ReturnType<typeof useTheme>['colors'];
   insetsBottom: number;
 }
 
-function DetailModalBody({ cell, observed, onClose, onToggle, hijriOffset, colors, insetsBottom }: DetailModalBodyProps) {
+function DetailModalBody({ cell, observed, onClose, onToggle, hijriOffset, insetsBottom }: DetailModalBodyProps) {
   const date = useMemo(() => new Date(cell.iso), [cell.iso]);
   const hijri = useMemo(() => hijriForDate(date, hijriOffset), [date, hijriOffset]);
 
@@ -506,141 +420,124 @@ function DetailModalBody({ cell, observed, onClose, onToggle, hijriOffset, color
       contentContainerStyle={[styles.modalScroll, { paddingBottom: insetsBottom + 20 }]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.modalTitle, { color: colors.deep }]}>{gregDate}</Text>
-      <Text style={[styles.modalSub, { color: colors.muted }]}>
+      <Text style={styles.modalTitle}>{gregDate}</Text>
+      <Text style={styles.modalSub}>
         {weekdayLabel} · {hijri.day} {hijri.monthName} {hijri.year} AH
       </Text>
 
       <View style={styles.modalDivider} />
 
       {!hasFast && (
-        <Text style={[styles.modalBody, { color: colors.sub }]}>
-          No Sunnah fasting recommended for this day.
-        </Text>
+        <Text style={styles.modalBody}>No Sunnah fasting recommended for this day.</Text>
       )}
 
       {hasFast && (
         <View style={{ gap: 8 }}>
           {isMonThu && (
-            <View style={[styles.modalPillFull, { backgroundColor: colors.goldBg }]}>
-              <Text style={[styles.modalPillText, { color: colors.gold }]}>
-                ✨ Sunnah {weekdayLabel} fast
-              </Text>
-            </View>
+            <HennaBadge accent="bronze">Sunnah {weekdayLabel} fast</HennaBadge>
           )}
           {isWhite && (
-            <View style={[styles.modalPillFull, { backgroundColor: colors.goldBg }]}>
-              <Text style={[styles.modalPillText, { color: colors.gold }]}>
-                🌙 Ayyam al-Bid — {hijri.day} {hijri.monthName}
-              </Text>
-            </View>
+            <HennaBadge accent="henna">
+              Ayyam al-Bid — {hijri.day} {hijri.monthName}
+            </HennaBadge>
           )}
         </View>
       )}
 
       {hasFast && isPastOrToday && (
-        <View style={[styles.observeRow, { backgroundColor: colors.bg3 }]}>
+        <View style={styles.observeRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.observeTitle, { color: colors.deep }]}>
-              Mark as observed
-            </Text>
-            <Text style={[styles.observeSub, { color: colors.muted }]}>
-              Track the fasts you completed.
-            </Text>
+            <Text style={styles.observeTitle}>Mark as observed</Text>
+            <Text style={styles.observeSub}>Track the fasts you completed.</Text>
           </View>
           <Switch
             value={observed}
             onValueChange={onToggle}
-            trackColor={{ false: colors.border, true: colors.gold }}
-            thumbColor="#fff"
+            trackColor={{ false: hennaColors.line, true: hennaColors.bronze }}
+            thumbColor={hennaColors.paper}
           />
         </View>
       )}
 
       {hasFast && !isPastOrToday && (
-        <Text style={[styles.modalBody, { color: colors.sub, marginTop: 14 }]}>
-          This is in the future — you can mark it observed once the day arrives.
+        <Text style={[styles.modalBody, { marginTop: 14 }]}>
+          This is in the future — mark observed once the day arrives.
         </Text>
       )}
 
-      <Button title="Close" variant="outline" full onPress={onClose} style={{ marginTop: 20 }} />
+      <HennaButton title="Close" variant="outline" full onPress={onClose} style={{ marginTop: 20 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20 },
+  scrollContent: { paddingBottom: 180 },
 
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: {
-    fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
-    letterSpacing: 1.5, marginBottom: 6,
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
   },
-  title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 28, lineHeight: 34 },
-  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-
-  monthNav: {
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroTitle: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 24,
+    color: hennaColors.ink,
+    letterSpacing: -0.3,
+  },
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+  navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 14,
     gap: 12,
-    marginBottom: 12,
   },
   navBtn: {
-    minWidth: 44,
-    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navBtnText: {
-    fontFamily: 'Outfit-Bold',
-    fontSize: 28,
-    lineHeight: 32,
-  },
-  navLabelBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
-  navLabel: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 20,
-    lineHeight: 26,
-  },
-
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    paddingHorizontal: 14,
+  navBtnText: { fontFamily: hennaFonts.serif, fontSize: 22, color: hennaColors.bronze },
+  navTodayBtn: {
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 14,
+    backgroundColor: hennaColors.bronze,
     minHeight: 44,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  pillText: { fontFamily: 'Outfit-SemiBold', fontSize: 13 },
+  navTodayText: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.paper },
 
-  weekHeaderRow: {
+  filterRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 4,
   },
-  weekCell: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
+
+  body: { paddingHorizontal: 16, paddingTop: 14 },
+
+  weekHeader: { flexDirection: 'row', marginBottom: 6 },
+  weekCell: { flex: 1, alignItems: 'center', paddingVertical: 6 },
   weekLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Bold',
+    fontFamily: hennaFonts.uiSemi,
+    fontSize: 10,
+    color: hennaColors.muted,
     letterSpacing: 1,
   },
 
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
@@ -652,102 +549,81 @@ const styles = StyleSheet.create({
   },
   cellEmpty: { backgroundColor: 'transparent' },
   cellGregorian: {
-    fontFamily: 'Outfit-Bold',
-    fontSize: 15,
-    lineHeight: 18,
+    fontFamily: hennaFonts.serif,
+    fontSize: 14,
     marginTop: 2,
   },
   cellHijri: {
-    fontSize: 10,
-    fontFamily: 'Outfit-Regular',
-    lineHeight: 12,
+    fontFamily: hennaFonts.ui,
+    fontSize: 9,
+    color: hennaColors.muted,
+    lineHeight: 11,
     marginTop: 1,
   },
   cellBadgeRow: {
     flexDirection: 'row',
-    gap: 0,
+    gap: 2,
     marginTop: 2,
   },
-  cellIcon: {
-    fontSize: 11,
-    lineHeight: 13,
-  },
+  cellDot: { width: 4, height: 4, borderRadius: 2 },
   observedDot: {
     position: 'absolute',
     top: 2,
     right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: hennaColors.sage,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-  },
-  observedCheck: {
-    fontSize: 9,
-    fontFamily: 'Outfit-Bold',
-    color: '#fff',
-    lineHeight: 10,
-  },
-
-  summaryTitle: {
-    fontFamily: 'PlayfairDisplay-Bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  summaryText: {
-    fontFamily: 'Outfit-Regular',
-    fontSize: 13,
-    lineHeight: 18,
   },
 
   legendRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    paddingHorizontal: 6,
+    gap: 14,
+    paddingHorizontal: 4,
     marginTop: 4,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendIcon: { fontSize: 13 },
-  legendLabel: { fontSize: 12, fontFamily: 'Outfit-Regular' },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendBox: { width: 12, height: 12, borderRadius: 3, borderWidth: 2 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendObserved: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: hennaColors.sage,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendBox: { width: 12, height: 12, borderRadius: 3, borderWidth: 2, borderColor: hennaColors.henna },
+  legendLabel: { fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted },
 
-  // Solid scrim modal (no BlurView, v1.2.5 rule).
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(60,40,20,0.45)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: hennaColors.pearl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: '85%',
   },
   modalScroll: { padding: 24 },
-  modalTitle: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 22, lineHeight: 28 },
-  modalSub: { fontFamily: 'Outfit-Regular', fontSize: 13, marginTop: 4 },
+  modalTitle: { fontFamily: hennaFonts.serif, fontSize: 22, color: hennaColors.ink },
+  modalSub: { marginTop: 4, fontFamily: hennaFonts.ui, fontSize: 13, color: hennaColors.muted },
   modalDivider: { height: 16 },
-  modalBody: { fontFamily: 'Outfit-Regular', fontSize: 14, lineHeight: 20 },
-
-  modalPillFull: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  modalPillText: { fontFamily: 'Outfit-SemiBold', fontSize: 14 },
+  modalBody: { fontFamily: hennaFonts.ui, fontSize: 13, color: hennaColors.ink2, lineHeight: 19 },
 
   observeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    backgroundColor: hennaColors.paper2,
+    padding: 14,
     borderRadius: 16,
     marginTop: 16,
   },
-  observeTitle: { fontFamily: 'Outfit-Bold', fontSize: 15 },
-  observeSub: { fontFamily: 'Outfit-Regular', fontSize: 12, marginTop: 2 },
+  observeTitle: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  observeSub: { marginTop: 2, fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted },
 });

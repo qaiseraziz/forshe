@@ -1,17 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '../context/ThemeContext';
+import { useNavigation, useFocusEffect, DrawerActions } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useData } from '../context/DataContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { LottieBox } from '../components/ui/LottieBox';
-import { gradients } from '../constants/colors';
 import {
   computePrayerTimes,
   getNextPrayer,
@@ -22,31 +17,50 @@ import {
   ayyamAlBidPositionForDate,
   PrayerName,
 } from '../utils/prayer';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaBadge,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
+import type { HennaIconName } from '../components/henna';
 
-const PRAYER_ORDER: { name: PrayerName; icon: string }[] = [
-  { name: 'Fajr', icon: '🌅' },
-  { name: 'Sunrise', icon: '☀️' },
-  { name: 'Dhuhr', icon: '🌞' },
-  { name: 'Asr', icon: '🌤️' },
-  { name: 'Maghrib', icon: '🌆' },
-  { name: 'Isha', icon: '🌙' },
+const PRAYER_ORDER: { name: PrayerName; icon: HennaIconName }[] = [
+  { name: 'Fajr', icon: 'sun' },
+  { name: 'Sunrise', icon: 'sun' },
+  { name: 'Dhuhr', icon: 'sun' },
+  { name: 'Asr', icon: 'sun' },
+  { name: 'Maghrib', icon: 'moon' },
+  { name: 'Isha', icon: 'moon' },
 ];
 
 export default function PrayerTimesScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { prayerSettings } = useData();
   const { toast, dismiss: dismissToast } = useToast();
 
-  // Tick every 30s to keep the countdown fresh — BUT only while the screen is
-  // focused. v1.2.4-dev battery fix: previously this interval ran forever once
-  // mounted, firing even when the user was on a different tab/drawer screen.
-  // `useFocusEffect` starts the interval on focus and clears it on blur.
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
   const [tick, setTick] = useState(0);
   useFocusEffect(
     useCallback(() => {
-      setTick(t => t + 1); // recompute `now` immediately on focus
+      setTick(t => t + 1);
       const id = setInterval(() => setTick(t => t + 1), 30000);
       return () => clearInterval(id);
     }, []),
@@ -56,229 +70,249 @@ export default function PrayerTimesScreen() {
   const hijriOffset = prayerSettings.hijriOffset ?? 0;
   const hijri = useMemo(() => hijriForDate(now, hijriOffset), [now, hijriOffset]);
 
-  const times = useMemo(
-    () => computePrayerTimes(now, prayerSettings),
-    [now, prayerSettings],
-  );
-
-  const next = useMemo(
-    () => (times ? getNextPrayer(times, now) : null),
-    [times, now],
-  );
+  const times = useMemo(() => computePrayerTimes(now, prayerSettings), [now, prayerSettings]);
+  const next = useMemo(() => (times ? getNextPrayer(times, now) : null), [times, now]);
 
   const sunnahWeekday = useMemo(() => isSunnahWeekday(now), [now]);
   const ayyamAlBidDay = useMemo(() => ayyamAlBidPositionForDate(now, hijriOffset), [now, hijriOffset]);
-
   const tmrWeekday = useMemo(() => isSunnahWeekday(new Date(now.getTime() + 86400000)), [now]);
 
-  const openSettings = () => navigation.navigate('PrayerSettings');
+  const openSettings = useCallback(() => {
+    navigation.navigate('PrayerSettings');
+  }, [navigation]);
 
-  const heroGradient = dark ? gradients.greenHeroDark : gradients.greenHero;
-
-  // --- No location yet — show setup prompt ---
   if (!prayerSettings.location) {
     return (
-      <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
         <ScrollView
-          style={styles.container}
-          contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
           showsVerticalScrollIndicator={false}
         >
-          <Card gradient={heroGradient}>
-            <View style={styles.heroHeaderRow}>
-              <DrawerMenuButton />
-              <View style={styles.heroHeaderText}>
-                <Text style={[styles.heroLabel, { color: colors.green }]}>🕌 Prayer Times</Text>
-                <Text style={[styles.title, { color: colors.deep }]}>Set your location</Text>
-                <Text style={[styles.subtitle, { color: colors.muted }]}>
+          <HennaHeader title="Prayer Times" subtitle="Set your location" onMenu={onMenu} />
+
+          <View style={styles.heroWrap}>
+            <View style={styles.heroCard}>
+              <LinearGradient
+                colors={hennaGradients.heroPlum}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <MeshOverlay />
+              <View style={styles.heroCorner} pointerEvents="none">
+                <ArabesqueCorner size={110} color={hennaColors.plum} opacity={0.18} />
+              </View>
+              <View style={styles.heroInner}>
+                <View style={styles.greetRow}>
+                  <MarginMark color={hennaColors.plum} />
+                  <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.plum }]}>
+                    Setup needed
+                  </Text>
+                </View>
+                <Text style={styles.heroTitle}>Set your location</Text>
+                <Text style={styles.heroSub}>
                   {hijri.day} {hijri.monthName} {hijri.year} AH
                 </Text>
+                <Text style={styles.heroBody}>
+                  To calculate accurate salah times, ForSHE needs your location or a city. Stays on this device.
+                </Text>
+                <View style={{ marginTop: 14 }}>
+                  <HennaButton title="Set up prayer times" icon="gear" variant="plum" size="sm" onPress={openSettings} />
+                </View>
               </View>
             </View>
-          </Card>
-
-          <EmptyState
-            icon="📍"
-            text="To calculate accurate salah times, ForSHE needs your location or a city. This stays on your device."
-          />
-          <Button
-            title="Set Up Prayer Times"
-            icon="⚙️"
-            variant="gold"
-            onPress={openSettings}
-            style={{ marginTop: 8 }}
-          />
+          </View>
         </ScrollView>
         <Toast toast={toast} dismiss={dismissToast} />
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero — heroHeaderRow pattern, greenHero (dark parity) */}
-        <Card gradient={heroGradient}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.green }]}>🕌 Prayer Times</Text>
-              <Text style={[styles.title, { color: colors.deep }]}>
-                {prayerSettings.location.name}
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.muted }]}>
-                {hijri.day} {hijri.monthName} {hijri.year} AH
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={openSettings}
-              accessibilityRole="button"
-              accessibilityLabel="Prayer times settings"
-              style={styles.settingsBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={{ fontSize: 22 }}>⚙️</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
+        <HennaHeader
+          title="Prayer Times"
+          subtitle={`${hijri.day} ${hijri.monthName} ${hijri.year} AH`}
+          onMenu={onMenu}
+          action={
+            <Pressable onPress={openSettings} hitSlop={8} style={styles.headerIconBtn} accessibilityLabel="Prayer settings">
+              <HennaIcon name="gear" size={18} color={hennaColors.ink2} />
+            </Pressable>
+          }
+        />
 
-        {/* Next prayer big card */}
-        {next && (
-          <Card>
-            <Text style={[styles.sectionLabel, { color: colors.muted }]}>NEXT PRAYER</Text>
-            <View style={styles.nextRow}>
-              <Text style={[styles.nextName, { color: colors.deep }]}>{next.name}</Text>
-              <Text style={[styles.nextTime, { color: colors.gold }]}>
-                {formatPrayerTime(next.time)}
-              </Text>
+        {/* Hero — plum */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroPlum}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.plum} opacity={0.18} />
             </View>
-            <Text style={[styles.nextCountdown, { color: colors.sub }]}>
-              in {formatCountdown(next.minutesUntil)}
-            </Text>
-          </Card>
-        )}
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.plum} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.plum }]}>
+                  {prayerSettings.location.name}
+                </Text>
+              </View>
+              {next ? (
+                <>
+                  <Text style={styles.heroTitle}>{next.name}</Text>
+                  <Text style={styles.heroTimeBig}>{formatPrayerTime(next.time)}</Text>
+                  <Text style={styles.heroSub}>in {formatCountdown(next.minutesUntil)}</Text>
+                </>
+              ) : (
+                <Text style={styles.heroTitle}>—</Text>
+              )}
+            </View>
+          </View>
+        </View>
 
         {/* Today's times */}
         {times && (
-          <Card>
-            <Text style={[styles.sectionLabel, { color: colors.muted }]}>TODAY</Text>
-            {PRAYER_ORDER.map((p, i) => {
-              const when = times[p.name.toLowerCase() as keyof typeof times] as Date;
-              const isNext = next?.name === p.name;
-              return (
-                <View
-                  key={p.name}
-                  style={[
-                    styles.prayerRow,
-                    isNext && { backgroundColor: colors.goldBg, borderRadius: 12, paddingHorizontal: 12 },
-                    i < PRAYER_ORDER.length - 1 && { borderBottomWidth: isNext ? 0 : 1, borderBottomColor: colors.border },
-                  ]}
-                >
-                  <Text style={styles.prayerIcon}>{p.icon}</Text>
-                  <Text
+          <View style={styles.body}>
+            <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Today</Text>
+            <HennaCard padding={0}>
+              {PRAYER_ORDER.map((p, i) => {
+                const when = times[p.name.toLowerCase() as keyof typeof times] as Date;
+                const isNext = next?.name === p.name;
+                return (
+                  <View
+                    key={p.name}
                     style={[
-                      styles.prayerName,
-                      { color: isNext ? colors.gold : colors.deep },
+                      styles.prayerRow,
+                      isNext && { backgroundColor: hennaColors.plumBg },
+                      i < PRAYER_ORDER.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: hennaColors.line,
+                      },
                     ]}
                   >
-                    {p.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.prayerTime,
-                      { color: isNext ? colors.gold : colors.sub },
-                    ]}
-                  >
-                    {formatPrayerTime(when)}
-                  </Text>
-                </View>
-              );
-            })}
-          </Card>
+                    <HennaIcon name={p.icon} size={16} color={isNext ? hennaColors.plum : hennaColors.muted} />
+                    <Text
+                      style={[
+                        styles.prayerName,
+                        { color: isNext ? hennaColors.plum : hennaColors.ink },
+                      ]}
+                    >
+                      {p.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.prayerTime,
+                        { color: isNext ? hennaColors.plum : hennaColors.ink2 },
+                      ]}
+                    >
+                      {formatPrayerTime(when)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </HennaCard>
+          </View>
         )}
 
-        {/* Sunnah fasting status — v1.2.4-dev: subtle tasbeeh/crescent
-            Lottie plays once when the user lands on a Sunnah day. */}
-        <Card>
-          <Text style={[styles.sectionLabel, { color: colors.muted }]}>SUNNAH FASTING</Text>
-          {sunnahWeekday && (
-            <View style={styles.fastingRow}>
-              <LottieBox animation="tasbeeh" size={44} fallbackEmoji="🌙" />
-              <View style={[styles.fastingLine, { backgroundColor: colors.greenBg, flex: 1 }]}>
-                <Text style={[styles.fastingText, { color: colors.green }]}>
-                  ✨ Sunnah fasting day ({sunnahWeekday})
-                </Text>
+        {/* Sunnah fasting */}
+        <View style={styles.body}>
+          <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>Sunnah fasting</Text>
+          <HennaCard padding={16}>
+            {sunnahWeekday && (
+              <View style={styles.fastingRow}>
+                <LottieBox animation="tasbeeh" size={36} fallbackEmoji="🌙" />
+                <View style={{ flex: 1 }}>
+                  <HennaBadge accent="sage">Sunnah fasting day · {sunnahWeekday}</HennaBadge>
+                </View>
               </View>
-            </View>
-          )}
-          {ayyamAlBidDay !== null && (
-            <View style={[styles.fastingLine, { backgroundColor: colors.goldBg, marginTop: sunnahWeekday ? 8 : 0 }]}>
-              <Text style={[styles.fastingText, { color: colors.gold }]}>
-                🌙 Ayyam al-Bid — day {ayyamAlBidDay} of 3
+            )}
+            {ayyamAlBidDay !== null && (
+              <View style={{ marginTop: sunnahWeekday ? 10 : 0 }}>
+                <HennaBadge accent="bronze">Ayyam al-Bid — day {ayyamAlBidDay} of 3</HennaBadge>
+              </View>
+            )}
+            {!sunnahWeekday && ayyamAlBidDay === null && tmrWeekday && prayerSettings.mondayThursdayFasting && (
+              <Text style={styles.fastingNeutral}>
+                Reminder set for tonight — tomorrow is {tmrWeekday}.
               </Text>
-            </View>
-          )}
-          {!sunnahWeekday && ayyamAlBidDay === null && tmrWeekday && prayerSettings.mondayThursdayFasting && (
-            <Text style={[styles.fastingNeutral, { color: colors.sub }]}>
-              Reminder set for tonight — tomorrow is {tmrWeekday}.
-            </Text>
-          )}
-          {!sunnahWeekday && ayyamAlBidDay === null && !tmrWeekday && (
-            <Text style={[styles.fastingNeutral, { color: colors.muted }]}>
-              No Sunnah fasting day today. Next Monday/Thursday reminder will arrive the night before.
-            </Text>
-          )}
-        </Card>
+            )}
+            {!sunnahWeekday && ayyamAlBidDay === null && !tmrWeekday && (
+              <Text style={styles.fastingNeutral}>
+                No Sunnah fasting day today. Next reminder arrives the night before.
+              </Text>
+            )}
+          </HennaCard>
+        </View>
 
-        <Button
-          title="Prayer Settings"
-          icon="⚙️"
-          variant="outline"
-          onPress={openSettings}
-          style={{ marginTop: 4 }}
-        />
+        <View style={[styles.body, { marginTop: 8 }]}>
+          <HennaButton title="Prayer settings" icon="gear" variant="outline" onPress={openSettings} />
+        </View>
       </ScrollView>
       <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: {
-    fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
-    letterSpacing: 1.5, marginBottom: 6,
+  scrollContent: { paddingBottom: 180 },
+  headerIconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
   },
-  title: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 28, lineHeight: 34 },
-  subtitle: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  settingsBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  sectionLabel: {
-    fontSize: 11, fontFamily: 'Outfit-Bold', textTransform: 'uppercase',
-    letterSpacing: 1.2, marginBottom: 10,
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroTitle: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 26,
+    color: hennaColors.ink,
+    letterSpacing: -0.3,
   },
-  nextRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  nextName: { fontFamily: 'PlayfairDisplay-Bold', fontSize: 28 },
-  nextTime: { fontFamily: 'Outfit-Bold', fontSize: 26 },
-  nextCountdown: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 6 },
+  heroTimeBig: {
+    marginTop: 4,
+    fontFamily: hennaFonts.serif,
+    fontSize: 36,
+    color: hennaColors.plum,
+    letterSpacing: -0.5,
+  },
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+  heroBody: { marginTop: 10, fontFamily: hennaFonts.ui, fontSize: 13, color: hennaColors.ink2, lineHeight: 19 },
+
+  body: { paddingHorizontal: 16, paddingTop: 18 },
+  sectionEyebrow: { paddingHorizontal: 8, paddingBottom: 10 },
+
   prayerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
     gap: 12,
-    minHeight: 44,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
   },
-  prayerIcon: { fontSize: 20, width: 28, textAlign: 'center' },
-  prayerName: { flex: 1, fontSize: 16, fontFamily: 'Outfit-SemiBold' },
-  prayerTime: { fontSize: 16, fontFamily: 'Outfit-Bold' },
+  prayerName: { flex: 1, fontFamily: hennaFonts.uiSemi, fontSize: 14 },
+  prayerTime: { fontFamily: hennaFonts.serif, fontSize: 15 },
+
   fastingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  fastingLine: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12 },
-  fastingText: { fontFamily: 'Outfit-SemiBold', fontSize: 14 },
-  fastingNeutral: { fontSize: 13, fontFamily: 'Outfit-Regular', lineHeight: 20 },
+  fastingNeutral: {
+    fontFamily: hennaFonts.ui,
+    fontSize: 12,
+    color: hennaColors.muted,
+    lineHeight: 18,
+  },
 });
