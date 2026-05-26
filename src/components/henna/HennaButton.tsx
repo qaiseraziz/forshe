@@ -17,6 +17,8 @@ import {
   hennaGradients,
   hennaAccentPairs,
 } from '../../constants/hennaTokens';
+import { HennaIcon } from './HennaIcons';
+import type { HennaIconName } from './HennaIcons';
 
 export type HennaButtonVariant =
   | 'primary'
@@ -36,7 +38,7 @@ interface Props {
   variant?: HennaButtonVariant;
   size?: HennaButtonSize;
   full?: boolean;
-  icon?: string; // HennaIconName — wired in phase 3
+  icon?: HennaIconName;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   disabled?: boolean;
@@ -73,7 +75,7 @@ function HennaButtonImpl({
   variant = 'primary',
   size = 'md',
   full,
-  icon: _icon,
+  icon,
   style,
   textStyle,
   disabled,
@@ -157,7 +159,7 @@ function HennaButtonImpl({
         />
       ) : null}
       <View style={styles.inner}>
-        {/* icon slot — phase 3 will render <HennaIcon name={_icon}/> here. */}
+        {icon ? <HennaIcon name={icon} size={14} color={fg} /> : null}
         {label != null ? (
           <Text style={[styles.text, { color: fg, fontSize: s.fontSize }, textStyle]}>{label}</Text>
         ) : (

@@ -8,6 +8,8 @@ import {
   hennaAccentPairs,
   HennaAccent,
 } from '../../constants/hennaTokens';
+import { HennaIcon } from './HennaIcons';
+import type { HennaIconName } from './HennaIcons';
 
 interface Props {
   children?: React.ReactNode;
@@ -15,7 +17,7 @@ interface Props {
   active?: boolean;
   onPress: () => void;
   accent?: HennaAccent;
-  icon?: string; // HennaIconName — wired in phase 3
+  icon?: HennaIconName;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
 }
@@ -26,7 +28,7 @@ function HennaPillImpl({
   active,
   onPress,
   accent = 'henna',
-  icon: _icon,
+  icon,
   style,
   accessibilityLabel,
 }: Props) {
@@ -55,7 +57,7 @@ function HennaPillImpl({
       ]}
     >
       <View style={styles.inner}>
-        {/* icon slot — phase 3 wires <HennaIcon name={_icon} size={13} /> */}
+        {icon ? <HennaIcon name={icon} size={13} color={active ? a.fg : hennaColors.muted} /> : null}
         {text != null ? (
           <Text style={[styles.text, { color: active ? a.fg : hennaColors.muted }]}>{text}</Text>
         ) : (

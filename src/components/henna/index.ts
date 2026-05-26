@@ -5,3 +5,5 @@ export { HennaPill } from './HennaPill';
 export { HennaInput } from './HennaInput';
 export { HennaBadge } from './HennaBadge';
 export { HennaProgress } from './HennaProgress';
+export { HennaIcon } from './HennaIcons';
+export type { HennaIconName } from './HennaIcons';

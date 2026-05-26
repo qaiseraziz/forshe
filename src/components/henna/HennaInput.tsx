@@ -15,22 +15,24 @@ import {
   hennaType,
   hennaTextStyles,
 } from '../../constants/hennaTokens';
+import { HennaIcon } from './HennaIcons';
+import type { HennaIconName } from './HennaIcons';
 
 interface Props extends TextInputProps {
   label?: string;
-  icon?: string; // HennaIconName — wired in phase 3
+  icon?: HennaIconName;
   containerStyle?: StyleProp<ViewStyle>;
 }
 
 const HennaInputImpl = forwardRef<TextInput, Props>(function HennaInput(
-  { label, icon: _icon, containerStyle, style, ...props },
+  { label, icon, containerStyle, style, ...props },
   ref,
 ) {
   return (
     <View style={containerStyle}>
       {label ? <Text style={[hennaTextStyles.eyebrow, styles.label]}>{label}</Text> : null}
       <View style={styles.fieldRow}>
-        {/* icon slot — phase 3 wires <HennaIcon name={_icon} size={16} color={hennaColors.muted} /> */}
+        {icon ? <HennaIcon name={icon} size={16} color={hennaColors.muted} /> : null}
         <TextInput
           ref={ref}
           placeholderTextColor={hennaColors.muted}
