@@ -3,7 +3,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Modal,
   Alert,
@@ -11,27 +11,48 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { INVENTORY_CATS, UNIT_HINTS } from '../constants/data';
 import { InventoryItem, InventoryCategory } from '../types';
 import { SwipeableRow } from '../components/ui/SwipeableRow';
 import { SkeletonCardRow } from '../components/ui/Skeleton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaBadge,
+  HennaPill,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
+import type { HennaIconName } from '../components/henna';
+
+const CAT_ICONS: Record<InventoryCategory, HennaIconName> = {
+  Grocery: 'cart',
+  Household: 'house',
+  Pantry: 'pot',
+  Fridge: 'snow',
+  Freezer: 'snow',
+};
 
 export default function InventoryScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { inventory, setInventory, allLoaded } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -40,7 +61,6 @@ export default function InventoryScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // Form state
   const [fName, setFName] = useState('');
   const [fQty, setFQty] = useState('');
   const [fUnit, setFUnit] = useState('kg');
@@ -48,12 +68,16 @@ export default function InventoryScreen() {
   const [fThresh, setFThresh] = useState('1');
   const [fNotes, setFNotes] = useState('');
 
-  // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
   const iNameRef = useRef<TextInput | null>(null);
   const iQtyRef = useRef<TextInput | null>(null);
   const iUnitRef = useRef<TextInput | null>(null);
   const iThreshRef = useRef<TextInput | null>(null);
   const iNotesRef = useRef<TextInput | null>(null);
+
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   const resetForm = useCallback(() => {
     setFName('');
@@ -106,7 +130,16 @@ export default function InventoryScreen() {
     if (editingId !== null) {
       setInventory(prev => prev.map(i =>
         i.id === editingId
-          ? { ...i, name: fName.trim(), qty, unit: fUnit.trim() || 'pcs', category: fCat, lowStockThreshold: thresh, notes: fNotes.trim() || undefined, lastUpdated: now }
+          ? {
+              ...i,
+              name: fName.trim(),
+              qty,
+              unit: fUnit.trim() || 'pcs',
+              category: fCat,
+              lowStockThreshold: thresh,
+              notes: fNotes.trim() || undefined,
+              lastUpdated: now,
+            }
           : i,
       ));
       showToast('Item updated');
@@ -131,7 +164,7 @@ export default function InventoryScreen() {
   const deleteItem = useCallback((id: number) => {
     const target = inventory.find(i => i.id === id);
     if (!target) return;
-    Alert.alert('Delete Item', `Remove "${target.name}" from inventory?`, [
+    Alert.alert('Delete item', `Remove "${target.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -170,177 +203,184 @@ export default function InventoryScreen() {
   );
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
-        <Card gradient={dark ? gradients.greenHeroDark : gradients.greenHero}>
-          <View style={styles.heroHeaderRow}>
-            <DrawerMenuButton />
-            <View style={styles.heroHeaderText}>
-              <Text style={[styles.heroLabel, { color: colors.green }]}>📦 Inventory</Text>
-              <Text style={[styles.heroNum, { color: colors.green }]}>{inventory.length}</Text>
-              <Text style={[styles.heroSub, { color: colors.sub }]}>
-                {lowStockCount > 0
-                  ? `${lowStockCount} low on stock`
-                  : inventory.length === 0
-                    ? 'Nothing tracked yet'
-                    : 'All well stocked'}
+        <HennaHeader
+          title="Inventory"
+          subtitle={
+            inventory.length === 0
+              ? 'Nothing tracked yet'
+              : lowStockCount > 0
+                ? `${lowStockCount} low on stock`
+                : 'All well stocked'
+          }
+          onMenu={onMenu}
+        />
+
+        {/* Hero — sage */}
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroSage}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.sage} opacity={0.18} />
+            </View>
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.sage} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.sage }]}>Pantry</Text>
+              </View>
+              <Text style={styles.heroNum}>{inventory.length}</Text>
+              <Text style={styles.heroSub}>
+                {lowStockCount > 0 ? `${lowStockCount} need restocking` : 'Items tracked'}
               </Text>
+              <View style={{ marginTop: 14 }}>
+                <HennaButton title="+ Add item" icon="plus" variant="sage" size="sm" onPress={openAdd} />
+              </View>
             </View>
           </View>
-        </Card>
-
-        {/* Search + Add */}
-        <View style={styles.searchRow}>
-          <View style={{ flex: 1 }}>
-            <Input placeholder="Search inventory…" value={search} onChangeText={setSearch} />
-          </View>
-          <Button title="+ Add" variant="green" onPress={openAdd} />
         </View>
 
-        {/* Category filter pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catPills}>
-          <TouchableOpacity
-            style={[styles.pill, { backgroundColor: filterCat === 'all' ? colors.greenBg : colors.bg3 }]}
-            onPress={() => setFilterCat('all')}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={[styles.pillText, { color: filterCat === 'all' ? colors.green : colors.sub }]}>All</Text>
-          </TouchableOpacity>
+        {/* Search */}
+        <View style={styles.searchRow}>
+          <HennaInput
+            icon="search"
+            placeholder="Search inventory"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {/* Category filter */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRail}>
+          <HennaPill label="All" active={filterCat === 'all'} onPress={() => setFilterCat('all')} />
           {INVENTORY_CATS.map(c => (
-            <TouchableOpacity
+            <HennaPill
               key={c.key}
-              style={[styles.pill, { backgroundColor: filterCat === c.key ? colors.greenBg : colors.bg3 }]}
+              label={c.label}
+              icon={CAT_ICONS[c.key]}
+              active={filterCat === c.key}
               onPress={() => setFilterCat(c.key)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={[styles.pillText, { color: filterCat === c.key ? colors.green : colors.sub }]}>
-                {c.icon} {c.label}
-              </Text>
-            </TouchableOpacity>
+            />
           ))}
         </ScrollView>
 
-        <Divider label={`Items · ${filtered.length}`} />
+        <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>
+          Items · {filtered.length}
+        </Text>
 
         {!allLoaded && (
-          <>
+          <View style={{ paddingHorizontal: 16 }}>
             <SkeletonCardRow />
             <SkeletonCardRow />
             <SkeletonCardRow />
-            <SkeletonCardRow />
-          </>
+          </View>
         )}
+
         {allLoaded && filtered.length === 0 ? (
-          <EmptyState
-            icon="📦"
-            text={inventory.length === 0
-              ? 'Your pantry is empty. Add items to track what you have.'
-              : 'No items match this filter.'}
-            hint={inventory.length === 0 ? 'Tap + Add to log your first item.' : undefined}
-          />
-        ) : allLoaded ? filtered.map(item => {
-          const isLow = item.qty <= item.lowStockThreshold;
-          const catDef = INVENTORY_CATS.find(c => c.key === item.category);
-          return (
-            <SwipeableRow
-              key={item.id}
-              itemLabel={item.name}
-              actions={[
-                { kind: 'edit', onPress: () => openEdit(item) },
-                { kind: 'delete', onPress: () => deleteItem(item.id) },
-              ]}
-            >
-            <Card>
-              <View style={styles.itemRow}>
-                <View style={styles.itemIconWrap}>
-                  <Text style={styles.itemIcon}>{catDef?.icon || '📦'}</Text>
-                </View>
-                <View style={styles.itemContent}>
-                  <View style={styles.itemTopRow}>
-                    <Text style={[styles.itemName, { color: colors.deep }]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    {isLow && (
-                      <Badge text="Low" bg={colors.redBg} color={colors.red} />
-                    )}
-                  </View>
-                  <Text style={[styles.itemQty, { color: isLow ? colors.red : colors.sub }]}>
-                    {item.qty} {item.unit}
-                  </Text>
-                  <Text style={[styles.itemMeta, { color: colors.muted }]}>
-                    {catDef?.label || item.category} · Threshold: {item.lowStockThreshold} {item.unit}
-                  </Text>
-                  {item.notes ? (
-                    <Text style={[styles.itemNotes, { color: colors.muted }]} numberOfLines={2}>
-                      {item.notes}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>
+              {inventory.length === 0 ? 'Pantry is empty.' : 'No matches.'}
+            </Text>
+            <Text style={styles.emptyHint}>
+              {inventory.length === 0 ? 'Tap + to add your first item.' : 'Try a different filter.'}
+            </Text>
+          </View>
+        ) : allLoaded ? (
+          <View style={styles.listWrap}>
+            {filtered.map(item => {
+              const isLow = item.qty <= item.lowStockThreshold;
+              const catDef = INVENTORY_CATS.find(c => c.key === item.category);
+              return (
+                <SwipeableRow
+                  key={item.id}
+                  itemLabel={item.name}
+                  actions={[
+                    { kind: 'edit', onPress: () => openEdit(item) },
+                    { kind: 'delete', onPress: () => deleteItem(item.id) },
+                  ]}
+                >
+                  <HennaCard padding={16} style={{ marginBottom: 10 }}>
+                    <View style={styles.itemRow}>
+                      <View style={styles.itemIconWrap}>
+                        <HennaIcon name={CAT_ICONS[item.category]} size={18} color={hennaColors.sage} />
+                      </View>
+                      <View style={styles.itemContent}>
+                        <View style={styles.itemTopRow}>
+                          <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+                          {isLow ? <HennaBadge accent="henna">low</HennaBadge> : null}
+                        </View>
+                        <Text style={[styles.itemQty, { color: isLow ? hennaColors.henna : hennaColors.ink2 }]}>
+                          {item.qty} {item.unit}
+                        </Text>
+                        <Text style={styles.itemMeta}>
+                          {catDef?.label || item.category} · threshold {item.lowStockThreshold} {item.unit}
+                        </Text>
+                        {item.notes ? (
+                          <Text style={styles.itemNotes} numberOfLines={2}>
+                            {item.notes}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
 
-              <View style={styles.actionsRow}>
-                <TouchableOpacity
-                  style={[styles.qtyBtn, { backgroundColor: colors.bg3 }]}
-                  onPress={() => adjustQty(item.id, -1)}
-                  accessibilityLabel={`Decrease ${item.name}`}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={[styles.qtyBtnText, { color: colors.deep }]}>−</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.qtyBtn, { backgroundColor: colors.bg3 }]}
-                  onPress={() => adjustQty(item.id, 1)}
-                  accessibilityLabel={`Increase ${item.name}`}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={[styles.qtyBtnText, { color: colors.deep }]}>+</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.editBtn, { backgroundColor: colors.bg3 }]}
-                  onPress={() => openEdit(item)}
-                  accessibilityLabel={`Edit ${item.name}`}
-                >
-                  <Text style={[styles.editBtnText, { color: colors.sub }]}>✏️ Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.editBtn, { backgroundColor: colors.redBg }]}
-                  onPress={() => deleteItem(item.id)}
-                  accessibilityLabel={`Delete ${item.name}`}
-                >
-                  <Text style={[styles.editBtnText, { color: colors.red }]}>🗑</Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
-            </SwipeableRow>
-          );
-        }) : null}
-
-        <View style={styles.bottomPad} />
+                    <View style={styles.actionsRow}>
+                      <Pressable
+                        onPress={() => adjustQty(item.id, -1)}
+                        style={styles.qtyBtn}
+                        hitSlop={8}
+                        accessibilityLabel={`Decrease ${item.name}`}
+                      >
+                        <Text style={styles.qtyBtnText}>−</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => adjustQty(item.id, 1)}
+                        style={styles.qtyBtn}
+                        hitSlop={8}
+                        accessibilityLabel={`Increase ${item.name}`}
+                      >
+                        <Text style={styles.qtyBtnText}>+</Text>
+                      </Pressable>
+                      <View style={{ flex: 1 }} />
+                      <HennaButton
+                        title="Edit"
+                        icon="pencil"
+                        variant="outline"
+                        size="sm"
+                        onPress={() => openEdit(item)}
+                      />
+                    </View>
+                  </HennaCard>
+                </SwipeableRow>
+              );
+            })}
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Add / Edit Modal */}
       <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.bg2 }]}>
+          <View style={styles.modalBox}>
             <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={[styles.modalTitle, { color: colors.deep }]}>
-                {editingId !== null ? 'Edit Item' : 'Add to Inventory'}
-              </Text>
+              <Text style={styles.modalTitle}>{editingId !== null ? 'Edit item' : 'Add item'}</Text>
 
-              <Input
+              <HennaInput
                 ref={iNameRef}
                 label="Name"
-                placeholder="e.g. Basmati Rice"
+                placeholder="e.g. Basmati rice"
                 value={fName}
                 onChangeText={setFName}
-                style={{ marginBottom: 12 }}
+                containerStyle={{ marginBottom: 12 }}
                 autoFocus
                 returnKeyType="next"
                 blurOnSubmit={false}
@@ -349,7 +389,7 @@ export default function InventoryScreen() {
 
               <View style={styles.qtyRow}>
                 <View style={{ flex: 1 }}>
-                  <Input
+                  <HennaInput
                     ref={iQtyRef}
                     label="Quantity"
                     placeholder="0"
@@ -362,7 +402,7 @@ export default function InventoryScreen() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Input
+                  <HennaInput
                     ref={iUnitRef}
                     label="Unit"
                     placeholder="kg / pcs"
@@ -375,60 +415,57 @@ export default function InventoryScreen() {
                 </View>
               </View>
 
-              {/* Quick unit hints */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, marginBottom: 12 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ marginTop: 10, gap: 6 }}
+              >
                 {UNIT_HINTS.map(u => (
-                  <TouchableOpacity
-                    key={u}
-                    style={[styles.unitHint, { backgroundColor: fUnit === u ? colors.greenBg : colors.bg3 }]}
-                    onPress={() => setFUnit(u)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={[styles.unitHintText, { color: fUnit === u ? colors.green : colors.sub }]}>{u}</Text>
-                  </TouchableOpacity>
+                  <HennaPill key={u} label={u} active={fUnit === u} onPress={() => setFUnit(u)} />
                 ))}
               </ScrollView>
 
-              <Text style={[styles.fieldLabel, { color: colors.muted }]}>CATEGORY</Text>
-              <View style={[styles.pickerWrap, { backgroundColor: colors.bg3 }]}>
+              <Text style={[hennaTextStyles.eyebrow, { marginTop: 14, marginBottom: 8 }]}>Category</Text>
+              <View style={styles.pickerWrap}>
                 <Picker
                   selectedValue={fCat}
                   onValueChange={v => setFCat(v)}
-                  style={{ color: colors.text }}
-                  dropdownIconColor={colors.muted}
+                  style={{ color: hennaColors.ink }}
+                  dropdownIconColor={hennaColors.muted}
                 >
                   {INVENTORY_CATS.map(c => (
-                    <Picker.Item key={c.key} value={c.key} label={`${c.icon}  ${c.label}`} />
+                    <Picker.Item key={c.key} value={c.key} label={c.label} />
                   ))}
                 </Picker>
               </View>
 
-              <Input
+              <HennaInput
                 ref={iThreshRef}
                 label="Low-stock threshold"
                 placeholder="1"
                 value={fThresh}
                 onChangeText={setFThresh}
                 keyboardType="numeric"
-                style={{ marginBottom: 12 }}
+                containerStyle={{ marginTop: 12 }}
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => iNotesRef.current?.focus()}
               />
-              <Input
+              <HennaInput
                 ref={iNotesRef}
                 label="Notes (optional)"
                 placeholder="e.g. expires next week"
                 value={fNotes}
                 onChangeText={setFNotes}
                 multiline
+                containerStyle={{ marginTop: 12 }}
                 returnKeyType="done"
                 onSubmitEditing={saveItem}
               />
 
               <View style={styles.modalBtns}>
-                <Button title="Cancel" variant="outline" small onPress={closeModal} style={{ flex: 1 }} />
-                <Button title={editingId !== null ? 'Save' : 'Add'} variant="green" small onPress={saveItem} style={{ flex: 1 }} />
+                <HennaButton title="Cancel" variant="outline" onPress={closeModal} style={{ flex: 1 }} />
+                <HennaButton title={editingId !== null ? 'Save' : 'Add'} variant="sage" onPress={saveItem} style={{ flex: 1 }} />
               </View>
             </ScrollView>
           </View>
@@ -436,44 +473,93 @@ export default function InventoryScreen() {
       </Modal>
 
       <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 140 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
-  heroNum: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 42, lineHeight: 48 },
-  heroSub: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  searchRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 12 },
-  catPills: { flexGrow: 0, marginBottom: 8 },
-  pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginRight: 8, minHeight: 44, justifyContent: 'center' },
-  pillText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
+  scrollContent: { paddingBottom: 180 },
+
+  heroWrap: { paddingHorizontal: 16 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
+  },
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroNum: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 42,
+    color: hennaColors.ink,
+    letterSpacing: -0.5,
+  },
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+
+  searchRow: { paddingHorizontal: 16, marginTop: 18 },
+  pillsRail: { paddingHorizontal: 16, paddingTop: 12, gap: 6 },
+  sectionEyebrow: { paddingHorizontal: 24, paddingTop: 18, paddingBottom: 10 },
+
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
+
+  listWrap: { paddingHorizontal: 16 },
   itemRow: { flexDirection: 'row', gap: 12 },
-  itemIconWrap: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(26,138,90,0.08)' },
-  itemIcon: { fontSize: 22 },
+  itemIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: hennaColors.sageBg,
+  },
   itemContent: { flex: 1, minWidth: 0 },
-  itemTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 },
-  itemName: { fontFamily: 'Outfit-SemiBold', fontSize: 16, flexShrink: 1 },
-  itemQty: { fontFamily: 'Outfit-Bold', fontSize: 15 },
-  itemMeta: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  itemNotes: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 4, fontStyle: 'italic' },
-  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  qtyBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  qtyBtnText: { fontSize: 20, fontFamily: 'Outfit-Bold' },
-  editBtn: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  editBtnText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalBox: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '88%' },
-  modalTitle: { fontSize: 22, fontFamily: 'PlayfairDisplay-Bold', marginBottom: 18 },
+  itemTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  itemName: { flex: 1, fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  itemQty: { fontFamily: hennaFonts.serif, fontSize: 15 },
+  itemMeta: { marginTop: 2, fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted },
+  itemNotes: { marginTop: 4, fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, fontStyle: 'italic' },
+  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 12, alignItems: 'center' },
+  qtyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: hennaColors.paper2,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnText: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(60,40,20,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalBox: {
+    backgroundColor: hennaColors.pearl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '88%',
+  },
+  modalTitle: { fontFamily: hennaFonts.serif, fontSize: 22, color: hennaColors.ink, marginBottom: 16 },
   qtyRow: { flexDirection: 'row', gap: 10 },
-  fieldLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
-  pickerWrap: { borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
-  unitHint: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginRight: 8, minHeight: 44, justifyContent: 'center' },
-  unitHintText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 12 },
-  bottomPad: { height: 40 },
+  pickerWrap: {
+    backgroundColor: hennaColors.paper2,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    overflow: 'hidden',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 18 },
 });

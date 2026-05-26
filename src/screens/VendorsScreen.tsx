@@ -3,7 +3,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Modal,
   Alert,
@@ -15,26 +15,54 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import * as Contacts from 'expo-contacts';
-import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import { gradients } from '../constants/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-import { Divider } from '../components/ui/Divider';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Toast, useToast } from '../components/ui/Toast';
-import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { VENDOR_CATS } from '../constants/data';
 import { Vendor, VendorCategory } from '../types';
 import { SwipeableRow } from '../components/ui/SwipeableRow';
 import { SkeletonCardRow } from '../components/ui/Skeleton';
+import {
+  hennaColors,
+  hennaFonts,
+  hennaGradients,
+  hennaRadii,
+  hennaShadows,
+  hennaTextStyles,
+} from '../constants/hennaTokens';
+import {
+  HennaHeader,
+  HennaButton,
+  HennaCard,
+  HennaIcon,
+  HennaInput,
+  HennaBadge,
+  HennaPill,
+  ArabesqueCorner,
+  MarginMark,
+  MeshOverlay,
+} from '../components/henna';
+import type { HennaIconName } from '../components/henna';
 
 type FilterKey = 'all' | 'favorites' | VendorCategory;
+
+const VENDOR_ICON_MAP: Record<string, HennaIconName> = {
+  Plumber: 'wrench',
+  Electrician: 'bolt',
+  'AC Repair': 'snow',
+  'Appliance Repair': 'wrench',
+  Doctor: 'doctor',
+  Pharmacy: 'pill',
+  Tailor: 'tailor',
+  Carpenter: 'hammer',
+  Gardener: 'leaf',
+  Cleaner: 'broom',
+  Mechanic: 'car',
+  Other: 'list',
+};
 
 function cleanPhone(phone: string): string {
   return phone.replace(/[\s\-()]/g, '');
@@ -50,8 +78,8 @@ function todayISO(): string {
 }
 
 export default function VendorsScreen() {
-  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { vendors, setVendors, allLoaded } = useData();
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -61,7 +89,6 @@ export default function VendorsScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  // Form state
   const [fName, setFName] = useState('');
   const [fCategory, setFCategory] = useState<VendorCategory>('Plumber');
   const [fPhone, setFPhone] = useState('');
@@ -71,20 +98,22 @@ export default function VendorsScreen() {
   const [fFavorite, setFFavorite] = useState(false);
   const [fNotes, setFNotes] = useState('');
 
-  // v1.2.17: contact-picker state — user can import name + phone from
-  // their phone's address book instead of typing.
   type DeviceContact = { id: string; name: string; phones: string[] };
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactsList, setContactsList] = useState<DeviceContact[]>([]);
   const [contactsSearch, setContactsSearch] = useState('');
 
-  // v1.2.5-dev: keyboard flow refs for the Add/Edit modal.
   const vNameRef = useRef<TextInput | null>(null);
   const vPhoneRef = useRef<TextInput | null>(null);
   const vAltPhoneRef = useRef<TextInput | null>(null);
   const vAddressRef = useRef<TextInput | null>(null);
   const vNotesRef = useRef<TextInput | null>(null);
+
+  const onMenu = useCallback(() => {
+    Haptics.selectionAsync();
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   const resetForm = useCallback(() => {
     setFName('');
@@ -103,8 +132,6 @@ export default function VendorsScreen() {
     setModalOpen(true);
   }, [resetForm]);
 
-  // v1.2.17: open the device contact picker. Requests permission, loads
-  // contacts (name + phones), filters in-memory.
   const openContactPicker = useCallback(async () => {
     setContactsLoading(true);
     setContactsSearch('');
@@ -113,7 +140,7 @@ export default function VendorsScreen() {
       if (status !== 'granted') {
         Alert.alert(
           'Permission needed',
-          'Please allow contact access in your device settings to import vendors from your address book.',
+          'Please allow contact access in your device settings.',
         );
         setContactsLoading(false);
         return;
@@ -151,9 +178,10 @@ export default function VendorsScreen() {
   const filteredContacts = useMemo(() => {
     const q = contactsSearch.trim().toLowerCase();
     if (!q) return contactsList;
-    return contactsList.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.phones.some(p => p.replace(/\D/g, '').includes(q.replace(/\D/g, ''))),
+    return contactsList.filter(
+      c =>
+        c.name.toLowerCase().includes(q) ||
+        c.phones.some(p => p.replace(/\D/g, '').includes(q.replace(/\D/g, ''))),
     );
   }, [contactsList, contactsSearch]);
 
@@ -236,7 +264,7 @@ export default function VendorsScreen() {
   const deleteVendor = useCallback((id: number) => {
     const target = vendors.find(v => v.id === id);
     if (!target) return;
-    Alert.alert('Delete Vendor', `Remove "${target.name}" from your directory?`, [
+    Alert.alert('Delete vendor', `Remove "${target.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -274,37 +302,30 @@ export default function VendorsScreen() {
     stampUsed(id);
   }, [stampUsed]);
 
-  const handleCall = useCallback((vendor: Vendor) => {
+  const handleCallLong = useCallback((vendor: Vendor) => {
     if (vendor.altPhone) {
-      Alert.alert(
-        'Call ' + vendor.name,
-        'Choose which number to call',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Primary: ' + vendor.phone, onPress: () => placeCall(vendor.phone, vendor.id) },
-          { text: 'Alt: ' + vendor.altPhone, onPress: () => placeCall(vendor.altPhone!, vendor.id) },
-        ],
-      );
+      Alert.alert('Call ' + vendor.name, 'Choose which number to call', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Primary: ' + vendor.phone, onPress: () => placeCall(vendor.phone, vendor.id) },
+        { text: 'Alt: ' + vendor.altPhone, onPress: () => placeCall(vendor.altPhone!, vendor.id) },
+      ]);
     } else {
       placeCall(vendor.phone, vendor.id);
     }
   }, [placeCall]);
 
   const handleCallPress = useCallback((vendor: Vendor) => {
-    // Short press: always primary. Alt chosen via long-press.
     placeCall(vendor.phone, vendor.id);
   }, [placeCall]);
 
   const handleWhatsApp = useCallback((vendor: Vendor) => {
     const clean = cleanPhone(vendor.phone);
-    const url = 'https://wa.me/' + clean;
-    Linking.openURL(url).catch(() => {
+    Linking.openURL('https://wa.me/' + clean).catch(() => {
       Alert.alert('Unable to open WhatsApp', 'Could not open WhatsApp for this number.');
     });
     stampUsed(vendor.id);
   }, [stampUsed]);
 
-  // Counts per category (for filter pill visibility — hide empty categories)
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const v of vendors) {
@@ -320,25 +341,18 @@ export default function VendorsScreen() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const matchesFilter = (v: Vendor): boolean => {
-      if (filter === 'all') return true;
-      if (filter === 'favorites') return v.favorite;
-      return v.category === filter;
-    };
-    const matchesSearch = (v: Vendor): boolean => {
-      if (!q) return true;
-      return (
-        v.name.toLowerCase().includes(q) ||
-        v.category.toLowerCase().includes(q)
-      );
-    };
     return vendors
-      .filter(matchesFilter)
-      .filter(matchesSearch)
+      .filter(v => {
+        if (filter === 'all') return true;
+        if (filter === 'favorites') return v.favorite;
+        return v.category === filter;
+      })
+      .filter(v => {
+        if (!q) return true;
+        return v.name.toLowerCase().includes(q) || v.category.toLowerCase().includes(q);
+      })
       .sort((a, b) => {
-        // favorites first
         if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
-        // then lastUsed desc (recent first) — entries without lastUsed go after
         if (a.lastUsed && b.lastUsed) {
           if (a.lastUsed !== b.lastUsed) return a.lastUsed < b.lastUsed ? 1 : -1;
         } else if (a.lastUsed) {
@@ -346,21 +360,20 @@ export default function VendorsScreen() {
         } else if (b.lastUsed) {
           return 1;
         }
-        // alphabetical fallback
         return a.name.localeCompare(b.name);
       });
   }, [vendors, search, filter]);
 
   const filterPills = useMemo(() => {
-    const pills: { key: FilterKey; label: string; icon?: string }[] = [
+    const pills: { key: FilterKey; label: string; icon?: HennaIconName }[] = [
       { key: 'all', label: 'All' },
     ];
     if (favoritesCount > 0) {
-      pills.push({ key: 'favorites', label: '★ Favorites' });
+      pills.push({ key: 'favorites', label: 'Favorites', icon: 'star' });
     }
     for (const c of VENDOR_CATS) {
       if (categoryCounts[c.key] && categoryCounts[c.key] > 0) {
-        pills.push({ key: c.key, label: c.label, icon: c.icon });
+        pills.push({ key: c.key, label: c.label, icon: VENDOR_ICON_MAP[c.key] });
       }
     }
     return pills;
@@ -375,15 +388,23 @@ export default function VendorsScreen() {
 
   const renderStars = useCallback((rating: number) => {
     if (rating <= 0) return null;
-    const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
     return (
-      <Text style={[styles.starText, { color: colors.gold }]}>{stars}</Text>
+      <View style={styles.starsRow}>
+        {[1, 2, 3, 4, 5].map(n => (
+          <HennaIcon
+            key={n}
+            name="star"
+            size={11}
+            color={n <= rating ? hennaColors.bronze : hennaColors.line}
+          />
+        ))}
+      </View>
     );
-  }, [colors.gold]);
+  }, []);
 
   const renderVendorItem: ListRenderItem<Vendor> = useCallback(({ item }) => {
-    const catDef = VENDOR_CATS.find(c => c.key === item.category);
     const isExpanded = expandedId === item.id;
+    const icon = VENDOR_ICON_MAP[item.category] || 'list';
     return (
       <SwipeableRow
         itemLabel={item.name}
@@ -392,162 +413,165 @@ export default function VendorsScreen() {
           { kind: 'delete', onPress: () => deleteVendor(item.id) },
         ]}
       >
-      <Card>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => toggleExpanded(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={(isExpanded ? 'Collapse ' : 'Expand ') + item.name}
-        >
+        <HennaCard padding={16} style={{ marginBottom: 10 }} onPress={() => toggleExpanded(item.id)}>
           <View style={styles.vendorRow}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.goldBg }]}>
-              <Text style={styles.iconEmoji}>{catDef?.icon || '📋'}</Text>
+            <View style={styles.iconCircle}>
+              <HennaIcon name={icon} size={18} color={hennaColors.henna} />
             </View>
             <View style={styles.vendorContent}>
               <View style={styles.vendorTopRow}>
-                <Text style={[styles.vendorName, { color: colors.deep }]} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.favorite && (
-                  <Badge text="★ Pinned" bg={colors.goldBg} color={colors.gold} />
-                )}
+                <Text style={styles.vendorName} numberOfLines={1}>{item.name}</Text>
+                {item.favorite ? <HennaBadge accent="bronze">pinned</HennaBadge> : null}
               </View>
-              <Text style={[styles.vendorCat, { color: colors.muted }]}>
-                {catDef?.label || item.category}
-              </Text>
-              <Text style={[styles.vendorPhone, { color: colors.sub }]} numberOfLines={1}>
-                📞 {item.phone}
-              </Text>
+              <Text style={styles.vendorCat}>{item.category}</Text>
+              <Text style={styles.vendorPhone} numberOfLines={1}>{item.phone}</Text>
               {renderStars(item.rating)}
-              {item.lastUsed && (
-                <Text style={[styles.lastUsed, { color: colors.muted }]}>
-                  Last contacted {item.lastUsed}
-                </Text>
-              )}
+              {item.lastUsed ? (
+                <Text style={styles.lastUsed}>Last contacted {item.lastUsed}</Text>
+              ) : null}
             </View>
-            <TouchableOpacity
-              style={styles.favBtn}
+            <Pressable
               onPress={() => toggleFavorite(item.id)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={(item.favorite ? 'Unpin ' : 'Pin ') + item.name}
+              style={styles.favBtn}
             >
-              <Text style={[styles.favIcon, { color: item.favorite ? colors.gold : colors.muted }]}>
-                {item.favorite ? '★' : '☆'}
-              </Text>
-            </TouchableOpacity>
+              <HennaIcon
+                name="star"
+                size={20}
+                color={item.favorite ? hennaColors.bronze : hennaColors.muted}
+              />
+            </Pressable>
           </View>
-        </TouchableOpacity>
 
-        {isExpanded && (
-          <>
-            {item.address ? (
-              <Text style={[styles.expandedText, { color: colors.sub }]}>
-                📍 {item.address}
-              </Text>
-            ) : null}
-            {item.notes ? (
-              <Text style={[styles.expandedText, { color: colors.muted }]}>
-                📝 {item.notes}
-              </Text>
-            ) : null}
-
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.goldBg }]}
-                onPress={() => handleCallPress(item)}
-                onLongPress={() => handleCall(item)}
-                delayLongPress={350}
-                accessibilityRole="button"
-                accessibilityLabel={'Call ' + item.name}
-              >
-                <Text style={[styles.actionBtnText, { color: colors.gold }]}>📞 Call</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.greenBg }]}
-                onPress={() => handleWhatsApp(item)}
-                accessibilityRole="button"
-                accessibilityLabel={'WhatsApp ' + item.name}
-              >
-                <Text style={[styles.actionBtnText, { color: colors.green }]}>💬 WhatsApp</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.bg3 }]}
-                onPress={() => openEdit(item)}
-                accessibilityRole="button"
-                accessibilityLabel={'Edit ' + item.name}
-              >
-                <Text style={[styles.actionBtnText, { color: colors.sub }]}>✏️ Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.actionBtnIcon, { backgroundColor: colors.redBg }]}
-                onPress={() => deleteVendor(item.id)}
-                accessibilityRole="button"
-                accessibilityLabel={'Delete ' + item.name}
-              >
-                <Text style={[styles.actionBtnText, { color: colors.red }]}>🗑</Text>
-              </TouchableOpacity>
+          {isExpanded && (
+            <View style={styles.expandedWrap}>
+              {item.address ? (
+                <Text style={styles.expandedText}>{item.address}</Text>
+              ) : null}
+              {item.notes ? (
+                <Text style={styles.expandedText}>{item.notes}</Text>
+              ) : null}
+              <View style={styles.actionsRow}>
+                <Pressable
+                  onPress={() => handleCallPress(item)}
+                  onLongPress={() => handleCallLong(item)}
+                  delayLongPress={350}
+                  style={[styles.actionBtn, { backgroundColor: hennaColors.hennaBg }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Call ' + item.name}
+                >
+                  <HennaIcon name="phone" size={14} color={hennaColors.henna} />
+                  <Text style={[styles.actionBtnText, { color: hennaColors.henna }]}>Call</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleWhatsApp(item)}
+                  style={[styles.actionBtn, { backgroundColor: hennaColors.sageBg }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={'WhatsApp ' + item.name}
+                >
+                  <HennaIcon name="message" size={14} color={hennaColors.sage} />
+                  <Text style={[styles.actionBtnText, { color: hennaColors.sage }]}>WhatsApp</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => openEdit(item)}
+                  style={[styles.actionBtn, { backgroundColor: hennaColors.paper2 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Edit ' + item.name}
+                >
+                  <HennaIcon name="pencil" size={14} color={hennaColors.ink2} />
+                </Pressable>
+                <Pressable
+                  onPress={() => deleteVendor(item.id)}
+                  style={[styles.actionBtn, { backgroundColor: hennaColors.hennaBg }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Delete ' + item.name}
+                >
+                  <HennaIcon name="trash" size={14} color={hennaColors.henna} />
+                </Pressable>
+              </View>
             </View>
-          </>
-        )}
-      </Card>
+          )}
+        </HennaCard>
       </SwipeableRow>
     );
-  }, [expandedId, colors, toggleExpanded, toggleFavorite, handleCall, handleCallPress, handleWhatsApp, openEdit, deleteVendor, renderStars]);
+  }, [expandedId, toggleExpanded, toggleFavorite, handleCallLong, handleCallPress, handleWhatsApp, openEdit, deleteVendor, renderStars]);
 
-  const listHeader = useMemo(() => (
-    <View>
-      {/* Hero */}
-      <Card gradient={dark ? gradients.goldHeroDark : gradients.goldHero} style={{ backgroundColor: colors.goldBg, borderColor: colors.goldBorder }}>
-        <View style={styles.heroHeaderRow}>
-          <DrawerMenuButton />
-          <View style={styles.heroHeaderText}>
-            <Text style={[styles.heroLabel, { color: colors.gold }]}>💼 Vendors</Text>
-            <Text style={[styles.heroNum, { color: colors.gold }]}>{vendors.length}</Text>
-            <Text style={[styles.heroSub, { color: colors.sub }]}>
-              Your trusted service providers
-            </Text>
+  const listHeader = useMemo(
+    () => (
+      <View>
+        <HennaHeader
+          title="Vendors"
+          subtitle={
+            vendors.length === 0
+              ? 'No vendors saved'
+              : `${vendors.length} trusted ${vendors.length === 1 ? 'contact' : 'contacts'}`
+          }
+          onMenu={onMenu}
+        />
+
+        <View style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={hennaGradients.heroHenna}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <MeshOverlay />
+            <View style={styles.heroCorner} pointerEvents="none">
+              <ArabesqueCorner size={110} color={hennaColors.henna} opacity={0.14} />
+            </View>
+            <View style={styles.heroInner}>
+              <View style={styles.greetRow}>
+                <MarginMark color={hennaColors.henna} />
+                <Text style={[hennaTextStyles.eyebrow, { color: hennaColors.henna }]}>
+                  Your rolodex
+                </Text>
+              </View>
+              <Text style={styles.heroNum}>{vendors.length}</Text>
+              <Text style={styles.heroSub}>Plumbers, doctors, anyone you trust</Text>
+              <View style={{ marginTop: 14 }}>
+                <HennaButton title="+ Add vendor" icon="plus" variant="primary" size="sm" onPress={openAdd} />
+              </View>
+            </View>
           </View>
         </View>
-      </Card>
 
-      {/* Search + Add */}
-      <View style={styles.searchRow}>
-        <View style={{ flex: 1 }}>
-          <Input placeholder="Search vendors…" value={search} onChangeText={setSearch} />
+        <View style={styles.searchRow}>
+          <HennaInput
+            icon="search"
+            placeholder="Search vendors"
+            value={search}
+            onChangeText={setSearch}
+          />
         </View>
-        <Button title="+ Add" variant="gold" onPress={openAdd} />
-      </View>
 
-      {/* Filter pills */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsRail}>
-        {filterPills.map(p => {
-          const active = filter === p.key;
-          return (
-            <TouchableOpacity
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRail}>
+          {filterPills.map(p => (
+            <HennaPill
               key={String(p.key)}
-              style={[styles.pill, { backgroundColor: active ? colors.goldBg : colors.bg3 }]}
+              label={p.label}
+              icon={p.icon}
+              active={filter === p.key}
               onPress={() => setFilter(p.key)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={[styles.pillText, { color: active ? colors.gold : colors.sub }]}>
-                {p.icon ? p.icon + ' ' : ''}{p.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+            />
+          ))}
+        </ScrollView>
 
-      <Divider label={`Contacts · ${filtered.length}`} />
-    </View>
-  ), [dark, colors, vendors.length, search, openAdd, filterPills, filter, filtered.length]);
+        <Text style={[hennaTextStyles.eyebrow, styles.sectionEyebrow]}>
+          Contacts · {filtered.length}
+        </Text>
+      </View>
+    ),
+    [vendors.length, search, openAdd, filterPills, filter, filtered.length, onMenu],
+  );
 
   const listEmpty = useMemo(() => {
     if (!allLoaded) {
       return (
-        <View>
-          <SkeletonCardRow />
+        <View style={{ paddingHorizontal: 16 }}>
           <SkeletonCardRow />
           <SkeletonCardRow />
           <SkeletonCardRow />
@@ -555,27 +579,27 @@ export default function VendorsScreen() {
       );
     }
     return (
-      <EmptyState
-        icon="💼"
-        text={vendors.length === 0
-          ? 'Add your trusted service providers so they’re one tap away.'
-          : 'No vendors match this filter.'}
-        hint={vendors.length === 0
-          ? 'Tap + to save a plumber, doctor, or anyone you rely on.'
-          : undefined}
-      />
+      <View style={styles.emptyWrap}>
+        <Text style={styles.emptyTitle}>
+          {vendors.length === 0 ? 'No vendors saved yet.' : 'No vendors match this filter.'}
+        </Text>
+        <Text style={styles.emptyHint}>
+          {vendors.length === 0 ? 'Tap + to save a plumber, doctor, or anyone you rely on.' : ''}
+        </Text>
+      </View>
     );
   }, [vendors.length, allLoaded]);
 
   return (
-    <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={hennaGradients.page} style={StyleSheet.absoluteFill} />
       <FlatList
         data={filtered}
         keyExtractor={keyExtractor}
         renderItem={renderVendorItem}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={listEmpty}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: 180, paddingHorizontal: 16 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         maxToRenderPerBatch={10}
@@ -588,151 +612,147 @@ export default function VendorsScreen() {
       {/* Add / Edit Modal */}
       <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.bg2 }]}>
+          <View style={styles.modalBox}>
             <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={[styles.modalTitle, { color: colors.deep }]}>
-                {editingId !== null ? 'Edit Vendor' : 'Add Vendor'}
-              </Text>
+              <Text style={styles.modalTitle}>{editingId !== null ? 'Edit vendor' : 'Add vendor'}</Text>
 
-              {/* v1.2.17: pick from device contacts (only when adding, not editing). */}
               {editingId === null && (
-                <TouchableOpacity
+                <Pressable
                   onPress={openContactPicker}
-                  activeOpacity={0.8}
                   disabled={contactsLoading}
-                  style={[styles.contactsCta, { backgroundColor: colors.blueBg, borderColor: colors.blueBorder }]}
+                  style={styles.contactsCta}
                   accessibilityRole="button"
-                  accessibilityLabel="Import vendor from your phone contacts"
+                  accessibilityLabel="Pick from contacts"
                 >
-                  <Text style={styles.contactsCtaIcon}>📇</Text>
+                  <HennaIcon name="message" size={20} color={hennaColors.plum} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.contactsCtaTitle, { color: colors.blue }]}>
-                      {contactsLoading ? 'Loading contacts…' : 'Pick from Contacts'}
+                    <Text style={styles.contactsCtaTitle}>
+                      {contactsLoading ? 'Loading…' : 'Pick from Contacts'}
                     </Text>
-                    <Text style={[styles.contactsCtaSub, { color: colors.sub }]}>
-                      Pre-fills name + phone from your address book
-                    </Text>
+                    <Text style={styles.contactsCtaSub}>Pre-fill name + phone</Text>
                   </View>
-                  <Text style={[styles.contactsCtaChevron, { color: colors.blue }]}>›</Text>
-                </TouchableOpacity>
+                  <HennaIcon name="chev-right" size={14} color={hennaColors.plum} />
+                </Pressable>
               )}
 
-              <Input
+              <HennaInput
                 ref={vNameRef}
                 label="Name"
                 placeholder="e.g. Ali Plumbing"
                 value={fName}
                 onChangeText={setFName}
-                style={{ marginBottom: 12 }}
+                containerStyle={{ marginBottom: 12 }}
                 autoFocus={editingId !== null}
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => vPhoneRef.current?.focus()}
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.muted }]}>CATEGORY</Text>
-              <View style={[styles.pickerWrap, { backgroundColor: colors.bg3 }]}>
+              <Text style={[hennaTextStyles.eyebrow, { marginBottom: 8 }]}>Category</Text>
+              <View style={styles.pickerWrap}>
                 <Picker
                   selectedValue={fCategory}
                   onValueChange={v => setFCategory(v)}
-                  style={{ color: colors.text }}
-                  dropdownIconColor={colors.muted}
+                  style={{ color: hennaColors.ink }}
+                  dropdownIconColor={hennaColors.muted}
                 >
                   {VENDOR_CATS.map(c => (
-                    <Picker.Item key={c.key} value={c.key} label={`${c.icon}  ${c.label}`} />
+                    <Picker.Item key={c.key} value={c.key} label={c.label} />
                   ))}
                 </Picker>
               </View>
 
-              <Input
+              <HennaInput
                 ref={vPhoneRef}
                 label="Phone"
                 placeholder="e.g. 0300 1234567"
                 value={fPhone}
                 onChangeText={setFPhone}
                 keyboardType="phone-pad"
-                style={{ marginBottom: 12 }}
+                containerStyle={{ marginTop: 12 }}
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => vAltPhoneRef.current?.focus()}
               />
 
-              <Input
+              <HennaInput
                 ref={vAltPhoneRef}
                 label="Alt phone (optional)"
                 placeholder="e.g. 021 1234567"
                 value={fAltPhone}
                 onChangeText={setFAltPhone}
                 keyboardType="phone-pad"
-                style={{ marginBottom: 12 }}
+                containerStyle={{ marginTop: 12 }}
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => vAddressRef.current?.focus()}
               />
 
-              <Input
+              <HennaInput
                 ref={vAddressRef}
                 label="Address (optional)"
                 placeholder="Shop, street, area"
                 value={fAddress}
                 onChangeText={setFAddress}
                 multiline
-                style={{ marginBottom: 12 }}
+                containerStyle={{ marginTop: 12 }}
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.muted }]}>RATING</Text>
+              <Text style={[hennaTextStyles.eyebrow, { marginTop: 14, marginBottom: 8 }]}>Rating</Text>
               <View style={styles.ratingRow}>
                 {[1, 2, 3, 4, 5].map(n => (
-                  <TouchableOpacity
+                  <Pressable
                     key={n}
                     onPress={() => setRating(n)}
                     style={styles.starBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`}
                   >
-                    <Text style={[styles.starBtnText, { color: n <= fRating ? colors.gold : colors.muted }]}>
-                      {n <= fRating ? '★' : '☆'}
-                    </Text>
-                  </TouchableOpacity>
+                    <HennaIcon
+                      name="star"
+                      size={24}
+                      color={n <= fRating ? hennaColors.bronze : hennaColors.line}
+                    />
+                  </Pressable>
                 ))}
               </View>
 
-              <View style={[styles.switchRow, { marginTop: 16 }]}>
+              <View style={styles.switchRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.switchTitle, { color: colors.deep }]}>Pin as favorite</Text>
-                  <Text style={[styles.switchSub, { color: colors.muted }]}>Show at the top of the list</Text>
+                  <Text style={styles.switchTitle}>Pin as favorite</Text>
+                  <Text style={styles.switchSub}>Show at the top of the list</Text>
                 </View>
                 <Switch
                   value={fFavorite}
                   onValueChange={setFFavorite}
-                  trackColor={{ false: colors.border, true: colors.gold }}
-                  thumbColor="#fff"
+                  trackColor={{ false: hennaColors.line, true: hennaColors.bronze }}
+                  thumbColor={hennaColors.paper}
                 />
               </View>
 
-              <Input
+              <HennaInput
                 ref={vNotesRef}
                 label="Notes (optional)"
                 placeholder="e.g. Fair prices, reliable"
                 value={fNotes}
                 onChangeText={setFNotes}
                 multiline
-                style={{ marginTop: 12 }}
+                containerStyle={{ marginTop: 12 }}
                 returnKeyType="done"
                 onSubmitEditing={saveVendor}
               />
 
               <View style={styles.modalBtns}>
-                <Button title="Cancel" variant="outline" small onPress={closeModal} style={{ flex: 1 }} />
-                <Button title={editingId !== null ? 'Save' : 'Add'} variant="gold" small onPress={saveVendor} style={{ flex: 1 }} />
+                <HennaButton title="Cancel" variant="outline" onPress={closeModal} style={{ flex: 1 }} />
+                <HennaButton title={editingId !== null ? 'Save' : 'Add'} variant="primary" onPress={saveVendor} style={{ flex: 1 }} />
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* v1.2.17: Contact picker modal */}
+      {/* Contact picker modal */}
       <Modal
         visible={contactsModalOpen}
         animationType="slide"
@@ -740,58 +760,51 @@ export default function VendorsScreen() {
         onRequestClose={() => setContactsModalOpen(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
+          <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.deep }]}>Pick a contact</Text>
-              <TouchableOpacity
-                onPress={() => setContactsModalOpen(false)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityLabel="Close contact picker"
-                accessibilityRole="button"
-              >
-                <Text style={[styles.modalClose, { color: colors.muted }]}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Pick a contact</Text>
+              <Pressable onPress={() => setContactsModalOpen(false)} hitSlop={8} accessibilityLabel="Close">
+                <HennaIcon name="close" size={18} color={hennaColors.muted} />
+              </Pressable>
             </View>
-            <Input
-              placeholder="Search by name or number…"
+            <HennaInput
+              icon="search"
+              placeholder="Search name or number"
               value={contactsSearch}
               onChangeText={setContactsSearch}
-              style={{ marginBottom: 12 }}
+              containerStyle={{ marginBottom: 12 }}
             />
             <FlatList
               data={filteredContacts}
               keyExtractor={c => c.id}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
-                <TouchableOpacity
+                <Pressable
                   onPress={() => pickContact(item)}
-                  activeOpacity={0.7}
-                  style={[styles.contactRow, { backgroundColor: colors.bg2, borderColor: colors.border }]}
+                  style={styles.contactRow}
                   accessibilityRole="button"
                   accessibilityLabel={`Pick ${item.name}`}
                 >
-                  <View style={[styles.contactAvatar, { backgroundColor: colors.blueBg }]}>
-                    <Text style={[styles.contactAvatarText, { color: colors.blue }]}>
+                  <View style={styles.contactAvatar}>
+                    <Text style={styles.contactAvatarText}>
                       {item.name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.contactName, { color: colors.deep }]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.contactPhone, { color: colors.sub }]} numberOfLines={1}>
+                    <Text style={styles.contactName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.contactPhone} numberOfLines={1}>
                       {item.phones[0]}
                       {item.phones.length > 1 ? ` · +${item.phones.length - 1} more` : ''}
                     </Text>
                   </View>
-                  <Text style={[styles.contactsCtaChevron, { color: colors.muted }]}>›</Text>
-                </TouchableOpacity>
+                  <HennaIcon name="chev-right" size={14} color={hennaColors.muted} />
+                </Pressable>
               )}
               ListEmptyComponent={
-                <Text style={[styles.contactEmpty, { color: colors.muted }]}>
+                <Text style={styles.contactEmpty}>
                   {contactsSearch.trim()
-                    ? 'No contacts match your search.'
-                    : 'No contacts with phone numbers found on this device.'}
+                    ? 'No contacts match.'
+                    : 'No phone-bearing contacts found.'}
                 </Text>
               }
             />
@@ -800,64 +813,147 @@ export default function VendorsScreen() {
       </Modal>
 
       <Toast toast={toast} dismiss={dismissToast} />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 140 },
-  heroHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  heroHeaderText: { flex: 1 },
-  heroLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
-  heroNum: { fontFamily: 'PlayfairDisplay-ExtraBold', fontSize: 42, lineHeight: 48 },
-  heroSub: { fontSize: 14, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  searchRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 12 },
-  pillsRail: { flexGrow: 0, marginBottom: 8 },
-  pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginRight: 8, minHeight: 44, justifyContent: 'center' },
-  pillText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
+  scrollContent: { paddingBottom: 180 },
+
+  heroWrap: { paddingHorizontal: 0 },
+  heroCard: {
+    borderRadius: hennaRadii.card,
+    overflow: 'hidden',
+    position: 'relative',
+    ...hennaShadows.md,
+  },
+  heroCorner: { position: 'absolute', top: -6, right: -6 },
+  heroInner: { paddingVertical: 22, paddingHorizontal: 24, position: 'relative' },
+  greetRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroNum: {
+    marginTop: 8,
+    fontFamily: hennaFonts.serif,
+    fontSize: 42,
+    color: hennaColors.ink,
+    letterSpacing: -0.5,
+  },
+  heroSub: { marginTop: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+
+  searchRow: { paddingTop: 18 },
+  pillsRail: { paddingTop: 12, gap: 6 },
+  sectionEyebrow: { paddingHorizontal: 8, paddingTop: 18, paddingBottom: 10 },
+
+  emptyWrap: { paddingHorizontal: 24, paddingVertical: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: hennaFonts.serif, fontSize: 18, color: hennaColors.ink, textAlign: 'center' },
+  emptyHint: { marginTop: 8, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, textAlign: 'center' },
+
   vendorRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  iconCircle: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  iconEmoji: { fontSize: 22 },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: hennaColors.hennaBg,
+  },
   vendorContent: { flex: 1, minWidth: 0 },
-  vendorTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 },
-  vendorName: { fontFamily: 'Outfit-Bold', fontSize: 16, flexShrink: 1 },
-  vendorCat: { fontSize: 12, fontFamily: 'Outfit-Regular', marginBottom: 2 },
-  vendorPhone: { fontSize: 14, fontFamily: 'Outfit-SemiBold' },
-  starText: { fontSize: 13, fontFamily: 'Outfit-Bold', marginTop: 4, letterSpacing: 2 },
-  lastUsed: { fontSize: 11, fontFamily: 'Outfit-Regular', marginTop: 4 },
-  favBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  favIcon: { fontSize: 24, fontFamily: 'Outfit-Bold' },
-  expandedText: { fontSize: 13, fontFamily: 'Outfit-Regular', marginTop: 10 },
-  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  actionBtn: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  actionBtnIcon: { flex: 0, width: 44 },
-  actionBtnText: { fontSize: 13, fontFamily: 'Outfit-SemiBold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalBox: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '88%' },
-  modalTitle: { fontSize: 22, fontFamily: 'PlayfairDisplay-Bold', marginBottom: 18 },
-  fieldLabel: { fontSize: 12, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
-  pickerWrap: { borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
-  ratingRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
-  starBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  starBtnText: { fontSize: 28, fontFamily: 'Outfit-Bold' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  switchTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
-  switchSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 12 },
-  // v1.2.17: contact picker styles
-  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '88%' },
+  vendorTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  vendorName: { flex: 1, fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  vendorCat: { fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted, marginBottom: 2 },
+  vendorPhone: { fontFamily: hennaFonts.uiSemi, fontSize: 13, color: hennaColors.ink2 },
+  starsRow: { flexDirection: 'row', gap: 2, marginTop: 4 },
+  lastUsed: { fontFamily: hennaFonts.ui, fontSize: 10, color: hennaColors.muted, marginTop: 4 },
+  favBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+
+  expandedWrap: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: hennaColors.line,
+  },
+  expandedText: { marginBottom: 6, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.ink2 },
+  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  actionBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  actionBtnText: { fontFamily: hennaFonts.uiSemi, fontSize: 12 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(60,40,20,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalBox: {
+    backgroundColor: hennaColors.pearl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '88%',
+  },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  modalClose: { fontSize: 22, fontFamily: 'Outfit-Bold' },
-  contactsCta: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
-  contactsCtaIcon: { fontSize: 24 },
-  contactsCtaTitle: { fontSize: 15, fontFamily: 'Outfit-Bold' },
-  contactsCtaSub: { fontSize: 12, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  contactsCtaChevron: { fontSize: 24, fontFamily: 'Outfit-Bold' },
-  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 8 },
-  contactAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  contactAvatarText: { fontSize: 18, fontFamily: 'Outfit-Bold' },
-  contactName: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
-  contactPhone: { fontSize: 13, fontFamily: 'Outfit-Regular', marginTop: 2 },
-  contactEmpty: { textAlign: 'center', fontSize: 14, fontFamily: 'Outfit-Regular', paddingVertical: 32 },
+  modalTitle: { fontFamily: hennaFonts.serif, fontSize: 20, color: hennaColors.ink, marginBottom: 16 },
+  contactsCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: hennaColors.plumBg,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  contactsCtaTitle: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.plum },
+  contactsCtaSub: { marginTop: 2, fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted },
+  pickerWrap: {
+    backgroundColor: hennaColors.paper2,
+    borderRadius: hennaRadii.input,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+    overflow: 'hidden',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  ratingRow: { flexDirection: 'row', gap: 4 },
+  starBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+  },
+  switchTitle: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  switchSub: { marginTop: 2, fontFamily: hennaFonts.ui, fontSize: 11, color: hennaColors.muted },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 18 },
+
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: hennaColors.paper,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: hennaColors.line,
+  },
+  contactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: hennaColors.plumBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactAvatarText: { fontFamily: hennaFonts.uiSemi, fontSize: 16, color: hennaColors.plum },
+  contactName: { fontFamily: hennaFonts.uiSemi, fontSize: 14, color: hennaColors.ink },
+  contactPhone: { marginTop: 2, fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted },
+  contactEmpty: { textAlign: 'center', fontFamily: hennaFonts.ui, fontSize: 12, color: hennaColors.muted, paddingVertical: 32 },
 });
