@@ -4,7 +4,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import TodayScreen from '../screens/TodayScreen';
+// Redesign phase 5: the "Today" tab renders the new Henna & Pearl screen.
+// The legacy TodayScreen file is kept on disk for reference but is no
+// longer mounted in the bottom tab navigator.
+import TodayHennaScreen from '../screens/TodayHennaScreen';
 import ExpensesScreen from '../screens/ExpensesScreen';
 import CookingScreen from '../screens/CookingScreen';
 import RemindersScreen from '../screens/RemindersScreen';
@@ -24,7 +27,7 @@ type TabIconComponent = React.ComponentType<{ size?: number; color?: string }>;
 type TabDef = { name: string; Icon: TabIconComponent; component: React.ComponentType<any> };
 
 const TABS: TabDef[] = [
-  { name: 'Today', Icon: TabHouseIcon, component: TodayScreen },
+  { name: 'Today', Icon: TabHouseIcon, component: TodayHennaScreen },
   { name: 'Expenses', Icon: TabMoneyIcon, component: ExpensesScreen },
   { name: 'Cooking', Icon: TabForkKnifeIcon, component: CookingScreen },
   { name: 'Remind', Icon: TabBellIcon, component: RemindersScreen },
